@@ -13,24 +13,24 @@ namespace Nornis.Infrastructure.Ai;
 /// <see cref="IChatClient"/> (and therefore the same Loremaster Azure OpenAI configuration) as
 /// the audit, with a strict JSON-schema structured output describing the proposals array.
 /// </summary>
-public class AzureOpenAiContinuityFixClient : IContinuityFixAiClient
+public class ContinuityFixAiClient : IContinuityFixAiClient
 {
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiContinuityFixClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<ContinuityFixAiClient> _logger;
 
-    public AzureOpenAiContinuityFixClient(IChatClient chatClient, ILogger<AzureOpenAiContinuityFixClient> logger)
+    public ContinuityFixAiClient(IAiCallBinder binder, ILogger<ContinuityFixAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<ContinuityFixAiResponse> DraftAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("continuity_fix_proposals", GetStructuredOutputSchema(), strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("continuity_fix_proposals", GetStructuredOutputSchema()));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, chatOptions, "Continuity fix", _logger, ct);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+                _binder, AiTask.Ask, request, callOptions, "Continuity fix", _logger, ct);
 
         return new ContinuityFixAiResponse
         {

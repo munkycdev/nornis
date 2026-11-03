@@ -14,30 +14,30 @@ namespace Nornis.Infrastructure.Ai;
 /// timeout; any failure returns null so the caller's static fallback names apply —
 /// naming must never block or fail demo world creation.
 /// </summary>
-public class AzureOpenAiWorldNameGenerator : IWorldNameGenerator
+public class AiWorldNameGenerator : IWorldNameGenerator
 {
     // Generous enough for a cold Azure OpenAI call — both prod fallback names observed on
     // 2026-07-25/26 were plausibly 3s timeouts. Import dominates creation time anyway.
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
 
-    private readonly IChatClient _chatClient;
+    private readonly IAiCallBinder _binder;
     private readonly IAiUsageRecorder _usageRecorder;
     private readonly LoremasterOptions _options;
-    private readonly ILogger<AzureOpenAiWorldNameGenerator> _logger;
+    private readonly ILogger<AiWorldNameGenerator> _logger;
 
-    public AzureOpenAiWorldNameGenerator(
-        IChatClient chatClient,
+    public AiWorldNameGenerator(
+        IAiCallBinder binder,
         IAiUsageRecorder usageRecorder,
         IOptions<LoremasterOptions> options,
-        ILogger<AzureOpenAiWorldNameGenerator> logger)
+        ILogger<AiWorldNameGenerator> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _usageRecorder = usageRecorder;
         _options = options.Value;
         _logger = logger;
     }
 
-    public async Task<string?> GenerateAsync(CancellationToken ct)
+    public async Task<string?> GenerateAsync(Guid userId, CancellationToken ct)
     {
         using var timeoutCts = new CancellationTokenSource(Timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
@@ -58,11 +58,13 @@ public class AzureOpenAiWorldNameGenerator : IWorldNameGenerator
             // noticed, because the catch below turns any failure into the static-name fallback.
             // The cause was the same HTTP 400 that later took every other AI feature down: the
             // old SDK serialised MaxOutputTokenCount as "max_tokens", which these deployments reject
-            // (see AzureOpenAiExtractionClient). Temperature goes with it — this model family
+            // (see ExtractionAiClient). Temperature goes with it — this model family
             // rejects a non-default value the same way, and it would simply be the next 400.
             //
             // Both were cosmetic here: the system prompt already asks for one to three words.
-            var response = await _chatClient.GetResponseAsync(messages, options: null, linkedCts.Token);
+            // There is no world yet, so the creating user's keys pay (feature 39).
+            var binding = await _binder.BindAsync(AiCallScope.ForUser(userId), AiTask.Chores, _options.AiModel, linkedCts.Token);
+            var response = await binding.Client.GetResponseAsync(messages, options: null, linkedCts.Token);
 
             var name = response.Text.Trim();
             return string.IsNullOrWhiteSpace(name) ? null : name.Trim('"', '\'', '.');

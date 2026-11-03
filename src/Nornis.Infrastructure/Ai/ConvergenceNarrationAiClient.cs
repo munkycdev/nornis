@@ -5,25 +5,25 @@ using Nornis.Application.Ai;
 
 namespace Nornis.Infrastructure.Ai;
 
-public class AzureOpenAiConvergenceNarrationClient : IConvergenceNarrationClient
+public class ConvergenceNarrationAiClient : IConvergenceNarrationClient
 {
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiConvergenceNarrationClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<ConvergenceNarrationAiClient> _logger;
 
-    public AzureOpenAiConvergenceNarrationClient(
-        IChatClient chatClient,
-        ILogger<AzureOpenAiConvergenceNarrationClient> logger)
+    public ConvergenceNarrationAiClient(
+        IAiCallBinder binder,
+        ILogger<ConvergenceNarrationAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<ConvergenceNarrationAiResponse> NarrateAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("convergence_narration", StructuredOutputSchema, strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("convergence_narration", StructuredOutputSchema));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, chatOptions, "Convergence narration", _logger, ct);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+                _binder, AiTask.Chores, request, callOptions, "Convergence narration", _logger, ct);
 
         try
         {

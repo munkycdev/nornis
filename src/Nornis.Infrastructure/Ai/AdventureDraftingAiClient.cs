@@ -11,7 +11,7 @@ namespace Nornis.Infrastructure.Ai;
 /// <c>max_completion_tokens</c>, which <c>OutputCeilingWireTests</c> pins and
 /// <c>LiveOutputCeilingTests</c> proved the deployment accepts (feature 29, task A2).
 /// </summary>
-public class AzureOpenAiAdventureDraftingClient : IAdventureDraftingAiClient
+public class AdventureDraftingAiClient : IAdventureDraftingAiClient
 {
     /// <summary>
     /// The prompt asks for at most about 1,200 words, roughly 1,600 tokens, so this is headroom
@@ -19,24 +19,19 @@ public class AzureOpenAiAdventureDraftingClient : IAdventureDraftingAiClient
     /// </summary>
     public const int OutputCeilingTokens = 2_500;
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiAdventureDraftingClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<AdventureDraftingAiClient> _logger;
 
-    public AzureOpenAiAdventureDraftingClient(IChatClient chatClient, ILogger<AzureOpenAiAdventureDraftingClient> logger)
+    public AdventureDraftingAiClient(IAiCallBinder binder, ILogger<AdventureDraftingAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
-    /// <summary>
-    /// The ceiling is set on the SDK's own options through the factory, the shape the wire test
-    /// reads. A factory, not a shared instance, because the SDK mutates what it is given.
-    /// </summary>
-    public static ChatOptions BuildChatOptions() => new()
-    {
-        RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions { MaxOutputTokenCount = OutputCeilingTokens },
-    };
+    /// <summary>The ceiling, in provider-neutral terms; each provider's traits put it on the wire
+    /// its own way (OpenAI's as <c>max_completion_tokens</c>, which <c>OutputCeilingWireTests</c> reads).</summary>
+    public static AiCallOptions CallOptions { get; } = new(MaxOutputTokens: OutputCeilingTokens);
 
     public IAsyncEnumerable<AiStreamChunk> StreamAsync(AiPromptRequest request, CancellationToken ct) =>
-        AzureOpenAiCallExecutor.StreamAsync(_chatClient, request, BuildChatOptions(), "AdventureDrafting", _logger, ct);
+        AiCallExecutor.StreamAsync(_binder, AiTask.Prep, request, CallOptions, "AdventureDrafting", _logger, ct);
 }

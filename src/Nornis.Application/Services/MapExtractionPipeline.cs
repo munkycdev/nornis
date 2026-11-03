@@ -129,6 +129,7 @@ public class MapExtractionPipeline
 
         var request = new MapExtractionRequest
         {
+            Scope = AiCallScope.ForWorld(worldId),
             ImageBytes = imageBytes,
             MediaType = mapAttachment.ContentType,
             SourceTitle = source.Title,

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,16 +13,17 @@ using NUnit.Framework;
 namespace Nornis.Infrastructure.Tests.Ai;
 
 [TestFixture]
-public class AzureOpenAiExtractionClientTests
+public class ExtractionAiClientTests
 {
     private FakeChatClient _chatClient = null!;
-    private ILogger<AzureOpenAiExtractionClient> _logger = null!;
-    private AzureOpenAiExtractionClient _client = null!;
+    private ILogger<ExtractionAiClient> _logger = null!;
+    private ExtractionAiClient _client = null!;
 
     // The client receives finished prompt strings; what those strings say is
     // ExtractionPromptBuilder's contract, tested in Application.Tests.
     private static readonly AiPromptRequest DefaultRequest = new()
     {
+        Scope = AiCallScope.ForWorld(Guid.NewGuid()),
         SystemPrompt = "You are the extraction engine for a test.",
         UserMessage = "We questioned Captain Voss in Black Harbor.",
         Model = "gpt-4o",
@@ -32,8 +34,8 @@ public class AzureOpenAiExtractionClientTests
     public void SetUp()
     {
         _chatClient = new FakeChatClient();
-        _logger = NullLogger<AzureOpenAiExtractionClient>.Instance;
-        _client = new AzureOpenAiExtractionClient(_chatClient, _logger);
+        _logger = NullLogger<ExtractionAiClient>.Instance;
+        _client = new ExtractionAiClient(new FakeAiCallBinder(_chatClient), _logger);
     }
 
     #region Helper Methods
@@ -83,6 +85,33 @@ public class AzureOpenAiExtractionClientTests
     #endregion
 
     #region Valid Response Tests
+
+    [Test]
+    public async Task ExtractAsync_StrictPayloadWithNulls_ArrivesAsTheOldOpenPayload()
+    {
+        // Feature 39: the strict schema makes the model send every payload field, nulls included.
+        // Downstream code reads the payload by field presence, so the nulls must not survive.
+        SetupMockToReturn(ResponseWith("proposedValue", """
+            { "name": "Voss", "type": "Character", "summary": null, "predicate": null, "confidence": null }
+            """));
+
+        var result = await _client.ExtractAsync(DefaultRequest, CancellationToken.None);
+
+        var payload = JsonSerializer.Serialize(result.Proposals.Single().ProposedValue);
+        Assert.That(JsonNode.DeepEquals(JsonNode.Parse(payload), JsonNode.Parse("""{"name":"Voss","type":"Character"}""")),
+            Is.True, payload);
+    }
+
+    [Test]
+    public void WithoutNulls_KeepsFalseZeroAndEmpty_DropsOnlyNull()
+    {
+        var payload = JsonNode.Parse("""{"a":null,"b":0,"c":false,"d":"","e":{"f":null}}""")!;
+
+        var kept = ExtractionAiClient.WithoutNulls(payload);
+
+        // Only the top level: nested objects aren't part of the payload grammar, so they pass as sent.
+        Assert.That(kept.ToJsonString(), Is.EqualTo("""{"b":0,"c":false,"d":"","e":{"f":null}}"""));
+    }
 
     [Test]
     public async Task ExtractAsync_ValidResponse_ReturnsCorrectProposals()
@@ -270,6 +299,7 @@ public class AzureOpenAiExtractionClientTests
         // The timeout rides on the request now, not on options.
         var shortTimeoutRequest = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(Guid.NewGuid()),
             SystemPrompt = DefaultRequest.SystemPrompt,
             UserMessage = DefaultRequest.UserMessage,
             Model = "gpt-4o",

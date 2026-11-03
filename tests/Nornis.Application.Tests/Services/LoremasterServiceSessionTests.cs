@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Nornis.Application.Ai;
 using Nornis.Application.Configuration;
 using Nornis.Application.Knowledge;
 using Nornis.Application.Models;
@@ -18,6 +19,7 @@ namespace Nornis.Application.Tests.Services;
 [TestFixture]
 public class LoremasterServiceSessionTests
 {
+    private static readonly AiCallScope TestScope = AiCallScope.ForWorld(Guid.NewGuid());
     private LoremasterService _service = null!;
     private FakeKnowledgeRetriever _knowledgeRetriever = null!;
     private FakeReferencePassageRetriever _passageRetriever = null!;
@@ -78,7 +80,7 @@ public class LoremasterServiceSessionTests
     [Test]
     public void BuildPrompt_AnchorsTodaysDate()
     {
-        var request = _service.BuildPrompt("What happened?", EmptyContext());
+        var request = _service.BuildPrompt(TestScope, "What happened?", EmptyContext());
 
         Assert.That(request.UserMessage,
             Does.Contain($"Today's date: {DateTimeOffset.UtcNow:yyyy-MM-dd}"));

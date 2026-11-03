@@ -1,0 +1,85 @@
+using System.ClientModel;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
+using Nornis.Application.Ai;
+
+namespace Nornis.Infrastructure.Ai;
+
+/// <summary>
+/// The OpenAI wire protocol: OpenAI itself and Azure OpenAI's v1 endpoint, which Nornis's own key
+/// uses (feature 39).
+/// </summary>
+public sealed class OpenAiProviderTraits : IAiProviderTraits
+{
+    public static readonly OpenAiProviderTraits Instance = new();
+
+    private OpenAiProviderTraits()
+    {
+    }
+
+    /// <summary>
+    /// Set on the SDK's own options through the factory, deliberately not through
+    /// <c>ChatResponseFormat.ForJsonSchema</c> or <see cref="ChatOptions.MaxOutputTokens"/>:
+    /// the adapter runs every schema given that way through its own strict-mode transform, and
+    /// the output ceiling has to reach the wire as <c>max_completion_tokens</c>, which the
+    /// SDK's own property does (<c>OutputCeilingWireTests</c>). A factory, not a shared
+    /// instance, because the SDK mutates the options object it sends.
+    /// </summary>
+    public ChatOptions? ChatOptions(AiCallOptions? options)
+    {
+        if (options is null || (options.Schema is null && options.MaxOutputTokens is null))
+        {
+            return null;
+        }
+
+        return new ChatOptions
+        {
+            RawRepresentationFactory = _ =>
+            {
+                var sdkOptions = new OpenAI.Chat.ChatCompletionOptions();
+                if (options.Schema is { } schema)
+                {
+                    sdkOptions.ResponseFormat = OpenAI.Chat.ChatResponseFormat.CreateJsonSchemaFormat(
+                        jsonSchemaFormatName: schema.Name,
+                        jsonSchema: BinaryData.FromString(schema.Schema),
+                        jsonSchemaIsStrict: true);
+                }
+
+                if (options.MaxOutputTokens is { } ceiling)
+                {
+                    sdkOptions.MaxOutputTokenCount = ceiling;
+                }
+
+                return sdkOptions;
+            },
+        };
+    }
+
+    public AiHttpException? TranslateFailure(Exception ex, string operation, ILogger logger)
+    {
+        if (ex is not ClientResultException clientResult)
+        {
+            return null;
+        }
+
+        // The response body names the exact failure: for content_filter 400s it carries the
+        // per-category verdicts the exception message omits. Without it the failure can't be
+        // diagnosed.
+        logger.LogError(clientResult,
+            "{Operation} AI call failed with status {Status}. Response body: {ResponseBody}",
+            operation, clientResult.Status, RawResponseBody(clientResult));
+        return new AiHttpException($"{operation} AI call failed: HTTP {clientResult.Status}", clientResult.Status, clientResult);
+    }
+
+    private static string RawResponseBody(ClientResultException ex)
+    {
+        try
+        {
+            return ex.GetRawResponse()?.Content?.ToString() ?? "(no response body)";
+        }
+        catch
+        {
+            return "(response body unavailable)";
+        }
+    }
+}

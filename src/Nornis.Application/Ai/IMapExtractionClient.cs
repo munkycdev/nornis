@@ -15,6 +15,9 @@ public sealed record MapLocationContext(Guid Id, string Name);
 
 public class MapExtractionRequest
 {
+    /// <summary>Whose call this is: decides whose key pays (feature 39).</summary>
+    public required AiCallScope Scope { get; init; }
+
     public required byte[] ImageBytes { get; init; }
 
     public required string MediaType { get; init; }

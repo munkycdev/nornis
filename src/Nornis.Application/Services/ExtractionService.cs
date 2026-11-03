@@ -505,6 +505,7 @@ public class ExtractionService : IExtractionService
         // clients already use.
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId),
             SystemPrompt = ExtractionPromptBuilder.BuildSystemPrompt(extractionRequest),
             UserMessage = ExtractionPromptBuilder.BuildUserMessage(extractionRequest),
             Model = _options.AiModel,

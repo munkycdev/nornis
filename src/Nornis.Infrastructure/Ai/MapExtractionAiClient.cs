@@ -14,12 +14,12 @@ namespace Nornis.Infrastructure.Ai;
 /// of labeled places with normalized positions. Shares the extraction
 /// <see cref="IChatClient"/> (nornis-extract, gpt-5.4 — multimodal).
 /// </summary>
-public class AzureOpenAiMapExtractionClient : IMapExtractionClient
+public class MapExtractionAiClient : IMapExtractionClient
 {
 
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiMapExtractionClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<MapExtractionAiClient> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,10 +27,10 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
         PropertyNameCaseInsensitive = true
     };
 
-    public AzureOpenAiMapExtractionClient(
-        IChatClient chatClient, ILogger<AzureOpenAiMapExtractionClient> logger)
+    public MapExtractionAiClient(
+        IAiCallBinder binder, ILogger<MapExtractionAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
@@ -54,10 +54,10 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
 
         // Unlike text extraction there is no open proposedValue object here,
         // so the schema is strict-mode compliant.
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("map_places", GetStructuredOutputSchema(), strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("map_places", GetStructuredOutputSchema()));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, messages, chatOptions, request.Model, request.TimeoutSeconds,
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Extraction, request.Scope, request.Model, messages, callOptions, request.TimeoutSeconds,
             "Map extraction", _logger, ct);
 
         var places = ParsePlaces(content);
@@ -206,9 +206,13 @@ public class AzureOpenAiMapExtractionClient : IMapExtractionClient
             new ChatMessage(ChatRole.User, parts)
         };
 
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("map_place_positions", GetRefinementOutputSchema(), strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("map_place_positions", GetRefinementOutputSchema()));
 
-        var response = await _chatClient.GetResponseAsync(messages, chatOptions, linkedCts.Token);
+        // Bound like any other call, but sent directly: refinement is unmetered and keeps its own
+        // tile-sized timeout.
+        var binding = await _binder.BindAsync(request.Scope, AiTask.Extraction, request.Model, ct);
+        var response = await binding.Client.GetResponseAsync(
+            messages, binding.Traits.ChatOptions(callOptions), linkedCts.Token);
         var content = response.Text;
 
         RefinedPlacesDocument? document;

@@ -12,17 +12,17 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// </summary>
 [TestFixture]
 [Category("Feature: map-source")]
-public class AzureOpenAiMapExtractionClientTests
+public class MapExtractionAiClientTests
 {
     private FakeChatClient _chatClient = null!;
-    private AzureOpenAiMapExtractionClient _client = null!;
+    private MapExtractionAiClient _client = null!;
 
     [SetUp]
     public void SetUp()
     {
         _chatClient = new FakeChatClient();
-        _client = new AzureOpenAiMapExtractionClient(
-            _chatClient, NullLogger<AzureOpenAiMapExtractionClient>.Instance);
+        _client = new MapExtractionAiClient(
+            new FakeAiCallBinder(_chatClient), NullLogger<MapExtractionAiClient>.Instance);
     }
 
     private static byte[] TinyPng()
@@ -35,6 +35,7 @@ public class AzureOpenAiMapExtractionClientTests
 
     private static MapExtractionRequest Request(bool refine) => new()
     {
+        Scope = AiCallScope.ForWorld(Guid.NewGuid()),
         ImageBytes = TinyPng(),
         MediaType = "image/png",
         SourceTitle = "Realm map",

@@ -13,16 +13,16 @@ namespace Nornis.Infrastructure.Ai;
 /// one user message with a text part followed by one image part per page, in order.
 /// Plain-text response — transcription needs no structured output.
 /// </summary>
-public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscriptionClient
+public class HandwritingTranscriptionAiClient : IHandwritingTranscriptionClient
 {
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiHandwritingTranscriptionClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<HandwritingTranscriptionAiClient> _logger;
 
-    public AzureOpenAiHandwritingTranscriptionClient(
-        IChatClient chatClient, ILogger<AzureOpenAiHandwritingTranscriptionClient> logger)
+    public HandwritingTranscriptionAiClient(
+        IAiCallBinder binder, ILogger<HandwritingTranscriptionAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
@@ -43,9 +43,9 @@ public class AzureOpenAiHandwritingTranscriptionClient : IHandwritingTranscripti
             new ChatMessage(ChatRole.System, BuildSystemPrompt()),
             new ChatMessage(ChatRole.User, parts)
         };
-        // options: none — see AzureOpenAiExtractionClient on why there is no output ceiling.
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, messages, chatOptions: null, request.Model, request.TimeoutSeconds,
+        // options: none — see ExtractionAiClient on why there is no output ceiling.
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Ask, request.Scope, request.Model, messages, options: null, request.TimeoutSeconds,
             "Handwriting transcription", _logger, ct);
 
         return new HandwritingTranscriptionResponse

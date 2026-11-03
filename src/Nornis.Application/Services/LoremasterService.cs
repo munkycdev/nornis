@@ -195,7 +195,8 @@ public partial class LoremasterService : ILoremasterService
                 new AppError(500, "internal_error", "Something went wrong. Please try again."));
         }
 
-        var request = BuildPrompt(command.Question, context, command.ConversationContext);
+        var request = BuildPrompt(
+            AiCallScope.ForWorld(command.WorldId, command.UserId), command.Question, context, command.ConversationContext);
         var confidence = DetermineConfidence(context);
         var caveats = AssembleCaveats(context);
 
@@ -437,7 +438,7 @@ public partial class LoremasterService : ILoremasterService
     /// Builds the AI request prompt from the question, knowledge context, and optional
     /// prior conversation exchanges.
     /// </summary>
-    internal AiPromptRequest BuildPrompt(string question, KnowledgeContext context, string? conversationContext = null)
+    internal AiPromptRequest BuildPrompt(AiCallScope scope, string question, KnowledgeContext context, string? conversationContext = null)
     {
         var userMessage = new StringBuilder();
 
@@ -469,6 +470,7 @@ public partial class LoremasterService : ILoremasterService
 
         return new AiPromptRequest
         {
+            Scope = scope,
             SystemPrompt = SystemPromptTemplate,
             UserMessage = userMessage.ToString(),
             Model = _options.AiModel,

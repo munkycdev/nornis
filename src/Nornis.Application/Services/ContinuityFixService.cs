@@ -175,6 +175,7 @@ public class ContinuityFixService : IContinuityFixService
         // tokens, and only recorded spend reaches the budget guard.
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId, actingUserId),
             SystemPrompt = SystemPrompt,
             UserMessage = userMessage,
             Model = _options.AiModel,

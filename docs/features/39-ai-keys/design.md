@@ -1,5 +1,39 @@
 # Design Document
 
+> **Amended 2026-11-03 (Phase A as built).** The text below is the design as specified; where
+> Phase A built it differently, this note wins.
+>
+> - **Funding is bound per call, not passed in.** Services don't call `AiFundingService` and
+>   requests carry no `Funding`. Each request carries an `AiCallScope` (a world, with the acting
+>   user, or a user alone for world naming) and `Model`, which now means "the model Nornis's own
+>   key would use". `AiCallExecutor` asks `IAiCallBinder` (the design's `AiClientResolver`) on
+>   every call; the binder asks `IAiFundingService.ResolveAsync(scope, task, nornisModel)` and
+>   returns the client, the provider's traits and the `AiFunding`. Usage is priced on the
+>   funded model. Phase A's `NornisAiFundingService` always answers "Nornis's Azure key, on
+>   Nornis's model", so nothing changes in production.
+> - **Refusals are exceptions, not `AppError`s.** Because funding is resolved inside the call,
+>   Phase B refuses by throwing `AiKeyRequiredException`, `AiKeyRejectedException` and
+>   `AiCreditExhaustedException`, each an `AiHttpException` (402 or 401). The existing catches
+>   and `TransientFailureClassifier` already treat those as permanent failures; the Worker maps
+>   them to the three new `ErrorCategories` and the API to the 409 codes below.
+> - **`IAiProviderTraits` is smaller.** Clients describe a call with a provider-neutral
+>   `AiCallOptions(AiJsonSchema? Schema, int? MaxOutputTokens)`; traits turn it into
+>   `ChatOptions` (OpenAI: `ChatCompletionOptions` through `RawRepresentationFactory`, always
+>   strict) and translate the SDK's exceptions. `ApplyCaching` and `ReadUsage` arrive with
+>   Anthropic in Phase C.
+> - **Extraction keeps `proposedValue`, closed.** Instead of `proposedFields`, `proposedValue`
+>   is a closed object listing all 16 payload fields, each nullable and each required; the
+>   prompt tells the model to send null for fields its changeType doesn't use, and the parser
+>   drops the nulls, which rebuilds exactly today's payload. The model never has to escape a
+>   value as JSON text. `StrictSchemaDialectTests` holds every schema to the dialect.
+> - **Moved to Phase B:** the `AiModels` catalog (and replacing `ModelPricing`), the three
+>   refusal exceptions and their `ErrorCategories`. There is no separate `Trial` model map: the
+>   trial runs on the models Nornis's own configuration names.
+> - Fifteen clients were renamed (`AzureOpenAiExtractionClient` → `ExtractionAiClient` and so
+>   on), not nineteen; `AzureOpenAiChatClient`, `AzureOpenAiClientFactory` and
+>   `AzureOpenAiEmbeddingClient` stay Azure-specific. `AiProvider` has an `AzureOpenAi` value
+>   for Nornis's own key.
+
 ## Overview
 
 Two questions get answered before every AI call, in two places:

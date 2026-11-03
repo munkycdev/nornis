@@ -119,6 +119,7 @@ public class AdventureDraftingService : IAdventureDraftingService
 
             var request = new AiPromptRequest
             {
+                Scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId),
                 SystemPrompt = AdventureDraftPrompt.SystemPrompt,
                 UserMessage = AdventureDraftPrompt.BuildUserMessage(new AdventureDraftInput(
                     PrintDetails.SystemOf(adventure.Details, world?.GameSystem),

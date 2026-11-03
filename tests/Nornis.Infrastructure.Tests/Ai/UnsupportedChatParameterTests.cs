@@ -29,6 +29,11 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// client, whose ceiling is pinned by <see cref="DraftingOptions_CarryTheCeiling_OnTheSdkOptions"/>.
 /// Every other client still sends none, and <c>Temperature</c> stays banned everywhere: nothing
 /// has shown this model family accepts it.
+///
+/// 2026-11-03 (feature 39, Phase A): clients no longer build SDK options. A ceiling is asked for
+/// as <c>AiCallOptions.MaxOutputTokens</c> (a named argument, so the scan now catches
+/// <c>MaxOutputTokens:</c> too), and only the OpenAI provider traits put it on the wire, as
+/// <c>MaxOutputTokenCount</c>. Drafting is still the only client allowed to ask for one.
 /// </summary>
 [TestFixture]
 public class UnsupportedChatParameterTests
@@ -45,7 +50,11 @@ public class UnsupportedChatParameterTests
     /// <summary>The ceilings a file may set, by file name. Temperature is never on this list.</summary>
     private static readonly Dictionary<string, string[]> AllowedCeilings = new()
     {
-        ["AzureOpenAiAdventureDraftingClient.cs"] = ["MaxOutputTokenCount"],
+        ["AdventureDraftingAiClient.cs"] = ["MaxOutputTokens"],
+        // The declaration of the provider-neutral option and its null default; not a value.
+        ["AiCallOptions.cs"] = ["MaxOutputTokens"],
+        // The one place a ceiling reaches the OpenAI wire, pinned by OutputCeilingWireTests.
+        ["OpenAiProviderTraits.cs"] = ["MaxOutputTokenCount"],
     };
 
     private static DirectoryInfo AiSourceDirectory()
@@ -87,8 +96,9 @@ public class UnsupportedChatParameterTests
                         continue;
                     }
 
-                    // An assignment, not a mention: `Temperature = 1.2f` or `MaxOutputTokenCount = X`.
-                    if (Regex.IsMatch(line, $@"\b{property}\s*=[^=]"))
+                    // An assignment or a named argument, not a mention: `Temperature = 1.2f`,
+                    // `MaxOutputTokenCount = X`, or `new AiCallOptions(MaxOutputTokens: X)`.
+                    if (Regex.IsMatch(line, $@"\b{property}\s*(=[^=]|:\s)"))
                     {
                         offenders.Add($"{file.Name}:{i + 1}: {line.Trim()}");
                     }
@@ -108,7 +118,7 @@ public class UnsupportedChatParameterTests
         // is ~88% of AI spend and was the call that surfaced the outage. Both layers are checked:
         // the abstraction's own ceiling, and the SDK options object the adapter starts from,
         // which a ceiling could equally be set on.
-        var built = Nornis.Infrastructure.Ai.AzureOpenAiExtractionClient.BuildCompletionOptions();
+        var built = Nornis.Infrastructure.Ai.OpenAiProviderTraits.Instance.ChatOptions(Nornis.Infrastructure.Ai.ExtractionAiClient.CallOptions)!;
         var raw = built.RawRepresentationFactory?.Invoke(new FakeChatClient()) as OpenAI.Chat.ChatCompletionOptions;
 
         Assert.Multiple(() =>
@@ -126,7 +136,7 @@ public class UnsupportedChatParameterTests
     {
         // The one client allowed a ceiling sets it where OutputCeilingWireTests proved it goes out
         // as max_completion_tokens: on the SDK options, not ChatOptions.MaxOutputTokens.
-        var built = Nornis.Infrastructure.Ai.AzureOpenAiAdventureDraftingClient.BuildChatOptions();
+        var built = Nornis.Infrastructure.Ai.OpenAiProviderTraits.Instance.ChatOptions(Nornis.Infrastructure.Ai.AdventureDraftingAiClient.CallOptions)!;
         var raw = built.RawRepresentationFactory?.Invoke(new FakeChatClient()) as OpenAI.Chat.ChatCompletionOptions;
 
         Assert.Multiple(() =>
@@ -142,9 +152,12 @@ public class UnsupportedChatParameterTests
     [Test]
     public void TheAllowance_IsForTheDraftingClientOnly_AndNeverForTemperature()
     {
+        // Besides the drafting client, only the option's declaration and the one place that puts
+        // it on the OpenAI wire; no other client may ask for a ceiling.
         Assert.Multiple(() =>
         {
-            Assert.That(AllowedCeilings.Keys, Is.EqualTo(["AzureOpenAiAdventureDraftingClient.cs"]));
+            Assert.That(AllowedCeilings.Keys, Is.EquivalentTo(
+                ["AdventureDraftingAiClient.cs", "AiCallOptions.cs", "OpenAiProviderTraits.cs"]));
             Assert.That(AllowedCeilings.Values.SelectMany(v => v), Has.None.EqualTo("Temperature"));
         });
     }

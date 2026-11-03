@@ -13,24 +13,24 @@ namespace Nornis.Infrastructure.Ai;
 /// Loremaster <see cref="IChatClient"/> configuration, with strict JSON-schema
 /// structured output describing the verdicts array.
 /// </summary>
-public class AzureOpenAiRetrospectiveClient : IRetrospectiveAiClient
+public class RetrospectiveAiClient : IRetrospectiveAiClient
 {
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiRetrospectiveClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<RetrospectiveAiClient> _logger;
 
-    public AzureOpenAiRetrospectiveClient(IChatClient chatClient, ILogger<AzureOpenAiRetrospectiveClient> logger)
+    public RetrospectiveAiClient(IAiCallBinder binder, ILogger<RetrospectiveAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<RetrospectiveAiResponse> AssessAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("storyline_verdicts", GetStructuredOutputSchema(), strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("storyline_verdicts", GetStructuredOutputSchema()));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, chatOptions, "Storyline retrospective", _logger, ct);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+                _binder, AiTask.Ask, request, callOptions, "Storyline retrospective", _logger, ct);
 
         return new RetrospectiveAiResponse
         {

@@ -115,6 +115,26 @@ Do not use `Thread` in user-facing proposal titles, UI copy, or artifact types.
 
 ## Structured Output Required
 
+> **Amendment (2026-11-03) — every schema is strict, and extraction's payload is closed.**
+> Feature 39 lets a world run on its creator's own OpenAI, Claude or Gemini key, and those
+> providers' strict modes accept only one dialect: every object closed
+> (`"additionalProperties": false`) and every property listed in `required`, optional values
+> written as a `null` union. Every schema a client sends is now held to it
+> (`StrictSchemaDialectTests`), and every call goes out strict. Extraction was the one
+> exception: `proposedValue` below was an open object. It is now a closed object naming all
+> sixteen payload fields (`name`, `type`, `summary`, `visibility`, `confidence`, `status`,
+> `sourceArtifactId`, `predicate`, `value`, `truthState`, `artifactName`, `artifactAId`,
+> `artifactBId`, `artifactAName`, `artifactBName`, `description`), each nullable and each
+> required; `targetId` and `quote` are required too. The prompt tells the model to send null
+> for every field its changeType doesn't use, and the parser drops the nulls before anything
+> reads the payload, so `ReviewProposal` sees exactly the object it saw before. A new payload
+> field has to be added to the schema, the prompt and this list together.
+>
+> Who pays for a call is decided per call, not here: services name an `AiCallScope` (the
+> world, or the user when there is no world yet) and Nornis's own model, and the call is bound
+> to the world creator's key, the trial, or Nornis's Azure key by `IAiFundingService`
+> (feature 39, `docs/features/39-ai-keys/design.md`). Budget guards run first, unchanged.
+
 Use structured AI outputs wherever possible. The extraction response must conform to a known schema and should not require fragile natural-language parsing.
 
 Expected extraction result shape:

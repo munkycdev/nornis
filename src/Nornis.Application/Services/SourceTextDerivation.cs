@@ -168,6 +168,7 @@ public class SourceTextDerivation
             {
                 response = await _imageReadingClient.ReadAsync(new ImageReadingRequest
                 {
+                    Scope = AiCallScope.ForWorld(worldId),
                     Images = images,
                     Model = _options.AiModel,
                     TimeoutSeconds = _options.AiTimeoutSeconds

@@ -7,5 +7,6 @@ namespace Nornis.Application.Ai;
 /// </summary>
 public interface IWorldNameGenerator
 {
-    Task<string?> GenerateAsync(CancellationToken ct);
+    /// <param name="userId">Who is creating the world: there is no world yet, so their keys pay.</param>
+    Task<string?> GenerateAsync(Guid userId, CancellationToken ct);
 }

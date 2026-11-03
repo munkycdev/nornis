@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Nornis.Application.Tests.Ai;
 
 /// <summary>
-/// These tests lived in AzureOpenAiExtractionClientTests while the vendor adapter owned
+/// These tests lived in ExtractionAiClientTests while the vendor adapter owned
 /// the prompt text; they moved with the text when the seam converged on Application-built
 /// strings. The adapter's own tests now cover only transport, timeout, and parse.
 /// </summary>

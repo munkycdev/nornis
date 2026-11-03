@@ -103,6 +103,16 @@ Infrastructure
 - Auth0 JWT validation
 - DataDog logging/metrics/tracing
 
+> **Amendment (2026-11-03) — AI clients bind per call.** "Azure OpenAI client" above is now a
+> seam (feature 39). The AI clients in `Nornis.Infrastructure/Ai` hold no `IChatClient`. Each
+> call goes through `AiCallExecutor`, which asks `IAiCallBinder` for a binding: the binder asks
+> the Application's `IAiFundingService` who pays and on which model (`AiFunding`), then hands
+> back that provider's `IChatClient` and its `IAiProviderTraits` (how it takes a schema or an
+> output ceiling, given as a provider-neutral `AiCallOptions`, and how its SDK errors map to
+> `AiTimeoutException` / `AiHttpException`). Nornis's own Azure deployments are
+> `NornisChatClients`, one client per deployment. Clients name their `AiTask` (Ask,
+> Extraction, Prep, Chores); requests carry an `AiCallScope`. Embeddings stay Azure-only.
+
 ## Source Processing Flow
 
 ```text

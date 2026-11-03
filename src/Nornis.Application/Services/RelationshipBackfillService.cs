@@ -137,6 +137,7 @@ public class RelationshipBackfillService : IRelationshipBackfillService
         {
             response = await _aiClient.ProposeLinksAsync(new AiPromptRequest
             {
+                Scope = AiCallScope.ForWorld(worldId),
                 SystemPrompt = BuildSystemPrompt(),
                 UserMessage = BuildUserMessage(source, candidates),
                 Model = _options.AiModel,

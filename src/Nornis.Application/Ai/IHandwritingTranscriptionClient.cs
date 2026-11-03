@@ -14,6 +14,9 @@ public record TranscriptionPage(byte[] ImageBytes, string MediaType);
 
 public class HandwritingTranscriptionRequest
 {
+    /// <summary>Whose call this is: decides whose key pays (feature 39).</summary>
+    public required AiCallScope Scope { get; init; }
+
     public required IReadOnlyList<TranscriptionPage> Pages { get; init; }
     public required string Model { get; init; }
     public required int TimeoutSeconds { get; init; }

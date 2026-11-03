@@ -5,28 +5,28 @@ using Nornis.Application.Ai;
 
 namespace Nornis.Infrastructure.Ai;
 
-public class AzureOpenAiDigestClient : IDigestAiClient
+public class DigestAiClient : IDigestAiClient
 {
-    // options: empty apart from the schema — see AzureOpenAiExtractionClient.
+    // options: empty apart from the schema — see ExtractionAiClient.
     // No output ceiling: these deployments rejected the one the old SDK sent.
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiDigestClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<DigestAiClient> _logger;
 
-    public AzureOpenAiDigestClient(
-        IChatClient chatClient,
-        ILogger<AzureOpenAiDigestClient> logger)
+    public DigestAiClient(
+        IAiCallBinder binder,
+        ILogger<DigestAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<DigestAiResponse> GenerateAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = AzureOpenAiCallExecutor.JsonSchema("world_digest", StructuredOutputSchema, strict: true);
+        var callOptions = new AiCallOptions(new AiJsonSchema("world_digest", StructuredOutputSchema));
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, request, chatOptions, "World digest", _logger, ct);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+                _binder, AiTask.Ask, request, callOptions, "World digest", _logger, ct);
 
         try
         {

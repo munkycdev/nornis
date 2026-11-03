@@ -1,11 +1,8 @@
-using System.ClientModel.Primitives;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Ai;
 using Nornis.Infrastructure.Ai;
 using NUnit.Framework;
-using OpenAI.Chat;
 
 namespace Nornis.Infrastructure.Tests.Ai;
 
@@ -15,12 +12,14 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// been handed out, and a timeout that has to cover a stream stalling halfway.
 /// </summary>
 [TestFixture]
-public class AzureOpenAiCallExecutorTests
+public class AiCallExecutorTests
 {
     private FakeChatClient _chatClient = null!;
+    private FakeAiCallBinder _binder = null!;
 
     private static AiPromptRequest Request(int timeoutSeconds = 30) => new()
     {
+        Scope = AiCallScope.ForWorld(Guid.NewGuid()),
         SystemPrompt = "You are the Loremaster.",
         UserMessage = "Who is Captain Voss?",
         Model = "gpt-4o",
@@ -28,11 +27,15 @@ public class AzureOpenAiCallExecutorTests
     };
 
     [SetUp]
-    public void SetUp() => _chatClient = new FakeChatClient();
+    public void SetUp()
+    {
+        _chatClient = new FakeChatClient();
+        _binder = new FakeAiCallBinder(_chatClient);
+    }
 
     private IAsyncEnumerable<AiStreamChunk> Stream(AiPromptRequest request, CancellationToken ct = default) =>
-        AzureOpenAiCallExecutor.StreamAsync(
-            _chatClient, request, chatOptions: null, "Loremaster", NullLogger.Instance, ct);
+        AiCallExecutor.StreamAsync(
+            _binder, AiTask.Ask, request, options: null, "Loremaster", NullLogger.Instance, ct);
 
     #region StreamAsync
 
@@ -176,8 +179,8 @@ public class AzureOpenAiCallExecutorTests
     {
         _chatClient.Returns("{\"places\":[]}", input: 120, output: 8, total: 128);
 
-        var (content, usage) = await AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, Request(), chatOptions: null, "Test", NullLogger.Instance, CancellationToken.None);
+        var (content, usage) = await AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Extraction, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None);
 
         Assert.That(content, Is.EqualTo("{\"places\":[]}"));
         Assert.That((usage.InputTokens, usage.OutputTokens, usage.TotalTokens), Is.EqualTo((120, 8, 128)));
@@ -188,74 +191,85 @@ public class AzureOpenAiCallExecutorTests
     {
         _chatClient.Returns(string.Empty);
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(() => AzureOpenAiCallExecutor.ExecuteAsync(
-            _chatClient, Request(), chatOptions: null, "Test", NullLogger.Instance, CancellationToken.None));
+        var ex = Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Extraction, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
 
         Assert.That(ex!.StatusCode, Is.Null);
     }
 
     #endregion
 
-    #region JsonSchema
+    #region Binding
 
-    /// <summary>The SDK options the adapter will start from, and their response format as JSON.</summary>
-    private static (ChatCompletionOptions Raw, JsonObject Format) RawResponseFormat(ChatOptions options)
+    [Test]
+    public async Task ExecuteAsync_BindsTheRequestsScopeAndTask_BeforeCalling()
     {
-        var raw = options.RawRepresentationFactory?.Invoke(new FakeChatClient()) as ChatCompletionOptions;
-        Assert.That(raw, Is.Not.Null, "the schema must travel as the SDK's own options object");
-        var format = JsonNode.Parse(ModelReaderWriter.Write(raw!.ResponseFormat).ToString())!.AsObject();
-        return (raw, format);
-    }
+        // Feature 39: who pays is decided per call, from the scope the service named.
+        _chatClient.Returns("{}");
+        var request = Request();
 
-    [TestCase(true)]
-    [TestCase(false)]
-    public void JsonSchema_CarriesTheSchemaAsWrittenAndTheRequestedStrictness(bool strict)
-    {
-        const string schema = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}""";
+        await AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Extraction, request, options: null, "Test", NullLogger.Instance, CancellationToken.None);
 
-        var (_, format) = RawResponseFormat(AzureOpenAiCallExecutor.JsonSchema("map_places", schema, strict));
-
-        var jsonSchema = format["json_schema"]!.AsObject();
-        Assert.Multiple(() =>
-        {
-            Assert.That(format["type"]!.GetValue<string>(), Is.EqualTo("json_schema"));
-            Assert.That(jsonSchema["name"]!.GetValue<string>(), Is.EqualTo("map_places"));
-            Assert.That(jsonSchema["strict"]!.GetValue<bool>(), Is.EqualTo(strict));
-            Assert.That(jsonSchema["schema"]!.ToJsonString(), Is.EqualTo(schema));
-        });
+        Assert.That(_binder.Binds, Is.EqualTo([(request.Scope, AiTask.Extraction, "gpt-4o")]));
     }
 
     [Test]
-    public void JsonSchema_ExtractionStaysNonStrict_WithItsOpenProposedValue()
+    public async Task ExecuteAsync_ReportsTheBoundModel_NotTheRequestedOne()
     {
-        // The reason JsonSchema exists: the adapter's own schema path forces strict mode's
-        // transform on every schema, which would close proposedValue and leave the model able
-        // to fill it with nothing but {}.
-        var (_, format) = RawResponseFormat(AzureOpenAiExtractionClient.BuildCompletionOptions());
+        // A user's key may run a different model from Nornis's; usage must price what ran.
+        var binder = new RemappingBinder(_chatClient, "claude-sonnet-test");
+        _chatClient.Returns("{}");
 
-        var jsonSchema = format["json_schema"]!.AsObject();
-        var proposedValue = jsonSchema["schema"]!["properties"]!["proposals"]!["items"]!["properties"]!["proposedValue"]!;
-        Assert.Multiple(() =>
-        {
-            Assert.That(jsonSchema["strict"]!.GetValue<bool>(), Is.False);
-            Assert.That(proposedValue["additionalProperties"]!.GetValue<bool>(), Is.True);
-            Assert.That(JsonNode.DeepEquals(
-                    jsonSchema["schema"], JsonNode.Parse(AzureOpenAiExtractionClient.GetStructuredOutputSchema())),
-                Is.True, "the schema must reach the provider exactly as the client wrote it");
-        });
+        var (_, usage) = await AiCallExecutor.ExecuteAsync(
+            binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None);
+
+        Assert.That(usage.Model, Is.EqualTo("claude-sonnet-test"));
     }
 
     [Test]
-    public void JsonSchema_BuildsFreshSdkOptionsForEveryCall()
+    public async Task StreamAsync_ReportsTheBoundModel_NotTheRequestedOne()
     {
-        // The SDK mutates the options object it sends; a shared instance would carry one call's
-        // messages and model into the next.
-        var options = AzureOpenAiCallExecutor.JsonSchema("map_places", """{"type":"object"}""", strict: true);
+        var binder = new RemappingBinder(_chatClient, "claude-sonnet-test");
+        _chatClient.Streams(["An answer."], new UsageDetails { InputTokenCount = 1, OutputTokenCount = 1, TotalTokenCount = 2 });
 
-        var first = options.RawRepresentationFactory!(new FakeChatClient());
-        var second = options.RawRepresentationFactory!(new FakeChatClient());
+        AiUsage? usage = null;
+        await foreach (var chunk in AiCallExecutor.StreamAsync(
+            binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None))
+        {
+            usage ??= chunk.Usage;
+        }
 
-        Assert.That(first, Is.Not.SameAs(second));
+        Assert.That(usage?.Model, Is.EqualTo("claude-sonnet-test"));
+    }
+
+    [Test]
+    public void ExecuteAsync_BindingRefused_PropagatesWithoutCallingTheModel()
+    {
+        // A refusal (no key, trial spent) is decided before any token is spent.
+        var binder = new ThrowingBinder(new AiHttpException("Refused.", 402));
+
+        var ex = Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
+            binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.StatusCode, Is.EqualTo(402));
+            Assert.That(_chatClient.Calls, Is.Empty);
+        });
+    }
+
+    private sealed class RemappingBinder(FakeChatClient client, string model) : IAiCallBinder
+    {
+        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, CancellationToken ct) =>
+            Task.FromResult(new AiBinding(client, OpenAiProviderTraits.Instance,
+                new AiFunding(Nornis.Domain.Enums.AiProvider.Anthropic, model, Nornis.Domain.Enums.AiFundedBy.Key)));
+    }
+
+    private sealed class ThrowingBinder(Exception exception) : IAiCallBinder
+    {
+        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, CancellationToken ct) =>
+            Task.FromException<AiBinding>(exception);
     }
 
     #endregion

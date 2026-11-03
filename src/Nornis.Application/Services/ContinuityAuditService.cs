@@ -208,6 +208,7 @@ public class ContinuityAuditService : IContinuityAuditService
         // walked past by failing.
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId, userId),
             SystemPrompt = SystemPrompt,
             UserMessage = recordText,
             Model = _options.AiModel,

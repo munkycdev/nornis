@@ -1,4 +1,3 @@
-using System.ClientModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
@@ -8,35 +7,46 @@ using Nornis.Application.Ai;
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// The one shell around a chat completion: timeout enforcement, usage capture, and the
-/// translation of SDK failures into the Application taxonomy (timeout / parse / HTTP).
-/// Nine clients used to paste this preamble with three drifted exception vocabularies;
-/// each client now contributes only its prompt, schema, and parse.
+/// The one shell around a chat completion: binding the call to whoever pays for it, timeout
+/// enforcement, usage capture, and the translation of SDK failures into the Application taxonomy
+/// (timeout / parse / HTTP). Nine clients used to paste this preamble with three drifted
+/// exception vocabularies; each client now contributes only its prompt, schema, and parse.
+///
+/// The binding happens here, on every call, and nowhere else (feature 39): a client names the
+/// task its work belongs to and the model Nornis's own key would use, and the binder decides
+/// which key and which model actually run it.
 /// </summary>
-public static class AzureOpenAiCallExecutor
+public static class AiCallExecutor
 {
     public static Task<(string Content, AiUsage Usage)> ExecuteAsync(
-        IChatClient chatClient,
+        IAiCallBinder binder,
+        AiTask task,
         AiPromptRequest request,
-        ChatOptions? chatOptions,
+        AiCallOptions? options,
         string operation,
         ILogger logger,
         CancellationToken ct) =>
         ExecuteAsync(
-            chatClient, Messages(request), chatOptions, request.Model, request.TimeoutSeconds,
+            binder, task, request.Scope, request.Model, Messages(request), options, request.TimeoutSeconds,
             operation, logger, ct);
 
     /// <summary>Message-list overload for the vision clients, whose user message carries image parts.</summary>
     public static async Task<(string Content, AiUsage Usage)> ExecuteAsync(
-        IChatClient chatClient,
+        IAiCallBinder binder,
+        AiTask task,
+        AiCallScope scope,
+        string nornisModel,
         IList<ChatMessage> messages,
-        ChatOptions? chatOptions,
-        string model,
+        AiCallOptions? options,
         int timeoutSeconds,
         string operation,
         ILogger logger,
         CancellationToken ct)
     {
+        var binding = await binder.BindAsync(scope, task, nornisModel, ct);
+        var chatClient = binding.Client;
+        var chatOptions = binding.Traits.ChatOptions(options);
+        var model = binding.Funding.Model;
         var stopwatch = Stopwatch.StartNew();
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
@@ -57,7 +67,7 @@ public static class AzureOpenAiCallExecutor
 
             return (response.Text, ToUsage(response.Usage, model, stopwatch));
         }
-        catch (Exception ex) when (Translate(ex, timeoutCts, ct, timeoutSeconds, operation, logger) is { } translated)
+        catch (Exception ex) when (Translate(ex, binding.Traits, timeoutCts, ct, timeoutSeconds, operation, logger) is { } translated)
         {
             throw translated;
         }
@@ -67,17 +77,21 @@ public static class AzureOpenAiCallExecutor
     /// Streams a completion as text deltas, ending with one chunk that carries the usage. The
     /// timeout covers the whole answer, not the first token: a stream that stalls halfway is as
     /// stuck as a request that never starts. Failures surface from the enumeration in the same
-    /// taxonomy <see cref="ExecuteAsync(IChatClient, AiPromptRequest, ChatOptions?, string, ILogger, CancellationToken)"/>
+    /// taxonomy <c>ExecuteAsync</c>
     /// uses — possibly after some text has already been yielded, which the caller must expect.
     /// </summary>
     public static async IAsyncEnumerable<AiStreamChunk> StreamAsync(
-        IChatClient chatClient,
+        IAiCallBinder binder,
+        AiTask task,
         AiPromptRequest request,
-        ChatOptions? chatOptions,
+        AiCallOptions? options,
         string operation,
         ILogger logger,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        var binding = await binder.BindAsync(request.Scope, task, request.Model, ct);
+        var chatClient = binding.Client;
+        var chatOptions = binding.Traits.ChatOptions(options);
         var stopwatch = Stopwatch.StartNew();
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
@@ -107,7 +121,7 @@ public static class AzureOpenAiCallExecutor
 
                     update = updates.Current;
                 }
-                catch (Exception ex) when (Translate(ex, timeoutCts, ct, request.TimeoutSeconds, operation, logger) is { } translated)
+                catch (Exception ex) when (Translate(ex, binding.Traits, timeoutCts, ct, request.TimeoutSeconds, operation, logger) is { } translated)
                 {
                     throw translated;
                 }
@@ -146,32 +160,10 @@ public static class AzureOpenAiCallExecutor
         yield return new AiStreamChunk
         {
             Text = string.Empty,
-            Usage = usage is null ? null : ToUsage(usage, request.Model, stopwatch),
+            Usage = usage is null ? null : ToUsage(usage, binding.Funding.Model, stopwatch),
             CutOff = cutOff,
         };
     }
-
-    /// <summary>
-    /// Structured output against a hand-written schema, sent to the provider exactly as written.
-    ///
-    /// Deliberately not <c>ChatResponseFormat.ForJsonSchema</c>: the OpenAI adapter runs every
-    /// schema given that way through its strict-mode transform — forcing
-    /// <c>"additionalProperties": false</c> and marking every property required — whether or
-    /// not strict mode was asked for. Extraction's schema is non-strict on purpose, with an open
-    /// <c>proposedValue</c> object; transformed, the model could only ever fill it with <c>{}</c>.
-    /// Setting the SDK's own response format keeps each schema byte-for-byte what its client wrote.
-    /// </summary>
-    public static ChatOptions JsonSchema(string schemaName, string schema, bool strict) => new()
-    {
-        // A factory, not a shared instance: the SDK mutates the options object it sends.
-        RawRepresentationFactory = _ => new OpenAI.Chat.ChatCompletionOptions
-        {
-            ResponseFormat = OpenAI.Chat.ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: schemaName,
-                jsonSchema: BinaryData.FromString(schema),
-                jsonSchemaIsStrict: strict),
-        },
-    };
 
     private static List<ChatMessage> Messages(AiPromptRequest request) =>
     [
@@ -196,6 +188,7 @@ public static class AzureOpenAiCallExecutor
     /// </summary>
     private static Exception? Translate(
         Exception ex,
+        IAiProviderTraits traits,
         CancellationTokenSource timeoutCts,
         CancellationToken ct,
         int timeoutSeconds,
@@ -208,12 +201,11 @@ public static class AzureOpenAiCallExecutor
                 logger.LogWarning("{Operation} AI call timed out after {TimeoutSeconds}s", operation, timeoutSeconds);
                 return new AiTimeoutException($"{operation} AI call timed out after {timeoutSeconds} seconds.");
 
-            case ClientResultException clientResult:
-                logger.LogError(clientResult, "{Operation} AI call failed with status {Status}", operation, clientResult.Status);
-                return new AiHttpException($"{operation} AI call failed: HTTP {clientResult.Status}", clientResult.Status, clientResult);
-
             case OperationCanceledException:
                 return null;
+
+            case { } when traits.TranslateFailure(ex, operation, logger) is { } providerFailure:
+                return providerFailure;
 
             default:
                 logger.LogError(ex, "Unexpected error during {Operation} AI call", operation);

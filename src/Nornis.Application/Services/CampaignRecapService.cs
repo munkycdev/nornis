@@ -208,6 +208,7 @@ public class CampaignRecapService : ICampaignRecapService
     {
         var request = new AiPromptRequest
         {
+            Scope = AiCallScope.ForWorld(worldId, actingUserId),
             SystemPrompt = systemPrompt,
             UserMessage = recordText,
             Model = _options.AiModel,

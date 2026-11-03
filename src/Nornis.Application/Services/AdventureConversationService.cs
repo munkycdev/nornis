@@ -173,6 +173,7 @@ public class AdventureConversationService : IAdventureConversationService
 
             var request = new AiPromptRequest
             {
+                Scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId),
                 SystemPrompt = AdventureConversationPrompt.SystemPrompt,
                 UserMessage = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
                     PrintDetails.SystemOf(adventure.Details, world?.GameSystem),

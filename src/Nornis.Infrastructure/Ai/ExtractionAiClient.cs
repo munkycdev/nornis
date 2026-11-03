@@ -9,7 +9,7 @@ using Nornis.Application.Ai;
 
 namespace Nornis.Infrastructure.Ai;
 
-public class AzureOpenAiExtractionClient : IAiExtractionClient
+public class ExtractionAiClient : IAiExtractionClient
 {
     // DO NOT set an output ceiling here (ChatOptions.MaxOutputTokens, or the SDK's
     // MaxOutputTokenCount) or in any sibling client. Azure.AI.OpenAI 2.1.0 serialised it as
@@ -23,8 +23,8 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
     // 2026-07-27. The OpenAI SDK that replaced it may well emit max_completion_tokens; restore
     // a ceiling only after a real call against the deployment proves it.
 
-    private readonly IChatClient _chatClient;
-    private readonly ILogger<AzureOpenAiExtractionClient> _logger;
+    private readonly IAiCallBinder _binder;
+    private readonly ILogger<ExtractionAiClient> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -43,33 +43,20 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         "Artifact", "ArtifactFact", "ArtifactRelationship"
     ];
 
-    public AzureOpenAiExtractionClient(
-        IChatClient chatClient,
-        ILogger<AzureOpenAiExtractionClient> logger)
+    public ExtractionAiClient(
+        IAiCallBinder binder,
+        ILogger<ExtractionAiClient> logger)
     {
-        _chatClient = chatClient;
+        _binder = binder;
         _logger = logger;
     }
 
     public async Task<AiExtractionResponse> ExtractAsync(AiPromptRequest request, CancellationToken ct)
     {
-        var chatOptions = BuildCompletionOptions();
-
-        (string Content, AiUsage Usage) result;
-        try
-        {
-            result = await AzureOpenAiCallExecutor.ExecuteAsync(
-                _chatClient, request, chatOptions, "AI extraction", _logger, ct);
-        }
-        catch (AiHttpException ex) when (ex.InnerException is ClientResultException raw)
-        {
-            // The response body names the exact failure — for content_filter 400s it carries
-            // per-category verdicts (violence/hate/sexual/self-harm severity, jailbreak) that
-            // the exception message omits. Log it or the failure is undiagnosable.
-            _logger.LogError(ex, "AI call failed with status {Status}. Response body: {ResponseBody}",
-                raw.Status, GetRawResponseBody(raw));
-            throw;
-        }
+        // A failure's response body (content-filter verdicts and the like) is logged by the
+        // provider's traits, for every client, not only this one.
+        var result = await AiCallExecutor.ExecuteAsync(
+            _binder, AiTask.Extraction, request, CallOptions, "AI extraction", _logger, ct);
 
         try
         {
@@ -92,12 +79,8 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
 
     /// <summary>Internal so a test can assert the request we are about to send is one these
     /// deployments will accept — see the note at the top of this class.</summary>
-    internal static ChatOptions BuildCompletionOptions() =>
-        // Not strict: proposedValue's shape varies by changeType, so the schema declares
-        // it as an open object ("additionalProperties": true) — which strict mode rejects
-        // with HTTP 400. Output shape is still guarded by ParseAndValidateResponse, the
-        // parse-retry loop, and ProposalValidator at accept time.
-        AzureOpenAiCallExecutor.JsonSchema("extraction_proposals", GetStructuredOutputSchema(), strict: false);
+    internal static AiCallOptions CallOptions { get; } =
+        new(new AiJsonSchema("extraction_proposals", GetStructuredOutputSchema()));
 
     internal static string GetStructuredOutputSchema()
     {
@@ -123,7 +106,26 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
                       },
                       "proposedValue": {
                         "type": "object",
-                        "additionalProperties": true
+                        "properties": {
+                            "name": { "type": ["string", "null"] },
+                            "type": { "type": ["string", "null"] },
+                            "summary": { "type": ["string", "null"] },
+                            "visibility": { "type": ["string", "null"] },
+                            "confidence": { "type": ["number", "null"] },
+                            "status": { "type": ["string", "null"] },
+                            "sourceArtifactId": { "type": ["string", "null"] },
+                            "predicate": { "type": ["string", "null"] },
+                            "value": { "type": ["string", "null"] },
+                            "truthState": { "type": ["string", "null"] },
+                            "artifactName": { "type": ["string", "null"] },
+                            "artifactAId": { "type": ["string", "null"] },
+                            "artifactBId": { "type": ["string", "null"] },
+                            "artifactAName": { "type": ["string", "null"] },
+                            "artifactBName": { "type": ["string", "null"] },
+                            "description": { "type": ["string", "null"] }
+                        },
+                        "required": ["name", "type", "summary", "visibility", "confidence", "status", "sourceArtifactId", "predicate", "value", "truthState", "artifactName", "artifactAId", "artifactBId", "artifactAName", "artifactBName", "description"],
+                        "additionalProperties": false
                       },
                       "rationale": {
                         "type": "string"
@@ -135,7 +137,7 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
                         "type": ["string", "null"]
                       }
                     },
-                    "required": ["changeType", "targetType", "proposedValue", "rationale", "confidence"],
+                    "required": ["changeType", "targetType", "targetId", "proposedValue", "rationale", "confidence", "quote"],
                     "additionalProperties": false
                   }
                 }
@@ -266,8 +268,10 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             }
         }
 
-        // Deserialize proposedValue as a dynamic object for flexibility
-        var proposedValue = JsonSerializer.Deserialize<object>(proposedValueNode.ToJsonString(), JsonOptions)
+        // The strict schema makes the model send every payload field, with null for the ones its
+        // changeType doesn't use. Dropping those nulls gives back exactly the payload the open
+        // schema used to produce, so nothing downstream sees the difference (feature 39).
+        var proposedValue = JsonSerializer.Deserialize<object>(WithoutNulls(proposedValueNode).ToJsonString(), JsonOptions)
             ?? throw new AiParseException($"Proposal at index {index} has null proposedValue after deserialization.");
 
         return new ExtractionProposal
@@ -280,6 +284,26 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
             Confidence = confidence,
             Quote = quote
         };
+    }
+
+    /// <summary>The payload without its null fields; anything that isn't an object passes through.</summary>
+    internal static JsonNode WithoutNulls(JsonNode proposedValue)
+    {
+        if (proposedValue is not JsonObject payload)
+        {
+            return proposedValue;
+        }
+
+        var kept = new JsonObject();
+        foreach (var (name, value) in payload)
+        {
+            if (value is not null && value.GetValueKind() != JsonValueKind.Null)
+            {
+                kept[name] = value.DeepClone();
+            }
+        }
+
+        return kept;
     }
 
     private static string GetRequiredString(JsonNode node, string fieldName, int proposalIndex)
@@ -295,17 +319,5 @@ public class AzureOpenAiExtractionClient : IAiExtractionClient
         }
 
         return fieldNode.GetValue<string>();
-    }
-
-    private static string GetRawResponseBody(ClientResultException ex)
-    {
-        try
-        {
-            return ex.GetRawResponse()?.Content?.ToString() ?? "(no response body)";
-        }
-        catch
-        {
-            return "(response body unavailable)";
-        }
     }
 }

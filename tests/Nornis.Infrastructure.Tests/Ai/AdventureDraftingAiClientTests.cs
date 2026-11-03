@@ -11,13 +11,14 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// other client needs, a cut-off at the output ceiling and the reasoning tokens spent under it.
 /// </summary>
 [TestFixture]
-public class AzureOpenAiAdventureDraftingClientTests
+public class AdventureDraftingAiClientTests
 {
     private FakeChatClient _chatClient = null!;
-    private AzureOpenAiAdventureDraftingClient _client = null!;
+    private AdventureDraftingAiClient _client = null!;
 
     private static readonly AiPromptRequest Request = new()
     {
+        Scope = AiCallScope.ForWorld(Guid.NewGuid()),
         SystemPrompt = "You are helping a game master prepare an adventure.",
         UserMessage = "## The section to write: [Scene] The Docks",
         Model = "nornis-ask",
@@ -28,7 +29,7 @@ public class AzureOpenAiAdventureDraftingClientTests
     public void SetUp()
     {
         _chatClient = new FakeChatClient();
-        _client = new AzureOpenAiAdventureDraftingClient(_chatClient, NullLogger<AzureOpenAiAdventureDraftingClient>.Instance);
+        _client = new AdventureDraftingAiClient(new FakeAiCallBinder(_chatClient), NullLogger<AdventureDraftingAiClient>.Instance);
     }
 
     private async Task<List<AiStreamChunk>> DrainAsync()
@@ -56,7 +57,7 @@ public class AzureOpenAiAdventureDraftingClientTests
             Assert.That(messages.Select(m => m.Role), Is.EqualTo([ChatRole.System, ChatRole.User]));
             Assert.That(messages[0].Text, Is.EqualTo(Request.SystemPrompt));
             Assert.That(messages[1].Text, Is.EqualTo(Request.UserMessage));
-            Assert.That(raw?.MaxOutputTokenCount, Is.EqualTo(AzureOpenAiAdventureDraftingClient.OutputCeilingTokens));
+            Assert.That(raw?.MaxOutputTokenCount, Is.EqualTo(AdventureDraftingAiClient.OutputCeilingTokens));
         });
     }
 
