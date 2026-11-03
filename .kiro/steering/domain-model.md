@@ -1,5 +1,17 @@
 # Domain Model
 
+> **Amendment (2026-11-03): a user can hold AI keys, and a world spends its creator's.**
+> Feature 39 adds three user-owned entities. `UserAiKey`: one per provider (OpenAI, Anthropic,
+> Gemini, OpenAI-compatible) per user, the key stored only as Data Protection ciphertext with
+> its last four characters, a label, a base URL for OpenAI-compatible keys, and `CheckFailed`
+> when the provider last refused it. `UserAiCompatibleModel`: an OpenAI-compatible key's own
+> model line per AI task, with the user's prices. `UserAiModelChoice`: the user's model per
+> **AI task** (`AiTask`: Ask, Extraction, Prep, Chores; every `AiOperationType` belongs to
+> exactly one, Embedding to none). The **key holder** for a world's AI call is the world's
+> creator, whoever caused the call; players never need a key. `AiUsageRecord` gains who paid:
+> `Provider`, `ModelId`, `FundedBy` (Nornis, Trial or Key), `AiKeyId` and `KeyHolderUserId`.
+> A user's trial balance is derived from those rows, never stored.
+
 > **Amendment (2026-11-03): an Adventure has bibliographic details.** Feature 32 (Nornis 3.4)
 > gives an `Adventure` the fields a library catalogues a book by, so a printed booklet reaches
 > Bibliotaph already described. The GM edits four. Three are fixed by Dave's decision: type

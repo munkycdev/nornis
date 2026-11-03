@@ -390,8 +390,8 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     // Every AI client binds each call through the binder (feature 39): the funding service
     // decides who pays and on which model, and Nornis's own deployments are built on first use.
     builder.Services.AddSingleton(Nornis.Infrastructure.Ai.NornisChatClients.Create(openAiClient));
-    builder.Services.AddScoped<IAiFundingService, NornisAiFundingService>();
-    builder.Services.AddScoped<Nornis.Infrastructure.Ai.IAiCallBinder, Nornis.Infrastructure.Ai.AiCallBinder>();
+    builder.Services.AddAiFunding(
+        builder.Configuration, Nornis.Infrastructure.Ai.AzureOpenAiClientFactory.RetriesForUserFacingCall);
     builder.Services.AddScoped<ILoremasterAiClient, LoremasterAiClient>();
     builder.Services.AddScoped<IAuditAiClient, AuditAiClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, ContinuityFixAiClient>();

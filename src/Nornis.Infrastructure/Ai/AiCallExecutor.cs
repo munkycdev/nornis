@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Infrastructure.Ai;
 
@@ -43,10 +44,9 @@ public static class AiCallExecutor
         ILogger logger,
         CancellationToken ct)
     {
-        var binding = await binder.BindAsync(scope, task, nornisModel, ct);
+        var binding = await binder.BindAsync(scope, task, nornisModel, CarriesImages(messages), ct);
         var chatClient = binding.Client;
         var chatOptions = binding.Traits.ChatOptions(options);
-        var model = binding.Funding.Model;
         var stopwatch = Stopwatch.StartNew();
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
@@ -65,10 +65,11 @@ public static class AiCallExecutor
                 throw new InvalidOperationException("The completion carried no content.");
             }
 
-            return (response.Text, ToUsage(response.Usage, model, stopwatch));
+            return (response.Text, ToUsage(response.Usage, binding.Funding, stopwatch));
         }
-        catch (Exception ex) when (Translate(ex, binding.Traits, timeoutCts, ct, timeoutSeconds, operation, logger) is { } translated)
+        catch (Exception ex) when (Translate(ex, binding, timeoutCts, ct, timeoutSeconds, operation, logger) is { } translated)
         {
+            await ReportAsync(binder, binding, translated);
             throw translated;
         }
     }
@@ -89,7 +90,7 @@ public static class AiCallExecutor
         ILogger logger,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var binding = await binder.BindAsync(request.Scope, task, request.Model, ct);
+        var binding = await binder.BindAsync(request.Scope, task, request.Model, needsImages: false, ct);
         var chatClient = binding.Client;
         var chatOptions = binding.Traits.ChatOptions(options);
         var stopwatch = Stopwatch.StartNew();
@@ -121,8 +122,9 @@ public static class AiCallExecutor
 
                     update = updates.Current;
                 }
-                catch (Exception ex) when (Translate(ex, binding.Traits, timeoutCts, ct, request.TimeoutSeconds, operation, logger) is { } translated)
+                catch (Exception ex) when (Translate(ex, binding, timeoutCts, ct, request.TimeoutSeconds, operation, logger) is { } translated)
                 {
+                    await ReportAsync(binder, binding, translated);
                     throw translated;
                 }
 
@@ -160,7 +162,7 @@ public static class AiCallExecutor
         yield return new AiStreamChunk
         {
             Text = string.Empty,
-            Usage = usage is null ? null : ToUsage(usage, binding.Funding.Model, stopwatch),
+            Usage = usage is null ? null : ToUsage(usage, binding.Funding, stopwatch),
             CutOff = cutOff,
         };
     }
@@ -171,9 +173,24 @@ public static class AiCallExecutor
         new(ChatRole.User, request.UserMessage),
     ];
 
-    private static AiUsage ToUsage(UsageDetails? usage, string model, Stopwatch stopwatch) => new()
+    /// <summary>Whether any message carries an image, which only some models can read.</summary>
+    internal static bool CarriesImages(IEnumerable<ChatMessage> messages) =>
+        messages.Any(m => m.Contents.Any(c => c is DataContent data && data.HasTopLevelMediaType("image")
+                                              || c is UriContent uri && uri.HasTopLevelMediaType("image")));
+
+    /// <summary>
+    /// A refused key is marked at once, so the next call is refused by the funding rule instead of
+    /// being sent. Not on the caller's token: a reader leaving must not leave the key unmarked.
+    /// </summary>
+    private static Task ReportAsync(IAiCallBinder binder, AiBinding binding, Exception translated) =>
+        translated is AiKeyRejectedException
+            ? binder.ReportKeyRejectedAsync(binding, CancellationToken.None)
+            : Task.CompletedTask;
+
+    private static AiUsage ToUsage(UsageDetails? usage, AiFunding funding, Stopwatch stopwatch) => new()
     {
-        Model = model,
+        Model = funding.Model,
+        Funding = funding,
         InputTokens = (int)(usage?.InputTokenCount ?? 0),
         CachedInputTokens = usage?.CachedInputTokenCount is { } cached ? (int)cached : null,
         OutputTokens = (int)(usage?.OutputTokenCount ?? 0),
@@ -188,7 +205,7 @@ public static class AiCallExecutor
     /// </summary>
     private static Exception? Translate(
         Exception ex,
-        IAiProviderTraits traits,
+        AiBinding binding,
         CancellationTokenSource timeoutCts,
         CancellationToken ct,
         int timeoutSeconds,
@@ -204,7 +221,7 @@ public static class AiCallExecutor
             case OperationCanceledException:
                 return null;
 
-            case { } when traits.TranslateFailure(ex, operation, logger) is { } providerFailure:
+            case { } when binding.Traits.TranslateFailure(ex, binding.Funding, operation, logger) is { } providerFailure:
                 return providerFailure;
 
             default:

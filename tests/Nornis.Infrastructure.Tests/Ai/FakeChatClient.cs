@@ -48,10 +48,15 @@ public sealed class FakeChatClient : IChatClient
     #endregion
 
     /// <summary>The SDK exception for an HTTP failure with <paramref name="status"/>.</summary>
-    public static ClientResultException HttpFailure(int status)
+    public static ClientResultException HttpFailure(int status, string? body = null)
     {
         var response = Substitute.For<PipelineResponse>();
         response.Status.Returns(status);
+        if (body is not null)
+        {
+            response.Content.Returns(BinaryData.FromString(body));
+        }
+
         return new ClientResultException(response);
     }
 

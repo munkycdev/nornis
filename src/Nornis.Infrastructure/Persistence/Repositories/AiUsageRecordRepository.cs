@@ -68,6 +68,18 @@ public class AiUsageRecordRepository : IAiUsageRecordRepository
         return result ?? new CostSummary();
     }
 
+    public async Task<decimal> SumTrialSpendAsync(Guid keyHolderUserId, CancellationToken cancellationToken = default) =>
+        await _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.KeyHolderUserId == keyHolderUserId && r.FundedBy == AiFundedBy.Trial)
+            .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
+
+    public async Task<decimal> SumAllTrialSpendAsync(DateTimeOffset fromInclusive, CancellationToken cancellationToken = default) =>
+        await _context.AiUsageRecords
+            .AsNoTracking()
+            .Where(r => r.FundedBy == AiFundedBy.Trial && r.CreatedAt >= fromInclusive)
+            .SumAsync(r => (decimal?)r.EstimatedCostUsd, cancellationToken) ?? 0m;
+
     public async Task<decimal> SumPublicAskCostAsync(
         Guid worldId,
         DateTimeOffset fromInclusive,

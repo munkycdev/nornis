@@ -18,4 +18,14 @@ public static class ErrorCategories
     /// budget guard's own error does.
     /// </summary>
     public const string BudgetExceeded = "BudgetExceeded";
+
+    /// <summary>Feature 39: the world's creator has no AI key for the task and no trial left.
+    /// Saving a key queues the sources that failed with this again.</summary>
+    public const string AiKeyRequired = "AiKeyRequired";
+
+    /// <summary>Feature 39: the provider refused the key that would pay.</summary>
+    public const string AiKeyRejected = "AiKeyRejected";
+
+    /// <summary>Feature 39: the key works, but its provider account is out of credit.</summary>
+    public const string AiCreditExhausted = "AiCreditExhausted";
 }

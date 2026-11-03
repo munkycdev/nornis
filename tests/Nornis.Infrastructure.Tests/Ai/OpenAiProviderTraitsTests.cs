@@ -2,6 +2,8 @@ using System.ClientModel.Primitives;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
+using Nornis.Application.Ai;
+using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Ai;
 using NUnit.Framework;
 using OpenAI.Chat;
@@ -16,6 +18,8 @@ namespace Nornis.Infrastructure.Tests.Ai;
 public class OpenAiProviderTraitsTests
 {
     private static readonly OpenAiProviderTraits Traits = OpenAiProviderTraits.Instance;
+
+    private static readonly AiFunding NornisFunded = new(AiProvider.AzureOpenAi, "nornis-ask", AiFundedBy.Nornis);
 
     /// <summary>The SDK options the adapter will start from, and their response format as JSON.</summary>
     private static (ChatCompletionOptions Raw, JsonObject? Format) Raw(ChatOptions? options)
@@ -111,7 +115,7 @@ public class OpenAiProviderTraitsTests
     [TestCase(429)]
     public void TranslateFailure_SdkHttpFailure_KeepsItsStatus(int status)
     {
-        var translated = Traits.TranslateFailure(FakeChatClient.HttpFailure(status), "Test", NullLogger.Instance);
+        var translated = Traits.TranslateFailure(FakeChatClient.HttpFailure(status), NornisFunded, "Test", NullLogger.Instance);
 
         Assert.That(translated?.StatusCode, Is.EqualTo(status));
     }
@@ -119,6 +123,6 @@ public class OpenAiProviderTraitsTests
     [Test]
     public void TranslateFailure_SomethingElse_IsNotThisProvidersToName()
     {
-        Assert.That(Traits.TranslateFailure(new InvalidOperationException(), "Test", NullLogger.Instance), Is.Null);
+        Assert.That(Traits.TranslateFailure(new InvalidOperationException(), NornisFunded, "Test", NullLogger.Instance), Is.Null);
     }
 }

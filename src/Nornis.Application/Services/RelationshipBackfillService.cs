@@ -153,6 +153,13 @@ public class RelationshipBackfillService : IRelationshipBackfillService
             await TrackUsageAsync(source, worldId, null, false, Ai.ErrorCategories.Timeout, ct);
             return ExtractionOutcome.Transient(Ai.ErrorCategories.Timeout, ex.Message);
         }
+        catch (AiRefusalException refusal)
+        {
+            // Feature 39: nothing could pay, or the paying key was refused. Nothing was charged,
+            // so nothing is recorded; the source fails with the reason the GM can act on.
+            _logger.LogWarning("AI call refused ({Code}). Id={Id}", refusal.Code, sourceId);
+            return ExtractionOutcome.NonTransient(refusal.Category, refusal.Message);
+        }
         catch (HttpRequestException ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
         {
             _logger.LogError(ex, "Permanent AI failure during relationship backfill. SourceId={SourceId}", sourceId);

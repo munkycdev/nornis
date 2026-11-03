@@ -445,6 +445,34 @@ public class ExtractionServiceTests
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processed));
     }
 
+    private static IEnumerable<TestCaseData> Refusals()
+    {
+        yield return new TestCaseData(new AiKeyRequiredException(AiTask.Extraction, "the trial is used up."), ErrorCategories.AiKeyRequired);
+        yield return new TestCaseData(new AiKeyRejectedException(AiProvider.OpenAi), ErrorCategories.AiKeyRejected);
+        yield return new TestCaseData(new AiCreditExhaustedException(AiProvider.OpenAi), ErrorCategories.AiCreditExhausted);
+    }
+
+    [TestCaseSource(nameof(Refusals))]
+    public async Task ProcessExtractionAsync_FundingRefused_FailsWithItsCategory_AndRecordsNothing(
+        AiRefusalException refusal, string category)
+    {
+        // Feature 39: a refusal is the GM's to fix (add or replace a key), so it fails the source
+        // once, visibly, rather than going round the redelivery loop; nothing was charged.
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _aiClient.EnqueueThrow(refusal);
+
+        var result = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Type, Is.EqualTo(OutcomeType.NonTransientFailure));
+            Assert.That(result.ErrorCategory, Is.EqualTo(category));
+            Assert.That(_aiClient.CallCount, Is.EqualTo(1));
+            Assert.That(_aiUsageRecordRepository.Records, Is.Empty);
+        });
+    }
+
     [Test]
     public async Task ProcessExtractionAsync_ParseExceptionOnEveryAttempt_FailsAsParseFailureAfterRetries()
     {

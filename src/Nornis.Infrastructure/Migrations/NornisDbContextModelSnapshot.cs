@@ -152,6 +152,9 @@ namespace Nornis.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AiKeyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("CachedInputTokens")
                         .HasColumnType("int");
 
@@ -169,13 +172,24 @@ namespace Nornis.Infrastructure.Migrations
                         .HasPrecision(18, 8)
                         .HasColumnType("decimal(18,8)");
 
+                    b.Property<string>("FundedBy")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<int>("InputTokens")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("KeyHolderUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Model")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("OperationType")
                         .IsRequired()
@@ -183,6 +197,10 @@ namespace Nornis.Infrastructure.Migrations
 
                     b.Property<int>("OutputTokens")
                         .HasColumnType("int");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<Guid?>("ReviewBatchId")
                         .HasColumnType("uniqueidentifier");
@@ -211,6 +229,8 @@ namespace Nornis.Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.HasIndex("WorldId", "CreatedAt");
+
+                    b.HasIndex("KeyHolderUserId", "FundedBy", "CreatedAt");
 
                     b.ToTable("AiUsageRecords", (string)null);
                 });
@@ -1741,6 +1761,116 @@ namespace Nornis.Infrastructure.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiCompatibleModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("InputPerMillionUsd")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("decimal(10,4)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("OutputPerMillionUsd")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("decimal(10,4)");
+
+                    b.Property<bool>("SupportsImages")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Task")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("UserAiKeyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserAiKeyId", "Task")
+                        .IsUnique();
+
+                    b.ToTable("UserAiCompatibleModels", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("BaseUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("CheckFailed")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LastFour")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<string>("ProtectedKey")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("UserAiKeys", (string)null);
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiModelChoice", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Task")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("UserId", "Task");
+
+                    b.ToTable("UserAiModelChoices", (string)null);
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.UserSignIn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2654,6 +2784,33 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiCompatibleModel", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.UserAiKey", null)
+                        .WithMany("CompatibleModels")
+                        .HasForeignKey("UserAiKeyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiKey", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiModelChoice", b =>
+                {
+                    b.HasOne("Nornis.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Nornis.Domain.Entities.UserSignIn", b =>
                 {
                     b.HasOne("Nornis.Domain.Entities.User", null)
@@ -2793,6 +2950,11 @@ namespace Nornis.Infrastructure.Migrations
             modelBuilder.Entity("Nornis.Domain.Entities.User", b =>
                 {
                     b.Navigation("SignIns");
+                });
+
+            modelBuilder.Entity("Nornis.Domain.Entities.UserAiKey", b =>
+                {
+                    b.Navigation("CompatibleModels");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.World", b =>

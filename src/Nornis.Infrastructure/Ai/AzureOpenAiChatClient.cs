@@ -31,7 +31,7 @@ public sealed class AzureOpenAiChatClient : DelegatingChatClient
     /// <summary>
     /// Text in, text and usage out — what a streamed answer needs. Options are honoured only
     /// through <see cref="ChatOptions.RawRepresentationFactory"/>, the one way the clients here set
-    /// them (see <see cref="AiCallExecutor.JsonSchema"/>); anything else is refused rather
+    /// them (see <see cref="OpenAiProviderTraits.ChatOptions"/>); anything else is refused rather
     /// than quietly dropped.
     /// </summary>
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Infrastructure.Ai;
 
@@ -210,7 +211,7 @@ public class MapExtractionAiClient : IMapExtractionClient
 
         // Bound like any other call, but sent directly: refinement is unmetered and keeps its own
         // tile-sized timeout.
-        var binding = await _binder.BindAsync(request.Scope, AiTask.Extraction, request.Model, ct);
+        var binding = await _binder.BindAsync(request.Scope, AiTask.Extraction, request.Model, needsImages: true, ct);
         var response = await binding.Client.GetResponseAsync(
             messages, binding.Traits.ChatOptions(callOptions), linkedCts.Token);
         var content = response.Text;

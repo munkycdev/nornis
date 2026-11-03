@@ -29,6 +29,20 @@
 > - **Moved to Phase B:** the `AiModels` catalog (and replacing `ModelPricing`), the three
 >   refusal exceptions and their `ErrorCategories`. There is no separate `Trial` model map: the
 >   trial runs on the models Nornis's own configuration names.
+> - **Phase B1 (2026-11-03): a fallback switch.** `AiModels:Fallback` says what pays when the
+>   key holder has no key for a task: `Nornis` (Nornis's own key, unlimited, as before) or
+>   `Trial` (the rule below). It ships as `Nornis` and becomes `Trial` at the cutover (Phase D),
+>   so B and C can ship while Dave has no key without his worlds running out of trial. A saved
+>   key is used in either mode.
+> - **`ModelPricing` stays** for Nornis's own deployments (the trial and the `Nornis`
+>   fallback); the catalog prices only key-funded models, and a key-funded call carries its
+>   price on `AiFunding.Price` into the usage recorder. There are no `azure/…` catalog lines.
+> - **The funding rule takes `needsImages`.** A call that sends images (detected from its
+>   messages) skips models that can't read them: a choice without images falls back to the
+>   default, and the default search skips them too. A user with only an OpenAI-compatible key
+>   gets that key's line for the task as the default, which the rule as written left out.
+> - **`AiTask` lives in Domain** (`Nornis.Domain.Enums`), because `UserAiCompatibleModel` and
+>   `UserAiModelChoice` store it; `AiTasks.For` stays in Application.
 > - Fifteen clients were renamed (`AzureOpenAiExtractionClient` → `ExtractionAiClient` and so
 >   on), not nineteen; `AzureOpenAiChatClient`, `AzureOpenAiClientFactory` and
 >   `AzureOpenAiEmbeddingClient` stay Azure-specific. `AiProvider` has an `AzureOpenAi` value

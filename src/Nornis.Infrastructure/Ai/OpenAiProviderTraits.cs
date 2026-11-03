@@ -2,12 +2,13 @@ using System.ClientModel;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// The OpenAI wire protocol: OpenAI itself and Azure OpenAI's v1 endpoint, which Nornis's own key
-/// uses (feature 39).
+/// The OpenAI wire protocol: OpenAI itself, OpenAI-compatible endpoints, and Azure OpenAI's v1
+/// endpoint, which Nornis's own key uses (feature 39).
 /// </summary>
 public sealed class OpenAiProviderTraits : IAiProviderTraits
 {
@@ -55,11 +56,34 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
         };
     }
 
-    public AiHttpException? TranslateFailure(Exception ex, string operation, ILogger logger)
+    public AiHttpException? TranslateFailure(Exception ex, AiFunding funding, string operation, ILogger logger)
     {
         if (ex is not ClientResultException clientResult)
         {
             return null;
+        }
+
+        var body = RawResponseBody(clientResult);
+
+        if (funding.FundedBy == AiFundedBy.Key)
+        {
+            // Not logged with its body: OpenAI's 401 body quotes part of the key it refused.
+            if (clientResult.Status is 401 or 403)
+            {
+                logger.LogWarning("{Operation} AI call was refused: the key holder's {Provider} key was rejected (HTTP {Status}).",
+                    operation, funding.Provider, clientResult.Status);
+                return new AiKeyRejectedException(funding.Provider, clientResult);
+            }
+
+            // OpenAI says "out of credit" as a 429 whose error code is insufficient_quota; any other
+            // 429 is a throttle and stays retryable.
+            if (clientResult.Status == 402
+                || (clientResult.Status == 429 && body.Contains("insufficient_quota", StringComparison.Ordinal)))
+            {
+                logger.LogWarning("{Operation} AI call was refused: the key holder's {Provider} account is out of credit.",
+                    operation, funding.Provider);
+                return new AiCreditExhaustedException(funding.Provider, clientResult);
+            }
         }
 
         // The response body names the exact failure: for content_filter 400s it carries the
@@ -67,7 +91,7 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
         // diagnosed.
         logger.LogError(clientResult,
             "{Operation} AI call failed with status {Status}. Response body: {ResponseBody}",
-            operation, clientResult.Status, RawResponseBody(clientResult));
+            operation, clientResult.Status, body);
         return new AiHttpException($"{operation} AI call failed: HTTP {clientResult.Status}", clientResult.Status, clientResult);
     }
 

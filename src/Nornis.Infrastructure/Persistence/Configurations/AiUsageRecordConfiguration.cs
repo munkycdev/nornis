@@ -37,6 +37,22 @@ public class AiUsageRecordConfiguration : IEntityTypeConfiguration<AiUsageRecord
         // everything that world has ever spent. The composite turns each check into a seek.
         builder.HasIndex(a => new { a.WorldId, a.CreatedAt });
 
+        // Feature 39: who paid. Nullable, because rows written before it said nothing.
+        builder.Property(a => a.Provider)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(a => a.ModelId)
+            .HasMaxLength(100);
+
+        builder.Property(a => a.FundedBy)
+            .HasConversion<string>()
+            .HasMaxLength(16);
+
+        // The trial balance is derived from the ledger (design decision 5), so "what has this
+        // user's trial spent" is read before every trial-funded call.
+        builder.HasIndex(a => new { a.KeyHolderUserId, a.FundedBy, a.CreatedAt });
+
         // Cost-ledger records outlive the world/user they reference: when a World or
         // User is deleted, null the FK rather than deleting the historical usage record.
         builder.HasOne<World>()

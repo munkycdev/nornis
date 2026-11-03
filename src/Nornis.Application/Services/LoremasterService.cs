@@ -195,8 +195,12 @@ public partial class LoremasterService : ILoremasterService
                 new AppError(500, "internal_error", "Something went wrong. Please try again."));
         }
 
-        var request = BuildPrompt(
-            AiCallScope.ForWorld(command.WorldId, command.UserId), command.Question, context, command.ConversationContext);
+        // No user is the public page's anonymous visitor (AskLoremasterCommand), who never spends
+        // the creator's trial.
+        var scope = command.UserId is { } askerId
+            ? AiCallScope.ForWorld(command.WorldId, askerId)
+            : AiCallScope.ForPublicVisitor(command.WorldId);
+        var request = BuildPrompt(scope, command.Question, context, command.ConversationContext);
         var confidence = DetermineConfidence(context);
         var caveats = AssembleCaveats(context);
 

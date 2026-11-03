@@ -17,6 +17,9 @@ public interface IAiProviderTraits
     /// <summary>
     /// The Application taxonomy's reading of a failure the provider's SDK raised, or null when
     /// <paramref name="ex"/> is not one of its exceptions (the executor then treats it as unknown).
+    /// When a user's key paid (<paramref name="funding"/>), a refused key or an account out of
+    /// credit becomes the matching <see cref="AiRefusalException"/>; with Nornis's own key those
+    /// stay plain HTTP failures, because they are Nornis's to fix, not the GM's.
     /// </summary>
-    AiHttpException? TranslateFailure(Exception ex, string operation, ILogger logger);
+    AiHttpException? TranslateFailure(Exception ex, AiFunding funding, string operation, ILogger logger);
 }

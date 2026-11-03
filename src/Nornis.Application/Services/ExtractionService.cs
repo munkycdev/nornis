@@ -565,6 +565,13 @@ public class ExtractionService : IExtractionService
                 await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.Timeout, ct);
                 return ExtractionOutcome.Transient(ErrorCategories.Timeout, "AI call timed out.");
             }
+            catch (AiRefusalException refusal)
+            {
+                // Feature 39: nothing could pay, or the paying key was refused. Nothing was charged,
+                // so nothing is recorded; the source fails with the reason the GM can act on.
+                _logger.LogWarning("AI call refused ({Code}). Id={Id}", refusal.Code, source.Id);
+                return ExtractionOutcome.NonTransient(refusal.Category, refusal.Message);
+            }
             catch (Exception ex) when (TransientFailureClassifier.IsPermanentHttpFailure(ex))
             {
                 // 4xx (other than 408/429): the request itself is bad — a retry sends the same

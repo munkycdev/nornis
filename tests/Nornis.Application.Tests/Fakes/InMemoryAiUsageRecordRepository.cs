@@ -61,6 +61,16 @@ public class InMemoryAiUsageRecordRepository : IAiUsageRecordRepository
         });
     }
 
+    public Task<decimal> SumTrialSpendAsync(Guid keyHolderUserId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_records
+            .Where(r => r.KeyHolderUserId == keyHolderUserId && r.FundedBy == AiFundedBy.Trial)
+            .Sum(r => r.EstimatedCostUsd));
+
+    public Task<decimal> SumAllTrialSpendAsync(DateTimeOffset fromInclusive, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_records
+            .Where(r => r.FundedBy == AiFundedBy.Trial && r.CreatedAt >= fromInclusive)
+            .Sum(r => r.EstimatedCostUsd));
+
     public Task<decimal> SumPublicAskCostAsync(
         Guid worldId,
         DateTimeOffset fromInclusive,

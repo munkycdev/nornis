@@ -65,7 +65,12 @@ public class AiUsageRecorder : IAiUsageRecorder
             DurationMs = usage?.DurationMs ?? 0,
             Succeeded = succeeded,
             ErrorCode = errorCode,
-            CreatedAt = now
+            CreatedAt = now,
+            Provider = usage?.Funding?.Provider,
+            ModelId = usage?.Funding?.ModelId,
+            FundedBy = usage?.Funding?.FundedBy,
+            AiKeyId = usage?.Funding?.AiKeyId,
+            KeyHolderUserId = usage?.Funding?.KeyHolderUserId,
         };
 
         await _repository.CreateAsync(record, ct);
@@ -76,6 +81,13 @@ public class AiUsageRecorder : IAiUsageRecorder
         if (usage is null)
         {
             return 0m;
+        }
+
+        // A key-funded call carries its own price, from the catalog or the user's own line
+        // (feature 39). Nornis's own deployments are priced from configuration, as before.
+        if (usage.Funding?.Price is { } price)
+        {
+            return price.Cost(usage.InputTokens, usage.CachedInputTokens, usage.OutputTokens);
         }
 
         var pricing = LookupPricing(usage.Model);
