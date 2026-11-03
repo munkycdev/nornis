@@ -15,6 +15,9 @@ public record RequestLibraryUploadCommand(
     VisibilityScope Visibility,
     Guid? AdventureId = null);
 
+/// <summary>File a Prep Adventure's booklet to the Library in one step (feature 34).</summary>
+public record FilePrintCommand(Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, Guid AdventureId);
+
 /// <summary>The pending document plus the short-lived SAS URL the browser PUTs the bytes to.</summary>
 public record LibraryUploadTicket(LibraryDocument Document, string UploadUrl);
 

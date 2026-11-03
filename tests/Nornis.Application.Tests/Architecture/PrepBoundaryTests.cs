@@ -4,9 +4,9 @@ using NUnit.Framework;
 namespace Nornis.Application.Tests.Architecture;
 
 /// <summary>
-/// Two of Prep's boundaries are promises about code that doesn't exist yet: nobody will read a
-/// side conversation from anywhere but Prep, and nobody will file a print except through the
-/// Library's upload path. Neither can be shown by running today's code, because the breach would
+/// Some of Prep's boundaries are promises about code that doesn't exist yet: nobody will read a
+/// side conversation from anywhere but Prep, nobody will file a print except through the
+/// Library's one filing path, and nobody will lay out a booklet but the one printer. Neither can be shown by running today's code, because the breach would
 /// be a new caller. So these scan the source, as <c>UnsupportedChatParameterTests</c> does, and
 /// a new reader or a new filing path fails here until someone decides it is allowed.
 /// </summary>
@@ -58,12 +58,12 @@ public class PrepBoundaryTests
 
     /// <summary>
     /// Feature 30, Requirement 7: the Library/Bibliotaph integration hooks in at
-    /// <c>LibraryService</c>'s request-upload and confirm, so a print must be filed there and
-    /// nowhere else. A LibraryDocument gets an AdventureId in one place: the document
-    /// <c>RequestUploadAsync</c> creates.
+    /// <c>LibraryService</c>, so a print must be filed there and nowhere else. Since feature 34 a
+    /// LibraryDocument gets an AdventureId in one place: the document <c>FilePrintAsync</c>
+    /// creates (an upload that names an Adventure is refused).
     /// </summary>
     [Test]
-    public void APrintsAdventure_IsSetOnlyByLibraryServiceRequestUpload()
+    public void APrintsAdventure_IsSetOnlyByLibraryServiceFilePrint()
     {
         var setters = new List<string>();
         foreach (var file in SourceFiles())
@@ -89,16 +89,16 @@ public class PrepBoundaryTests
             }
         }
 
-        Assert.That(setters, Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs:RequestUploadAsync"]));
+        Assert.That(setters, Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs:FilePrintAsync"]));
     }
 
     /// <summary>
     /// A print's details are a snapshot (feature 32, Requirement 4.2): set once when the print is
     /// filed and never changed. The guard is that there is one writer, the object initialiser in
-    /// <c>RequestUploadAsync</c>, so no later path can forget the rule.
+    /// <c>FilePrintAsync</c>, so no later path can forget the rule.
     /// </summary>
     [Test]
-    public void APrintsDetails_AreSetOnlyByLibraryServiceRequestUpload()
+    public void APrintsDetails_AreSetOnlyByLibraryServiceFilePrint()
     {
         var setters = new List<string>();
         foreach (var file in SourceFiles())
@@ -122,7 +122,59 @@ public class PrepBoundaryTests
             }
         }
 
-        Assert.That(setters, Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs:RequestUploadAsync"]));
+        Assert.That(setters, Is.EqualTo(["src/Nornis.Application/Services/LibraryService.cs:FilePrintAsync"]));
+    }
+
+    /// <summary>
+    /// Feature 34: the PDF library is an Infrastructure detail behind <c>IBookletPdfRenderer</c>.
+    /// If it leaks into Application, the Web or a second Infrastructure folder, swapping it (the
+    /// design names MigraDoc as the fallback) stops being a one-folder change.
+    /// </summary>
+    [Test]
+    public void QuestPdf_IsNamedOnlyInInfrastructurePrinting()
+    {
+        var offenders = SourceFiles()
+            .Where(f => !f.Relative.StartsWith("src/Nornis.Infrastructure/Printing/", StringComparison.Ordinal))
+            .SelectMany(f => CodeLines(f).Where(l => Regex.IsMatch(l.Text, @"\bQuestPDF\b")).Select(l => $"{f.Relative}:{l.Number}"))
+            .ToList();
+
+        var projects = Directory.EnumerateFiles(Path.Combine(RepoRoot(), "src"), "*.csproj", SearchOption.AllDirectories)
+            .Where(p => File.ReadAllText(p).Contains("\"QuestPDF\"", StringComparison.Ordinal))
+            .Select(p => Path.GetFileName(p))
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offenders, Is.Empty, "QuestPDF named outside Infrastructure/Printing");
+            Assert.That(projects, Is.EqualTo(["Nornis.Infrastructure.csproj"]));
+        });
+    }
+
+    /// <summary>
+    /// Feature 34: the booklet on screen, the download and the filed print are the same PDF
+    /// because one printer makes all three. A second caller of the model or the renderer would
+    /// be a second booklet that can drift (the HTML preview and the filed PDF did, before).
+    /// </summary>
+    [Test]
+    public void OnlyTheBookletPrinter_BuildsOrRendersABooklet()
+    {
+        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "src/Nornis.Application/Prep/AdventureBookletPrinter.cs",
+            "src/Nornis.Application/Prep/BookletModel.cs",
+            "src/Nornis.Application/Prep/IBookletPdfRenderer.cs",
+            "src/Nornis.Infrastructure/Printing/QuestPdfBookletRenderer.cs",
+            "src/Nornis.Api/Program.cs",
+        };
+
+        var offenders = SourceFiles()
+            .Where(f => !allowed.Contains(f.Relative))
+            .SelectMany(f => CodeLines(f)
+                .Where(l => Regex.IsMatch(l.Text, @"\b(IBookletPdfRenderer|QuestPdfBookletRenderer|BookletModel)\b"))
+                .Select(l => $"{f.Relative}:{l.Number}"))
+            .ToList();
+
+        Assert.That(offenders, Is.Empty, "a booklet built or rendered outside AdventureBookletPrinter");
     }
 
     // ------------------------------------------------------------------ helpers --

@@ -26,6 +26,7 @@ using Nornis.Infrastructure.Knowledge;
 using Nornis.Infrastructure.Messaging;
 using Nornis.Infrastructure.Persistence;
 using Nornis.Infrastructure.Persistence.Repositories;
+using Nornis.Infrastructure.Printing;
 using Nornis.Infrastructure.Storage;
 using Nornis.Infrastructure.Telemetry;
 using OpenTelemetry.Instrumentation.AspNetCore;
@@ -300,6 +301,8 @@ builder.Services.AddHttpClient(Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizatio
     client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthorizationClient, Nornis.Api.Bibliotaph.Auth0BibliotaphAuthorizationClient>();
 builder.Services.AddScoped<AdventurePrintDetails>();
+builder.Services.AddScoped<AdventureBookletPrinter>();
+builder.Services.AddSingleton<IBookletPdfRenderer, QuestPdfBookletRenderer>();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();

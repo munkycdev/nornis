@@ -22,17 +22,17 @@ public class AdventureService : IAdventureService
     private readonly IAdventureRepository _adventures;
     private readonly ICampaignRepository _campaigns;
     private readonly ISlugResolver _slugs;
-    private readonly AdventurePrintDetails _printDetails;
+    private readonly AdventureBookletPrinter _printer;
     private readonly PrepOptions _options;
 
     public AdventureService(
         IAdventureRepository adventures, ICampaignRepository campaigns, ISlugResolver slugs,
-        AdventurePrintDetails printDetails, IOptions<PrepOptions> options)
+        AdventureBookletPrinter printer, IOptions<PrepOptions> options)
     {
         _adventures = adventures;
         _campaigns = campaigns;
         _slugs = slugs;
-        _printDetails = printDetails;
+        _printer = printer;
         _options = options.Value;
     }
 
@@ -362,22 +362,20 @@ public class AdventureService : IAdventureService
         return AppResult.Success();
     }
 
-    public async Task<AppResult<AdventurePrint>> GetPrintAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct)
+    public async Task<AppResult<PrintedBooklet>> GetBookletAsync(Guid worldId, Guid adventureId, WorldRole role, CancellationToken ct)
     {
         if (role != WorldRole.GM)
         {
-            return AppResult<AdventurePrint>.Fail(GmOnly());
+            return AppResult<PrintedBooklet>.Fail(GmOnly());
         }
 
         var adventure = await LoadAsync(worldId, adventureId, ct);
         if (adventure is null)
         {
-            return AppResult<AdventurePrint>.Fail(NotFound());
+            return AppResult<PrintedBooklet>.Fail(NotFound());
         }
 
-        var details = await _printDetails.ResolveAsync(adventure, ct);
-        return AppResult<AdventurePrint>.Success(new AdventurePrint(
-            adventure, AdventurePrintModel.Render(adventure, details), LibraryService.PrintTitle(adventure.Title, DateTimeOffset.UtcNow)));
+        return AppResult<PrintedBooklet>.Success(await _printer.PrintAsync(adventure, ct));
     }
 
     public async Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct)
@@ -419,7 +417,7 @@ public class AdventureService : IAdventureService
     }
 
     private async Task<AdventureView> ViewAsync(Adventure adventure, CancellationToken ct) =>
-        new(adventure, await _adventures.CountRevisionsAsync(adventure.Id, ct), await _printDetails.ResolveAsync(adventure, ct));
+        new(adventure, await _adventures.CountRevisionsAsync(adventure.Id, ct), await _printer.ResolveDetailsAsync(adventure, ct));
 
     private static Adventure NewAdventure(
         Guid worldId, Guid userId, string title, string? pitch, Guid? campaignId, DateTimeOffset now) => new()

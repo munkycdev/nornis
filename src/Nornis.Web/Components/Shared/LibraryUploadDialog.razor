@@ -7,43 +7,32 @@
 @* Chronicis's 3-step SAS handshake from Blazor Server: request-upload mints the write URL,
    nornis-upload.js PUTs the file straight to blob storage (never over the SignalR circuit),
    and confirm verifies arrival — queueing indexing when it's a PDF.
-   With an AdventureId it files a Prep print: the PDF the browser saved, under the dated title,
-   as a GM-only Handout. The API sets all three itself; the dialog only shows what it will do. *@
+   A Prep print is not uploaded here: the print page files it in one click (feature 34). *@
 
 <MudDialog>
     <DialogContent>
-        @if (IsPrint)
-        {
-            <MudText Typo="Typo.body2" Class="mb-2">
-                In the print dialog, choose <strong>Save as PDF</strong>, then pick that file here.
-                It's filed as <strong>@_title</strong>, a GM-only handout; you can share it from the Library.
-            </MudText>
-        }
-        else
-        {
-            <MudTextField @bind-Value="_title" Label="Title" Required="true" Immediate="true"
-                          MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_title" Label="Title" Required="true" Immediate="true"
+                      MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
 
-            <div class="d-flex gap-3 mb-3">
-                <MudSelect @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Class="flex-grow-1">
-                    @foreach (var kind in Kinds)
-                    {
-                        <MudSelectItem Value="@kind">@kind</MudSelectItem>
-                    }
-                </MudSelect>
-                @if (Worlds.IsGm)
+        <div class="d-flex gap-3 mb-3">
+            <MudSelect @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Class="flex-grow-1">
+                @foreach (var kind in Kinds)
                 {
-                    <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
-                        <MudSelectItem Value="@("GMOnly")">GM only</MudSelectItem>
-                        <MudSelectItem Value="@("PartyVisible")">Party visible</MudSelectItem>
-                    </MudSelect>
+                    <MudSelectItem Value="@kind">@kind</MudSelectItem>
                 }
-            </div>
-        }
+            </MudSelect>
+            @if (Worlds.IsGm)
+            {
+                <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                    <MudSelectItem Value="@("GMOnly")">GM only</MudSelectItem>
+                    <MudSelectItem Value="@("PartyVisible")">Party visible</MudSelectItem>
+                </MudSelect>
+            }
+        </div>
 
         @* Plain file input: nornis-upload.js reads it by id for the direct-to-blob PUT. *@
         <InputFile id="@_inputId" OnChange="OnFileSelected" class="nornis-upload-input"
-                   accept="@(IsPrint ? ".pdf" : ".pdf,.png,.jpg,.jpeg,.gif,.webp")" />
+                   accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" />
 
         @if (_fileName is not null)
         {
@@ -76,14 +65,6 @@
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
 
-    /// <summary>Set to file a Prep print of this Adventure.</summary>
-    [Parameter] public Guid? AdventureId { get; set; }
-
-    /// <summary>The title a print is filed under, as the API will set it.</summary>
-    [Parameter] public string? PrintTitle { get; set; }
-
-    private bool IsPrint => AdventureId is not null;
-
     private readonly string _inputId = $"nornis-upload-{Guid.NewGuid():N}";
     private string _title = string.Empty;
     private string _kind = "Sourcebook";
@@ -95,16 +76,6 @@
     private int _progress;
     private string? _error;
     private DotNetObjectReference<LibraryUploadDialog>? _selfRef;
-
-    protected override void OnInitialized()
-    {
-        if (IsPrint)
-        {
-            _title = PrintTitle ?? string.Empty;
-            _kind = "Handout";
-            _visibility = "GMOnly";
-        }
-    }
 
     private void OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -138,7 +109,7 @@
 
         var visibility = Worlds.IsGm ? _visibility : "PartyVisible";
         var ticket = await Api.RequestLibraryUploadAsync(Worlds.Current.Id,
-            new RequestLibraryUploadRequest(_title.Trim(), _fileName, _contentType, _fileSize, _kind, visibility, AdventureId));
+            new RequestLibraryUploadRequest(_title.Trim(), _fileName, _contentType, _fileSize, _kind, visibility));
 
         if (!ticket.IsSuccess)
         {

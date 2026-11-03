@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
@@ -18,9 +17,9 @@ using NUnit.Framework;
 namespace Nornis.Web.Tests.Components;
 
 /// <summary>
-/// The booklet page and the Library's handling of a print (feature 29, Requirement 7): who gets
-/// the page, that it shows the API's booklet as is, that File to Library files the PDF against
-/// the Adventure, and that sharing a print asks first because it may hold the Hidden truth.
+/// The booklet page and the Library's handling of a print (features 29 and 34): who gets the page,
+/// that it shows the API's PDF in the browser's viewer, that File to Library files it in one click,
+/// and that sharing a print asks first because it may hold the Hidden truth.
 /// </summary>
 [TestFixture]
 [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
@@ -46,7 +45,6 @@ public class AdventurePrintPageTests : BunitContext
         Services.AddSingleton(sp => new WorldState(api, viewAs, sp.GetRequiredService<IJSRuntime>()));
 
         JSInterop.Mode = JSRuntimeMode.Loose;
-        JSInterop.Setup<bool>("nornisUpload.send", _ => true).SetResult(true);
         Renderer.SetRendererInfo(new RendererInfo("Server", isInteractive: true));
     }
 
@@ -68,30 +66,36 @@ public class AdventurePrintPageTests : BunitContext
         var cut = await RenderPrintAsync();
 
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("GMs only")));
-        Assert.That(_handler.Requests, Has.None.Contains("/prep"));
-    }
-
-    [Test]
-    public async Task TheGm_SeesTheBookletAsTheApiRenderedIt_WithPrintAndFileToLibrary()
-    {
-        var cut = await RenderPrintAsync();
-
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-page .booklet"), Has.Count.EqualTo(1)));
         Assert.Multiple(() =>
         {
-            Assert.That(cut.Find(".nornis-booklet-page blockquote.read-aloud").TextContent, Does.Contain("The vault door is cold."));
-            Assert.That(cut.FindAll("button.nornis-booklet-print"), Has.Count.EqualTo(1));
-            Assert.That(cut.FindAll("button.nornis-booklet-file"), Has.Count.EqualTo(1));
-            Assert.That(_handler.Requests, Has.Some.EndsWith($"/prep/{StubHandler.AdventureId}/print"),
-                "the page resolves the slug, then asks for the booklet by id");
+            Assert.That(_handler.Requests, Has.None.Contains("/prep"));
+            Assert.That(cut.FindAll("iframe"), Is.Empty);
         });
     }
 
     [Test]
-    public async Task ThePagesTitle_IsTheAdventuresTitleAlone_SoASavedPdfIsNamedAfterIt()
+    public async Task TheGm_SeesTheApisPdf_InTheBrowsersViewer_WithDownloadAndFileToLibrary()
     {
         var cut = await RenderPrintAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-page .booklet"), Has.Count.EqualTo(1)));
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("iframe.nornis-booklet-frame"), Has.Count.EqualTo(1)));
+        var booklet = $"/prep-booklets/{StubHandler.WorldId}/{StubHandler.AdventureId}";
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find("iframe.nornis-booklet-frame").GetAttribute("src"), Is.EqualTo(booklet),
+                "the page resolves the slug, then shows the booklet by id through the Web's own route");
+            Assert.That(cut.Find(".nornis-booklet-open a").GetAttribute("href"), Is.EqualTo(booklet));
+            Assert.That(cut.Find("a.nornis-booklet-download").GetAttribute("href"), Is.EqualTo(booklet + "?download=true"));
+            Assert.That(cut.FindAll("button.nornis-booklet-file"), Has.Count.EqualTo(1));
+            Assert.That(_handler.Requests, Has.None.Contains("/booklet"), "the browser fetches the PDF, not the circuit");
+        });
+    }
+
+    [Test]
+    public async Task ThePagesTitle_IsTheAdventuresTitleAlone()
+    {
+        var cut = await RenderPrintAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("iframe.nornis-booklet-frame"), Has.Count.EqualTo(1)));
 
         var title = Render(cut.FindComponent<PageTitle>().Instance.ChildContent!);
 
@@ -99,45 +103,39 @@ public class AdventurePrintPageTests : BunitContext
     }
 
     [Test]
-    public async Task Print_CallsTheBrowsersPrint()
+    public async Task FileToLibrary_FilesTheBookletInOneClick_AndLinksTheDocument()
     {
         var cut = await RenderPrintAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-booklet-print"), Has.Count.EqualTo(1)));
-
-        await cut.InvokeAsync(() => cut.Find("button.nornis-booklet-print").Click());
-
-        Assert.That(JSInterop.Invocations.Any(i => i.Identifier == "print"), Is.True);
-    }
-
-    [Test]
-    public async Task FileToLibrary_UploadsThePdf_AgainstTheAdventure_AsAGmOnlyHandout()
-    {
-        var cut = await RenderPrintAsync();
-        var dialogs = Render<MudDialogProvider>();
         cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-booklet-file"), Has.Count.EqualTo(1)));
 
         await cut.InvokeAsync(() => cut.Find("button.nornis-booklet-file").Click());
-        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Save as PDF")));
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-filed"), Has.Count.EqualTo(1)));
         Assert.Multiple(() =>
         {
-            Assert.That(dialogs.Markup, Does.Contain("The Silver Key, printed 2026-11-02"));
-            Assert.That(dialogs.Markup, Does.Not.Contain("Visibility"), "a print is always filed GM only");
-            Assert.That(dialogs.Find("input[type=file]").GetAttribute("accept"), Is.EqualTo(".pdf"));
-        });
-
-        dialogs.FindComponent<InputFile>().UploadFiles(
-            InputFileContent.CreateFromText("%PDF-1.7", "booklet.pdf", contentType: "application/pdf"));
-        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Upload").Click());
-
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Filed as")));
-        var body = JsonDocument.Parse(_handler.LastUploadBody!).RootElement;
-        Assert.Multiple(() =>
-        {
-            Assert.That(body.GetProperty("adventureId").GetGuid(), Is.EqualTo(StubHandler.AdventureId));
-            Assert.That(body.GetProperty("kind").GetString(), Is.EqualTo("Handout"));
-            Assert.That(body.GetProperty("visibility").GetString(), Is.EqualTo("GMOnly"));
-            Assert.That(_handler.Requests, Has.Some.EndsWith($"/library/{StubHandler.DocumentId}/confirm"));
+            Assert.That(_handler.Requests, Has.One.EqualTo($"POST /api/worlds/{StubHandler.WorldId}/prep/{StubHandler.AdventureId}/booklet/file"));
+            Assert.That(_handler.Requests, Has.None.Contains("/library/request-upload"), "nothing is uploaded from the browser");
             Assert.That(cut.Find(".nornis-booklet-filed a").GetAttribute("href"), Is.EqualTo("/library/the-silver-key-printed-2026-11-02"));
+            Assert.That(cut.Find(".nornis-booklet-filed").TextContent, Does.Contain("GM only"));
+            Assert.That(cut.FindAll(".nornis-booklet-file-error"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task FileToLibrary_WhenTheApiRefuses_ShowsWhy_AndFilesNothing()
+    {
+        _handler.FileFails = true;
+        var cut = await RenderPrintAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-booklet-file"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-booklet-file").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-file-error"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-booklet-file-error").TextContent, Does.Contain("The booklet couldn't be laid out."));
+            Assert.That(cut.FindAll(".nornis-booklet-filed"), Is.Empty);
+            Assert.That(cut.Find("button.nornis-booklet-file").HasAttribute("disabled"), Is.False, "the GM can try again");
         });
     }
 
@@ -202,11 +200,11 @@ public class AdventurePrintPageTests : BunitContext
     {
         public static readonly Guid AdventureId = Guid.NewGuid();
         public static readonly Guid DocumentId = Guid.NewGuid();
-        private static readonly Guid WorldId = Guid.NewGuid();
+        public static readonly Guid WorldId = Guid.NewGuid();
 
         public string Role { get; set; } = "GM";
+        public bool FileFails { get; set; }
         public List<string> Requests { get; } = [];
-        public string? LastUploadBody { get; private set; }
 
         public static LibraryDocumentDto Document(string visibility, Guid? adventureId) => new(
             DocumentId, WorldId, "The Silver Key, printed 2026-11-02", "booklet.pdf", "application/pdf", 8, "Handout",
@@ -225,11 +223,15 @@ public class AdventurePrintPageTests : BunitContext
                     """);
             }
 
-            if (request.Method == HttpMethod.Get && path.EndsWith("/print", StringComparison.Ordinal))
+            if (request.Method == HttpMethod.Post && path.EndsWith("/booklet/file", StringComparison.Ordinal))
             {
-                return Json(JsonSerializer.Serialize(new AdventurePrintDto(AdventureId, "The Silver Key", "the-silver-key",
-                    "<article class=\"booklet\"><section class=\"booklet-section\"><blockquote class=\"read-aloud\"><p>The vault door is cold.</p></blockquote></section></article>",
-                    "The Silver Key, printed 2026-11-02"), JsonSerializerOptions.Web));
+                return FileFails
+                    ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("""{"code":"print_failed","message":"The booklet couldn't be laid out."}""",
+                            Encoding.UTF8, "application/json"),
+                    }
+                    : Json(JsonSerializer.Serialize(Document("GMOnly", AdventureId), JsonSerializerOptions.Web));
             }
 
             if (request.Method == HttpMethod.Get && path.Contains("/prep/", StringComparison.Ordinal))
@@ -239,18 +241,6 @@ public class AdventurePrintPageTests : BunitContext
                      "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
                      "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00","sections":[]}
                     """);
-            }
-
-            if (request.Method == HttpMethod.Post && path.EndsWith("/library/request-upload", StringComparison.Ordinal))
-            {
-                LastUploadBody = await request.Content!.ReadAsStringAsync(ct);
-                var ticket = new LibraryUploadTicketDto(Document("GMOnly", AdventureId), "https://blob.example/upload");
-                return Json(JsonSerializer.Serialize(ticket, JsonSerializerOptions.Web));
-            }
-
-            if (request.Method == HttpMethod.Post && path.EndsWith("/confirm", StringComparison.Ordinal))
-            {
-                return Json(JsonSerializer.Serialize(Document("GMOnly", AdventureId), JsonSerializerOptions.Web));
             }
 
             if (request.Method == HttpMethod.Put && path.EndsWith("/visibility", StringComparison.Ordinal))

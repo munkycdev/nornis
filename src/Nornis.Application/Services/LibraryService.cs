@@ -46,7 +46,7 @@ public class LibraryService : ILibraryService
     private readonly IBlobStorageService _blobStorage;
     private readonly ILibraryIndexingQueueClient _indexingQueueClient;
     private readonly IAdventureRepository _adventures;
-    private readonly AdventurePrintDetails _printDetails;
+    private readonly AdventureBookletPrinter _printer;
     private readonly LibraryOptions _options;
     private readonly ILogger<LibraryService> _logger;
 
@@ -56,11 +56,11 @@ public class LibraryService : ILibraryService
         IBlobStorageService blobStorage,
         ILibraryIndexingQueueClient indexingQueueClient,
         IAdventureRepository adventures,
-        AdventurePrintDetails printDetails,
+        AdventureBookletPrinter printer,
         IOptions<LibraryOptions> options,
         ILogger<LibraryService> logger)
     {
-        _printDetails = printDetails;
+        _printer = printer;
         _documentRepository = documentRepository;
         _chunkRepository = chunkRepository;
         _blobStorage = blobStorage;
@@ -122,32 +122,12 @@ public class LibraryService : ILibraryService
             return AppResult<LibraryUploadTicket>.Fail(new AppError(403, "insufficient_role", "Observers cannot upload library documents."));
         }
 
-        // A print filed from Prep (feature 29): the GM's alone, and its shape is fixed here, not
-        // by the client, because the booklet was drafted with the world's Hidden truth.
-        Adventure? printedFrom = null;
-        PrintDetails? printDetails = null;
-        if (command.AdventureId is { } adventureId)
+        // A print is filed from Prep in one step (feature 34), never uploaded: that keeps the one
+        // place a print's shape and details are set in FilePrintAsync.
+        if (command.AdventureId is not null)
         {
-            if (command.ActingUserRole != WorldRole.GM)
-            {
-                return AppResult<LibraryUploadTicket>.Fail(new AppError(403, "insufficient_role", "Only the GM can file a Prep print."));
-            }
-
-            printedFrom = await _adventures.GetWithSectionsAsync(adventureId, ct);
-            if (printedFrom is null || printedFrom.WorldId != command.WorldId)
-            {
-                return AppResult<LibraryUploadTicket>.Fail(new AppError(404, "not_found", "Adventure not found."));
-            }
-
-            // The print's details as they stand now (feature 32), kept with the document and
-            // never changed: renaming the Adventure or editing its details later leaves them.
-            printDetails = await _printDetails.ResolveAsync(printedFrom, ct);
-            command = command with
-            {
-                Title = PrintTitle(printedFrom.Title, DateTimeOffset.UtcNow),
-                Kind = LibraryDocumentKind.Handout,
-                Visibility = VisibilityScope.GMOnly,
-            };
+            return AppResult<LibraryUploadTicket>.Fail(new AppError(400, "prints_are_filed_from_prep",
+                "A Prep print is filed from its print page, not uploaded."));
         }
 
         var titleResult = NormalizeTitle(command.Title);
@@ -196,8 +176,6 @@ public class LibraryService : ILibraryService
             Visibility = visibility,
             Status = LibraryDocumentStatus.PendingUpload,
             UploadedByUserId = command.ActingUserId,
-            AdventureId = printedFrom?.Id,
-            PrintDetails = printDetails,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -247,7 +225,17 @@ public class LibraryService : ILibraryService
                 + $"{_options.MaxUploadSizeBytes / (1024 * 1024)} MB limit. It has been discarded."));
         }
 
-        document.SizeBytes = metadata.SizeBytes;
+        return await CompleteStoredAsync(document, worldId, metadata.SizeBytes, ct);
+    }
+
+    /// <summary>
+    /// Finishes a document whose file is in storage: its size and status, the last print of the
+    /// Adventure it was printed from, and indexing for a PDF. A confirmed upload and a filed print
+    /// both end here, so the two can't drift on what a stored document is.
+    /// </summary>
+    private async Task<AppResult<LibraryDocument>> CompleteStoredAsync(LibraryDocument document, Guid worldId, long sizeBytes, CancellationToken ct)
+    {
+        document.SizeBytes = sizeBytes;
         document.UpdatedAt = DateTimeOffset.UtcNow;
 
         var isPdf = string.Equals(document.ContentType, PdfContentType, StringComparison.OrdinalIgnoreCase);
@@ -278,6 +266,71 @@ public class LibraryService : ILibraryService
         }
 
         return AppResult<LibraryDocument>.Success(document);
+    }
+
+    public async Task<AppResult<LibraryDocument>> FilePrintAsync(FilePrintCommand command, CancellationToken ct)
+    {
+        // The booklet was drafted with the world's Hidden truth, so a print is the GM's alone.
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(403, "insufficient_role", "Only the GM can file a Prep print."));
+        }
+
+        var adventure = await _adventures.GetWithSectionsAsync(command.AdventureId, ct);
+        if (adventure is null || adventure.WorldId != command.WorldId)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(404, "not_found", "Adventure not found."));
+        }
+
+        PrintedBooklet booklet;
+        try
+        {
+            booklet = await _printer.PrintAsync(adventure, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Could not render the booklet of adventure {AdventureId}", adventure.Id);
+            return AppResult<LibraryDocument>.Fail(new AppError(500, "print_failed", "The booklet could not be rendered."));
+        }
+
+        if (booklet.Pdf.Length > _options.MaxUploadSizeBytes)
+        {
+            return AppResult<LibraryDocument>.Fail(new AppError(400, "upload_too_large",
+                $"The booklet is {booklet.Pdf.Length / (1024 * 1024)} MB, over the "
+                + $"{_options.MaxUploadSizeBytes / (1024 * 1024)} MB limit."));
+        }
+
+        // The one place a print's shape is set: GM-only, a dated Handout, its Adventure, and the
+        // details it was printed with, never changed afterwards (features 29 and 32).
+        var now = DateTimeOffset.UtcNow;
+        var document = new LibraryDocument
+        {
+            Id = Guid.NewGuid(),
+            WorldId = command.WorldId,
+            Title = PrintTitle(adventure.Title, now),
+            FileName = booklet.FileName,
+            ContentType = PdfContentType,
+            SizeBytes = booklet.Pdf.Length,
+            Kind = LibraryDocumentKind.Handout,
+            Visibility = VisibilityScope.GMOnly,
+            Status = LibraryDocumentStatus.PendingUpload,
+            UploadedByUserId = command.ActingUserId,
+            AdventureId = adventure.Id,
+            PrintDetails = booklet.Details,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        document.BlobPath = _blobStorage.BuildBlobPath(command.WorldId, document.Id, booklet.FileName);
+
+        // Created pending first, as an upload is: if the upload or the finish fails, the row is
+        // an abandoned upload and the pending-upload sweeper removes it and any blob.
+        document = await _documentRepository.CreateAsync(document, ct);
+        using (var content = new MemoryStream(booklet.Pdf, writable: false))
+        {
+            await _blobStorage.UploadAsync(document.BlobPath, content, PdfContentType, ct);
+        }
+
+        return await CompleteStoredAsync(document, command.WorldId, booklet.Pdf.Length, ct);
     }
 
     public async Task<AppResult<IReadOnlyList<LibraryDocument>>> ListAsync(Guid worldId, WorldRole role, CancellationToken ct)

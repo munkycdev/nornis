@@ -11,6 +11,12 @@ public interface ILibraryService
 
     Task<AppResult<LibraryDocument>> ConfirmUploadAsync(Guid documentId, Guid worldId, Guid actingUserId, CancellationToken ct);
 
+    /// <summary>
+    /// Renders a Prep Adventure's booklet and files it as a print (feature 34): a GM-only, dated
+    /// Handout that records its Adventure and the details it was printed with.
+    /// </summary>
+    Task<AppResult<LibraryDocument>> FilePrintAsync(FilePrintCommand command, CancellationToken ct);
+
     Task<AppResult<IReadOnlyList<LibraryDocument>>> ListAsync(Guid worldId, WorldRole role, CancellationToken ct);
 
     Task<AppResult<LibraryDocument>> GetByIdAsync(Guid documentId, Guid worldId, WorldRole role, CancellationToken ct);

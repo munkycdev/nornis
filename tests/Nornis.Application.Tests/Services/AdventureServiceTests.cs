@@ -22,6 +22,7 @@ public class AdventureServiceTests
     private InMemoryCampaignRepository _campaigns = null!;
     private PrepOptions _options = null!;
     private AdventureService _sut = null!;
+    private FakeBookletPdfRenderer _renderer = null!;
 
     [SetUp]
     public void SetUp()
@@ -31,7 +32,9 @@ public class AdventureServiceTests
         _options = new PrepOptions();
         var slugs = new FakeSlugResolver((world, slug) =>
             _adventures.Adventures.FirstOrDefault(a => a.WorldId == world && a.Slug == slug)?.Id);
-        _sut = new AdventureService(_adventures, _campaigns, slugs, TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), Options.Create(_options));
+        _renderer = new FakeBookletPdfRenderer();
+        _sut = new AdventureService(_adventures, _campaigns, slugs,
+            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer), Options.Create(_options));
     }
 
     private async Task<AdventureView> CreateAsync(string title = "The Silver Key", Guid? campaignId = null)
@@ -507,21 +510,47 @@ public class AdventureServiceTests
     }
 
     [Test]
-    public async Task ThePrint_CarriesTheResolvedDetails_OnItsCover()
+    public async Task TheBooklet_CarriesTheResolvedDetails_OnItsCover()
     {
         var view = await CreateAsync();
         await _sut.UpdateDetailsAsync(
             new UpdateAdventureDetailsCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, "1st", "1–3", 2026), CancellationToken.None);
 
-        var print = await _sut.GetPrintAsync(WorldId, view.Adventure.Id, WorldRole.GM, CancellationToken.None);
+        var booklet = await _sut.GetBookletAsync(WorldId, view.Adventure.Id, WorldRole.GM, CancellationToken.None);
 
-        Assert.That(print.IsSuccess, Is.True, print.Error?.Message);
+        Assert.That(booklet.IsSuccess, Is.True, booklet.Error?.Message);
+        var cover = _renderer.Rendered.Single().Cover;
         Assert.Multiple(() =>
         {
-            Assert.That(print.Value!.Html, Does.Contain("<p class=\"booklet-system\">Shadowdark 1st</p>"), "the world's game system");
-            Assert.That(print.Value.Html, Does.Contain($"<p class=\"booklet-author\">By {TestPrintDetails.Username}</p>"));
-            Assert.That(print.Value.Html, Does.Contain("Nornis Press · 2026"));
+            Assert.That(cover.SystemLine, Is.EqualTo("Shadowdark 1st"), "the world's game system");
+            Assert.That(cover.AuthorLine, Is.EqualTo($"By {TestPrintDetails.Username}"));
+            Assert.That(cover.CreditsLine, Does.EndWith("Nornis Press · 2026"));
+            Assert.That(booklet.Value!.Pdf, Is.EqualTo(FakeBookletPdfRenderer.BytesFor(_renderer.Rendered.Single(), _renderer.Size)));
+            Assert.That(booklet.Value.FileName, Is.EqualTo($"{view.Adventure.Title}.pdf"));
         });
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task OnlyTheGm_GetsTheBooklet(WorldRole role)
+    {
+        var view = await CreateAsync();
+
+        var booklet = await _sut.GetBookletAsync(WorldId, view.Adventure.Id, role, CancellationToken.None);
+
+        Assert.That(booklet.Error?.StatusCode, Is.EqualTo(403));
+        Assert.That(_renderer.Rendered, Is.Empty);
+    }
+
+    [Test]
+    public async Task AnotherWorldsBooklet_IsNotFound()
+    {
+        var view = await CreateAsync();
+
+        var booklet = await _sut.GetBookletAsync(Guid.NewGuid(), view.Adventure.Id, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(booklet.Error?.StatusCode, Is.EqualTo(404));
+        Assert.That(_renderer.Rendered, Is.Empty);
     }
 
     // ------------------------------------------------------------- Delete --

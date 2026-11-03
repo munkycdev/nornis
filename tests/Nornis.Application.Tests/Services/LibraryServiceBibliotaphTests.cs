@@ -23,7 +23,7 @@ public class LibraryServiceBibliotaphTests
     {
         _documents = new InMemoryLibraryDocumentRepository();
         _sut = new LibraryService(_documents, new InMemoryLibraryChunkRepository(), new FakeBlobStorageService(),
-            new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(), TestPrintDetails.None,
+            new FakeLibraryIndexingQueueClient(), new InMemoryAdventureRepository(), TestBooklets.Printer(TestPrintDetails.None),
             Options.Create(new LibraryOptions()), NullLogger<LibraryService>.Instance);
     }
 

@@ -976,8 +976,8 @@ public record LibraryBibliotaphDto(string State, string? OwnerName)
 }
 
 /// <summary>
-/// <see cref="AdventureId"/> files a Prep print: the API then sets the dated title, Handout and
-/// GM only itself, whatever the other fields say.
+/// An ordinary upload. A Prep print is not uploaded: the print page files it in one click
+/// (feature 34), and the API refuses an upload that names an Adventure.
 /// </summary>
 public record RequestLibraryUploadRequest(
     string Title,
@@ -985,8 +985,7 @@ public record RequestLibraryUploadRequest(
     string ContentType,
     long SizeBytes,
     string Kind,
-    string Visibility,
-    Guid? AdventureId = null);
+    string Visibility);
 
 public record LibraryUploadTicketDto(LibraryDocumentDto Document, string UploadUrl);
 
@@ -1193,9 +1192,6 @@ public record PrepBudgetDto(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd
 public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterSectionId);
 
 public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
-
-/// <summary>The booklet: <see cref="Html"/> is escaped, sanitized markup from the API, shown as is.</summary>
-public record AdventurePrintDto(Guid AdventureId, string Title, string? Slug, string Html, string LibraryTitle);
 
 /// <summary>Export to Nornis. A null chapter is the whole Adventure.</summary>
 public record ExportAdventureRequest(Guid? ChapterSectionId);

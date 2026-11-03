@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.ServerSentEvents;
+using System.Text;
 using System.Text.Json;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
@@ -57,7 +58,8 @@ public class PrepEndpointTests
         yield return ("draft", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/sections/{s}/draft",
             new DraftAdventureSectionRequest("Write it.", DateTimeOffset.UtcNow)));
         yield return ("budget", (c, w, _, _) => c.GetAsync($"/api/worlds/{w}/prep-budget"));
-        yield return ("print", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/print"));
+        yield return ("booklet", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/booklet"));
+        yield return ("file booklet", (c, w, a, _) => c.PostAsync($"{Base(w)}/{a}/booklet/file", null));
         yield return ("export", (c, w, a, _) => c.PostAsJsonAsync($"{Base(w)}/{a}/export", new ExportAdventureRequest(null)));
         yield return ("conversation", (c, w, a, _) => c.GetAsync($"{Base(w)}/{a}/conversation"));
         yield return ("send message", (c, w, a, s) => c.PostAsJsonAsync($"{Base(w)}/{a}/conversation/messages",
@@ -369,21 +371,70 @@ public class PrepEndpointTests
     }
 
     [Test]
-    public async Task Print_ReturnsTheBooklet_WithTheTitleItWillBeFiledUnder()
+    public async Task Booklet_IsThePdf_ShownInline_AndNeverCached()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
         var worldId = scenario.World.Id;
         var adventure = await WriteOverviewAsync(scenario.GmClient, worldId,
             await CreateAsync(scenario.GmClient, worldId), "> The vault door is cold.");
 
-        var print = await scenario.GmClient.GetFromJsonAsync<AdventurePrintResponse>($"{Base(worldId)}/{adventure.Id}/print");
+        var response = await scenario.GmClient.GetAsync($"{Base(worldId)}/{adventure.Id}/booklet");
+        var bytes = await response.Content.ReadAsByteArrayAsync();
 
         Assert.Multiple(() =>
         {
-            Assert.That(print!.AdventureId, Is.EqualTo(adventure.Id));
-            Assert.That(print.Html, Does.StartWith("<article class=\"booklet\">"));
-            Assert.That(print.Html, Does.Contain("<blockquote class=\"read-aloud\">"));
-            Assert.That(print.LibraryTitle, Does.StartWith("The Silver Key, printed "));
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/pdf"));
+            Assert.That(Encoding.ASCII.GetString(bytes, 0, 5), Is.EqualTo("%PDF-"));
+            Assert.That(response.Content.Headers.ContentDisposition?.DispositionType, Is.EqualTo("inline"));
+            Assert.That(response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName,
+                Is.EqualTo("The Silver Key.pdf"));
+            Assert.That(response.Headers.CacheControl?.NoStore, Is.True);
+            Assert.That(response.Headers.CacheControl?.Private, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task FileBooklet_StoresThePdf_AsTheAdventuresGmOnlyPrint()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PostAsync($"{Base(worldId)}/{adventure.Id}/booklet/file", null);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created), await response.Content.ReadAsStringAsync());
+        var filed = (await response.Content.ReadFromJsonAsync<LibraryDocumentResponse>())!;
+        var reloaded = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+        var blob = _factory.BlobStorage.Blobs.Values.Select(b => b.Content).Single(c => c.Length == filed.SizeBytes);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(filed.Title, Does.StartWith("The Silver Key, printed "));
+            Assert.That(filed.Kind, Is.EqualTo("Handout"));
+            Assert.That(filed.Visibility, Is.EqualTo("GMOnly"));
+            Assert.That(filed.ContentType, Is.EqualTo("application/pdf"));
+            Assert.That(filed.FileName, Is.EqualTo("The Silver Key.pdf"));
+            Assert.That(filed.AdventureId, Is.EqualTo(adventure.Id));
+            Assert.That(filed.Status, Is.Not.EqualTo("PendingUpload"));
+            Assert.That(Encoding.ASCII.GetString(blob, 0, 5), Is.EqualTo("%PDF-"));
+            Assert.That(reloaded.LastPrintedDocumentId, Is.EqualTo(filed.Id));
+        });
+    }
+
+    [Test]
+    public async Task AnUpload_NamingAnAdventure_IsRefused()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PostAsJsonAsync($"/api/worlds/{worldId}/library/request-upload",
+            new RequestLibraryUploadRequest("Mine", "mine.pdf", "application/pdf", 1024, "Handout", "GMOnly", adventure.Id));
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("prints_are_filed_from_prep"));
         });
     }
 

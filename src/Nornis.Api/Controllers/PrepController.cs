@@ -3,6 +3,7 @@ using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
@@ -30,11 +31,13 @@ public class PrepController : ControllerBase
     private readonly IAdventureDraftingService _drafting;
     private readonly IAdventureExportService _export;
     private readonly IAdventureConversationService _conversation;
+    private readonly ILibraryService _library;
 
     public PrepController(
         IAdventureService adventures, IAdventureDraftingService drafting, IAdventureExportService export,
-        IAdventureConversationService conversation)
+        IAdventureConversationService conversation, ILibraryService library)
     {
+        _library = library;
         _adventures = adventures;
         _drafting = drafting;
         _export = export;
@@ -159,17 +162,33 @@ public class PrepController : ControllerBase
         Respond(await _adventures.ReorderAsync(new ReorderSectionsCommand(
             worldId, adventureId, HttpContext.GetWorldMember().Role, request.SectionIds ?? []), ct));
 
-    [HttpGet("{adventureId:guid}/print")]
-    public async Task<IActionResult> Print(Guid worldId, Guid adventureId, CancellationToken ct)
+    /// <summary>The booklet as a PDF (feature 34), shown inline; the file name is the Adventure's title.</summary>
+    [HttpGet("{adventureId:guid}/booklet")]
+    public async Task<IActionResult> Booklet(Guid worldId, Guid adventureId, CancellationToken ct)
     {
-        var result = await _adventures.GetPrintAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
+        var result = await _adventures.GetBookletAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
         if (!result.IsSuccess)
         {
             return result.Error!.ToActionResult();
         }
 
-        var print = result.Value!;
-        return Ok(new AdventurePrintResponse(print.Adventure.Id, print.Adventure.Title, print.Adventure.Slug, print.Html, print.LibraryTitle));
+        var booklet = result.Value!;
+        var disposition = new ContentDispositionHeaderValue("inline");
+        disposition.SetHttpFileName(booklet.FileName);
+        Response.Headers.ContentDisposition = disposition.ToString();
+        Response.Headers.CacheControl = "private, no-store";
+        return File(booklet.Pdf, LibraryService.PdfContentType);
+    }
+
+    /// <summary>File to Library in one click (feature 34): renders the booklet and files it as a print.</summary>
+    [HttpPost("{adventureId:guid}/booklet/file")]
+    public async Task<IActionResult> FileBooklet(Guid worldId, Guid adventureId, CancellationToken ct)
+    {
+        var result = await _library.FilePrintAsync(new FilePrintCommand(
+            worldId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role, adventureId), ct);
+        return result.IsSuccess
+            ? StatusCode(StatusCodes.Status201Created, LibraryController.ToResponse(result.Value!))
+            : result.Error!.ToActionResult();
     }
 
     /// <summary>
