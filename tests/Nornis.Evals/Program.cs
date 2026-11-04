@@ -28,11 +28,15 @@ public static class Program
           baseline --model <provider/model> [--corpus <corpus.json>] [--out <folder>] [--force true]
               Reads the corpus with the baseline model, each source against the world its own
               earlier answers built, and writes baseline/{world}.md checklists to review once.
-          run --model <provider/model> [--corpus <corpus.json>] [--out <folder>] [--repeat <n>]
+          run --model <provider/model> [--judge <provider/model>] [--corpus <corpus.json>] [--out <folder>] [--repeat <n>]
               Reads every source against the reviewed baseline's world, saves the run, and writes
-              its report beside it.
+              its report beside it. With --judge, that model also rules on what the key matching
+              couldn't settle; use the same judge for every model you compare.
+          judge --run <runs/....json> --model <provider/model> [--corpus <corpus.json>] [--out <folder>]
+              Judges a saved run (again), then rewrites its report.
           report --run <runs/....json> [--corpus <corpus.json>] [--out <folder>]
-              Scores a saved run again, after the baseline's ticks changed.
+              Scores a saved run again, after the baseline's ticks changed. A judgement saved
+              beside it is used; one made before the ticks changed may no longer fit every line.
 
         provider is openai, anthropic, gemini, or azure (Nornis's own deployment, e.g.
         azure/nornis-extract).
@@ -59,6 +63,7 @@ public static class Program
                 "corpus" => WriteCorpus(root, options, output),
                 "baseline" => await BaselineAsync(root, options, output),
                 "run" => await RunAsync(root, options, output),
+                "judge" => await JudgeAsync(root, options, output, Required(options, "run"), Required(options, "model")),
                 "report" => Rescore(root, options, output),
                 _ => throw new ArgumentException($"Unknown command '{args[0]}'.\n\n{Usage}"),
             };
@@ -108,25 +113,65 @@ public static class Program
     {
         var corpus = LoadCorpus(options, output);
         var kept = Baseline.Load(Path.Combine(output, "baseline"), corpus);
+        var judge = options.GetValueOrDefault("judge");
+        if (judge is not null)
+        {
+            // Bound before the run, so a missing judge key fails now rather than after paying for the run.
+            using var probe = new UserKeyChatClients(maxRetries: 0);
+            EvalModel.Parse(judge, Configuration(root)).Bind(Configuration(root), probe);
+        }
+
         var (_, model, run) = await ReadCorpusAsync(root, options, output, WorldReplay.From(kept));
 
         var folder = Path.Combine(output, "runs");
         Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, $"{run.RanAt:yyyyMMdd-HHmmss}-{model.Name.Replace('/', '_')}");
-        run.Save(path + ".json");
-        File.WriteAllText(path + ".md", Report.Write(corpus, run, kept, model.Price));
-        Console.WriteLine($"Report: {path}.md");
-        return 0;
+        var path = Path.Combine(folder, $"{run.RanAt:yyyyMMdd-HHmmss}-{model.Name.Replace('/', '_')}.json");
+        run.Save(path);
+        return judge is null ? WriteReport(root, corpus, path, kept) : await JudgeAsync(root, options, output, path, judge);
+    }
+
+    private static async Task<int> JudgeAsync(string root, Dictionary<string, string> options, string output, string runPath, string judgeName)
+    {
+        var configuration = Configuration(root);
+        var corpus = LoadCorpus(options, output);
+        var kept = Baseline.Load(Path.Combine(output, "baseline"), corpus);
+        var judgeModel = EvalModel.Parse(judgeName, configuration);
+        using var userKeys = new UserKeyChatClients(maxRetries: 2);
+        using var logging = LoggerFactory.Create(b => b.AddSimpleConsole().SetMinimumLevel(LogLevel.Warning));
+        var judge = new Judge(new EvalBinder(judgeModel.Bind(configuration, userKeys)), judgeModel.Model, logging.CreateLogger<Judge>());
+
+        var run = RunRecord.Load(runPath);
+        if (run.Model == judgeModel.Name)
+        {
+            Console.WriteLine($"Note: {judgeModel.Name} is judging its own run.");
+        }
+
+        var judgements = new List<CaseJudgement>();
+        foreach (var row in Report.Score(corpus, run, kept).Where(r => r.Score is { } score && judge.NeedsJudging(score)))
+        {
+            Console.WriteLine($"  judging {row.World.Id}/{row.Case.Id}");
+            judgements.Add(await judge.JudgeAsync(row.World.Id, row.Case, row.Record.Pass, row.Score!, row.Expected, CancellationToken.None));
+        }
+
+        new JudgeRecord(judgeModel.Name, DateTimeOffset.UtcNow, judgements).Save(JudgeRecord.PathFor(runPath));
+        return WriteReport(root, corpus, runPath, kept);
     }
 
     private static int Rescore(string root, Dictionary<string, string> options, string output)
     {
-        var path = Required(options, "run");
         var corpus = LoadCorpus(options, output);
-        var run = RunRecord.Load(path);
-        var model = EvalModel.Parse(run.Model, Configuration(root));
-        var report = Path.ChangeExtension(path, ".md");
-        File.WriteAllText(report, Report.Write(corpus, run, Baseline.Load(Path.Combine(output, "baseline"), corpus), model.Price));
+        return WriteReport(root, corpus, Required(options, "run"), Baseline.Load(Path.Combine(output, "baseline"), corpus));
+    }
+
+    private static int WriteReport(string root, EvalCorpus corpus, string runPath,
+        IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<System.Text.Json.JsonElement>>> kept)
+    {
+        var configuration = Configuration(root);
+        var run = RunRecord.Load(runPath);
+        var judged = JudgeRecord.LoadIfAny(runPath);
+        var report = Path.ChangeExtension(runPath, ".md");
+        File.WriteAllText(report, Report.Write(corpus, run, kept, EvalModel.Parse(run.Model, configuration).Price,
+            judged, judged is null ? null : EvalModel.Parse(judged.Judge, configuration).Price));
         Console.WriteLine($"Report: {report}");
         return 0;
     }

@@ -16,8 +16,41 @@ namespace Nornis.Evals.Scoring;
 /// </summary>
 public static class Report
 {
+    /// <param name="judged">The judge's verdicts on this run, when it was judged; the judge's
+    /// own calls are priced at <paramref name="judgePrice"/>.</param>
     public static string Write(
-        EvalCorpus corpus, RunRecord run, IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<JsonElement>>> kept, AiModelPrice? price)
+        EvalCorpus corpus, RunRecord run, IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<JsonElement>>> kept, AiModelPrice? price,
+        JudgeRecord? judged = null, AiModelPrice? judgePrice = null)
+    {
+        var rows = Score(corpus, run, kept)
+            .Select(r => r with { Judgement = judged?.For(r.World.Id, r.Case.Id, r.Record.Pass) })
+            .ToList();
+
+        var text = new StringBuilder()
+            .AppendLine($"# Extraction eval: {run.Model}")
+            .AppendLine()
+            .AppendLine($"Run {run.RanAt:yyyy-MM-dd HH:mm} UTC over {corpus.Worlds.Sum(w => w.Cases.Count)} sources"
+                        + (run.Repeat > 1 ? $", each read {run.Repeat} times" : "") + ", scored against the reviewed baseline.")
+            .AppendLine("Every source was read against the same world (the baseline's), so the numbers differ only by the model.")
+            .AppendLine();
+
+        Totals(text, rows, price);
+        if (judged is not null)
+        {
+            JudgeTotals(text, rows, judged, judgePrice);
+        }
+
+        Cases(text, rows, price);
+        foreach (var row in rows.Where(r => r.Score is null || r.Score.Missed.Count + r.Score.Invented.Count > 0 || r.Score.Differences.Any()))
+        {
+            Details(text, row, run.Repeat);
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>Every case of a run, scored by key matching against the kept baseline.</summary>
+    public static List<Row> Score(EvalCorpus corpus, RunRecord run, IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<JsonElement>>> kept)
     {
         var replay = WorldReplay.From(kept);
         var rows = new List<Row>();
@@ -30,28 +63,43 @@ public static class Report
                 foreach (var record in run.Cases.Where(c => c.World == world.Id && c.Case == world.Cases[i].Id).OrderBy(c => c.Pass))
                 {
                     var answer = (record.Proposals ?? []).Select(p => ProposalView.Read(p, names)).ToList();
-                    rows.Add(new Row(world, world.Cases[i], record, record.Proposals is null ? null : Scorer.Score(expected, answer), expected.Count));
+                    rows.Add(new Row(world, world.Cases[i], record, record.Proposals is null ? null : Scorer.Score(expected, answer), expected));
                 }
             }
         }
 
-        var text = new StringBuilder()
-            .AppendLine($"# Extraction eval: {run.Model}")
-            .AppendLine()
-            .AppendLine($"Run {run.RanAt:yyyy-MM-dd HH:mm} UTC over {corpus.Worlds.Sum(w => w.Cases.Count)} sources"
-                        + (run.Repeat > 1 ? $", each read {run.Repeat} times" : "") + ", scored against the reviewed baseline.")
-            .AppendLine("Every source was read against the same world (the baseline's), so the numbers differ only by the model.")
-            .AppendLine();
-
-        Totals(text, rows, price);
-        Cases(text, rows, price);
-        foreach (var row in rows.Where(r => r.Score is null || r.Score.Missed.Count + r.Score.Invented.Count > 0 || r.Score.Differences.Any()))
-        {
-            Details(text, row, run.Repeat);
-        }
-
-        return text.ToString();
+        return rows;
     }
+
+    /// <summary>The same totals with the judge's rulings applied: a missed proposal the judge
+    /// found covered counts as found, and what was invented is split by whether the source
+    /// supports it.</summary>
+    private static void JudgeTotals(StringBuilder text, List<Row> rows, JudgeRecord judged, AiModelPrice? judgePrice)
+    {
+        var scored = rows.Where(r => r.Score is not null).ToList();
+        var found = scored.Sum(r => r.Score!.Found.Count);
+        var missed = scored.Sum(r => r.Score!.Missed.Count);
+        var recovered = scored.Sum(r => r.Judgement?.Recovered.Count ?? 0);
+        var verdicts = scored.SelectMany(r => r.Judgement?.Candidates ?? []).ToList();
+        int Count(string verdict) => verdicts.Count(v => v.Verdict == verdict);
+        var contradictions = scored.Sum(r => r.Judgement?.Pairs.Count(p => p.Verdict == Judge.Contradicts) ?? 0);
+        var unjudged = scored.Count(r => (r.Judgement is null && Needs(r.Score!)) || r.Judgement?.Failure is not null);
+
+        text.AppendLine($"With the judge ({judged.Judge}, which never sees which model wrote what):")
+            .AppendLine()
+            .AppendLine("| | |")
+            .AppendLine("|---|---|")
+            .AppendLine($"| Found, counting what the judge matched | {found + recovered} of {found + missed} ({Percent(found + recovered, found + missed)}) |")
+            .AppendLine($"| Invented that the source supports | {Count(Judge.Supported)} |")
+            .AppendLine($"| Invented that the source doesn't support | {Count(Judge.Unsupported)} |")
+            .AppendLine($"| Invented that repeats another proposal | {Count(Judge.Redundant)} |")
+            .AppendLine($"| Matched but contradicting the baseline | {contradictions} |")
+            .AppendLine($"| Sources the judge couldn't rule on | {unjudged} |")
+            .AppendLine($"| Judge's cost | {Cost(rows.SelectMany(r => r.Judgement?.Usage ?? []), judgePrice)} |")
+            .AppendLine();
+    }
+
+    private static bool Needs(CaseScore score) => score.Missed.Count + score.Invented.Count > 0 || score.Differences.Any();
 
     private static void Totals(StringBuilder text, List<Row> rows, AiModelPrice? price)
     {
@@ -82,7 +130,7 @@ public static class Report
         {
             var title = row.Record.Pass > 1 ? $"{row.Case.Title} (pass {row.Record.Pass})" : row.Case.Title;
             text.AppendLine(row.Score is { } score
-                ? $"| {title} | {score.Found.Count} of {row.Expected} | {score.Missed.Count} | {score.Invented.Count} | {row.Record.Failures.Count} | {Cost(row.Record.Usage, price)} |"
+                ? $"| {title} | {score.Found.Count} of {row.Expected.Count} | {score.Missed.Count} | {score.Invented.Count} | {row.Record.Failures.Count} | {Cost(row.Record.Usage, price)} |"
                 : $"| {title} | no valid answer | | | {row.Record.Failures.Count} | {Cost(row.Record.Usage, price)} |");
         }
 
@@ -108,22 +156,33 @@ public static class Report
             return;
         }
 
-        List("Missed", score.Missed, text);
-        List("Invented", score.Invented, text);
+        var judgement = row.Judgement;
+        if (judgement?.Failure is { } failed)
+        {
+            text.AppendLine($"_The judge gave no verdict: {failed}_").AppendLine();
+        }
+
+        List("Missed", score.Missed, text, p =>
+            judgement?.Recovered.FirstOrDefault(m => m.Reference == p) is { } m ? $" _(judge: covered by {m.Candidate})_" : "");
+        List("Invented", score.Invented, text, p =>
+            judgement?.Candidates.FirstOrDefault(c => c.Candidate == p) is { } c ? $" _(judge: {c.Verdict}; {c.Reason})_"
+            : judgement?.Recovered.Any(m => m.Candidate == p) == true ? " _(judge: covers a missed proposal)_" : "");
         var differences = score.Differences.ToList();
         if (differences.Count > 0)
         {
             text.AppendLine("Matched, but worded differently:").AppendLine();
             foreach (var (baseline, answer) in differences)
             {
-                text.AppendLine($"- Baseline: {baseline.Describe()}").AppendLine($"  - This model: {answer.Describe()}");
+                var verdict = judgement?.Pairs.FirstOrDefault(j => j.Reference == baseline.Describe() && j.Candidate == answer.Describe())?.Verdict;
+                text.AppendLine($"- Baseline: {baseline.Describe()}")
+                    .AppendLine($"  - This model: {answer.Describe()}{(verdict is null ? "" : $" _(judge: {verdict})_")}");
             }
 
             text.AppendLine();
         }
     }
 
-    private static void List(string heading, IReadOnlyList<ProposalView> proposals, StringBuilder text)
+    private static void List(string heading, IReadOnlyList<ProposalView> proposals, StringBuilder text, Func<string, string> note)
     {
         if (proposals.Count == 0)
         {
@@ -133,7 +192,8 @@ public static class Report
         text.AppendLine($"{heading}:").AppendLine();
         foreach (var proposal in proposals)
         {
-            text.AppendLine($"- {proposal.Describe()}");
+            var line = proposal.Describe();
+            text.AppendLine($"- {line}{note(line)}");
         }
 
         text.AppendLine();
@@ -154,5 +214,8 @@ public static class Report
         return sorted.Count == 0 ? "n/a" : $"{sorted[sorted.Count / 2] / 1000.0:0.0}s";
     }
 
-    private sealed record Row(EvalWorld World, EvalCase Case, CaseRecord Record, CaseScore? Score, int Expected);
+    public sealed record Row(EvalWorld World, EvalCase Case, CaseRecord Record, CaseScore? Score, IReadOnlyList<ProposalView> Expected)
+    {
+        public CaseJudgement? Judgement { get; init; }
+    }
 }

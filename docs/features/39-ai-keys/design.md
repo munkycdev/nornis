@@ -153,6 +153,16 @@
 >     sharing enough words, links in either direction, each baseline proposal matched once. The
 >     report gives found, missed, invented (not in the baseline, listed to be read), refused
 >     answers, tokens, cost (refused attempts included) and pairs worded differently.
+>   - **The judge (Dave, 2026-11-04: "Add an AI judge too").** Opt-in (`run --judge …`, or
+>     `judge --run … --model …` on a saved run). The key matching stays the score of record; a
+>     judge model then rereads each source that left anything unsettled and rules on three
+>     things only: which missed reference proposals a differently worded candidate covers,
+>     whether each leftover candidate is supported by the source, unsupported, or redundant,
+>     and whether a matched pair worded differently says the same thing, something compatible,
+>     or contradicts. It is never told which model wrote the proposals. Verdicts are saved
+>     beside the run, keyed by the proposals' checklist lines, and the report shows both scores
+>     with the judge's own cost. One judge should score every model compared; a model judging
+>     its own run is flagged.
 
 ## Overview
 

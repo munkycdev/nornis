@@ -248,6 +248,88 @@ public class ExtractionEvalTests
     }
 
     [Test]
+    public async Task The_judge_rules_only_on_what_the_matching_left_and_never_learns_the_model()
+    {
+        var names = new Dictionary<Guid, string>();
+        var reference = new[] { Create("Widow Harrach", "Character", "A tide-reader."), Create("Quell", "Character", "Harbormaster.") }
+            .Select(p => ProposalView.Read(p, names)).ToList();
+        var answer = new[] { Create("Quell", "Character", "Harbormaster."), Create("Mother Harrach", "Character", "Reads tides."), Create("Bleakspire Keep", "Location", "A keep.") }
+            .Select(p => ProposalView.Read(p, names)).ToList();
+        var score = Scorer.Score(reference, answer);
+        var chat = new FakeChatClient().Returns("""
+            {"recovered":[{"reference":"R1","candidate":"C1"},{"reference":"R2","candidate":"C2"},{"reference":"R9","candidate":"C2"}],
+             "candidates":[{"candidate":"C1","verdict":"supported","reason":"used twice"},{"candidate":"C2","verdict":"unsupported","reason":"No keep is mentioned."}],
+             "pairs":[]}
+            """);
+        var judge = new Judge(new EvalBinder(new AiBinding(chat, OpenAiProviderTraits.Instance, new AiFunding(AiProvider.Anthropic, "judge", AiFundedBy.Key))),
+            "judge", NullLogger.Instance);
+
+        var judged = await judge.JudgeAsync("w", World.Cases[0], 1, score, reference, CancellationToken.None);
+
+        var sent = chat.Calls.Single().Messages.Single(m => m.Role == ChatRole.User).Text;
+        Assert.Multiple(() =>
+        {
+            Assert.That(score.Missed.Single().Subject, Is.EqualTo("Widow Harrach"), "the key matching can't see the widow");
+            Assert.That(sent, Does.Contain(World.Cases[0].Body).And.Contain("R1. **New** Widow Harrach").And.Contain("C1. **New** Mother Harrach"));
+            Assert.That(sent, Does.Not.Contain("gpt").And.Not.Contain("openai"), "the judge isn't told whose proposals these are");
+            Assert.That(judged.Recovered.Single(), Is.EqualTo(new JudgedMatch(reference[0].Describe(), answer[1].Describe())),
+                "R2 was already matched and R9 doesn't exist, so neither counts");
+            Assert.That(judged.Candidates.Single(), Is.EqualTo(new JudgedCandidate(answer[2].Describe(), Judge.Unsupported, "No keep is mentioned.")),
+                "a candidate used as a match gets no second verdict");
+            Assert.That(judged.Usage, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void A_judge_that_fails_leaves_the_case_unjudged_rather_than_failing_the_run()
+    {
+        var names = new Dictionary<Guid, string>();
+        var score = Scorer.Score([ProposalView.Read(Create("Quell", "Character", "x"), names)], []);
+        var chat = new FakeChatClient().Returns("not json");
+        var judge = new Judge(new EvalBinder(new AiBinding(chat, OpenAiProviderTraits.Instance, new AiFunding(AiProvider.OpenAi, "judge", AiFundedBy.Key))),
+            "judge", NullLogger.Instance);
+
+        var judged = judge.JudgeAsync("w", World.Cases[0], 1, score, [], CancellationToken.None).Result;
+
+        Assert.That(judged.Failure, Is.Not.Null);
+    }
+
+    [Test]
+    public void The_report_counts_what_the_judge_matched_and_splits_what_was_invented()
+    {
+        var kept = Kept([Create("Widow Harrach", "Character", "Tide-reader."), Create("Quell", "Character", "Harbormaster.")], [], []);
+        var run = new RunRecord("openai/gpt-5.4", DateTimeOffset.UnixEpoch, 1,
+        [
+            Record("one", [Create("Quell", "Character", "Harbormaster."), Create("Mother Harrach", "Character", "Reads tides."), Create("Bleakspire Keep", "Location", "A keep.")]),
+            Record("two", []),
+            Record("three", []),
+        ]);
+        var names = new Dictionary<Guid, string>();
+        string Line(JsonElement p) => ProposalView.Read(p, names).Describe();
+        var judged = new JudgeRecord("anthropic/claude-opus-5-5", DateTimeOffset.UnixEpoch,
+        [
+            new CaseJudgement("w", "one", 1,
+                [new JudgedMatch(Line(Create("Widow Harrach", "Character", "Tide-reader.")), Line(Create("Mother Harrach", "Character", "Reads tides.")))],
+                [new JudgedCandidate(Line(Create("Bleakspire Keep", "Location", "A keep.")), Judge.Unsupported, "No keep is mentioned.")],
+                [],
+                [new AiUsage { Model = "j", InputTokens = 1000, OutputTokens = 100, TotalTokens = 1100, DurationMs = 1 }],
+                null),
+        ]);
+
+        var report = Report.Write(Corpus, run, kept, null, judged, new Nornis.Application.Configuration.AiModelPrice(5m, null, 25m));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(report, Does.Contain("| Found | 1 of 2 (50%) |"), "the key matching's score stands as it is");
+            Assert.That(report, Does.Contain("| Found, counting what the judge matched | 2 of 2 (100%) |"));
+            Assert.That(report, Does.Contain("| Invented that the source doesn't support | 1 |"));
+            Assert.That(report, Does.Contain("| Judge's cost | $0.008 |"));
+            Assert.That(report, Does.Contain("_(judge: unsupported; No keep is mentioned.)_"));
+            Assert.That(report, Does.Contain("_(judge: covered by **New** Mother Harrach"));
+        });
+    }
+
+    [Test]
     public void A_model_name_reads_as_provider_and_model_and_is_priced_from_the_catalog()
     {
         var configuration = new ConfigurationBuilder()
