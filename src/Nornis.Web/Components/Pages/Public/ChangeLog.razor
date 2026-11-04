@@ -9,6 +9,16 @@
     <Stonemark Kind="StonemarkKind.Rule" />
 
     <section class="nornis-changelog-entry">
+        <h2>Nornis 3.10 — November 4, 2026</h2>
+        <ul>
+            <li><em>Your own AI keys.</em> Profile now has an AI keys card. Add an OpenAI, Anthropic (Claude) or Google Gemini API key, or any OpenAI-compatible endpoint with the models it serves. Nornis checks a key with the provider before saving it, stores it encrypted, and never shows it again. The AI work in every world you created then runs on your key, for everyone who plays in it, and the provider bills you directly. A ChatGPT, Claude or Gemini subscription isn't an API key; the card links to where each provider makes one.</li>
+            <li><em>Pick your models.</em> A Models card on Profile chooses the model for each kind of work: Ask and world tools, Reading sources, Prep, and Small jobs. The models Nornis has tested and priced come first. After them, "More from your key" lists what else your key can reach, marked as not tested by Nornis; those are costed as an estimate, and if one can't read an image or return the shape Nornis asks for, the call fails and says so rather than quietly switching models.</li>
+            <li><em>When a key fails.</em> A rejected key, or an account out of credit, now says exactly that wherever you were working, with a link to the provider's billing page when it's a credit problem. Sources that failed for that reason are read again as soon as you save a key that works.</li>
+            <li><em>Who paid.</em> Costs shows which calls your keys paid for and which Nornis did, and marks a model's cost as estimated when Nornis hasn't priced it.</li>
+        </ul>
+    </section>
+
+    <section class="nornis-changelog-entry">
         <h2>Nornis 3.9 — November 3, 2026</h2>
         <ul>
             <li><em>Cover art.</em> An adventure's booklet can have a painted cover. Ask the Loremaster for an art brief or write your own, and Generate paints two options on your own OpenAI key (add it under Profile, AI keys); pick the one you like. Or upload your own art. Nornis sets the title itself, so the art never carries lettering. Choose Full bleed, Framed or Classic module for the layout. Each adventure can generate up to 12 images, and their cost counts in the Prep budget.</li>

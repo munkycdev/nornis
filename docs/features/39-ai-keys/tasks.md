@@ -2,7 +2,7 @@
 
 Four phases, one PR each. Built after the Prep wave (features 35 to 38) unless Dave moves it
 earlier; feature 38's cover art is written against Phase A's resolver if A lands first, so it
-doesn't need rework. The version number is set when Phase B ships. Each PR merges once its
+doesn't need rework. The version number is 3.10. Each PR merges once its
 checks pass (Dave, 2026-11-03: "you may merge PRs as you finish each one"). Phase B's migration is applied by Dave by hand before its PR merges.
 
 **Status: specified 2026-11-03. Phase A built 2026-11-03; see the amendment at the top of
@@ -72,7 +72,7 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
       Prep drafting and conversation streams and Capture's page reading; an out-of-credit
       refusal links to the provider's billing page when its message names one.
 - [x] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.
-- [ ] B10. Dave: the key-ring blob and `AiKeys__KeyBlobUri` on both apps (targeted
+- [x] B10. Dave: the key-ring blob and `AiKeys__KeyBlobUri` on both apps (targeted
       `az containerapp update`), `AddAiKeys` applied, then the merge.
 
 ## Phase C — Anthropic, Gemini and the eval
@@ -95,4 +95,7 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
 - [ ] D2. A live walk: extraction on Gribbits through Dave's key; a fresh test account on the
       trial reaches "Trial: $0.00 left" and the "Add a key" refusal; a bad key is refused on
       save; public Ask is off for a trial world.
-- [ ] D3. Ship: `MinorVersion` bump; the change log, the Features page and the README; row 39.
+- [x] D3. Ship: `MinorVersion` bump; the change log, the Features page and the README; row 39.
+      Shipped early as **Nornis 3.10** (Dave, 2026-11-04: "let's go straight to the version bump,
+      change log, features, and readme"), before the eval and the cutover; the trial isn't
+      described as live until D's cutover sets `AiModels:Fallback` to `Trial`.

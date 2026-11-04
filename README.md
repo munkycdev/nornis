@@ -75,7 +75,8 @@ claim keeps a link back to the sentence in the source that produced it.
 | **Continuity health** | A read on how coherent the record is — contradictions, dangling threads, stale storylines, timeline conflicts, summary drift, and duplicates — each finding with a severity, a jump to the artifact, and most drafting into a reviewable fix. |
 | **Onboarding** | A demo world of five already-extracted sessions plus a sixth left as raw notes, and a two-chapter checklist that detects its own completion from actual state. Dismissable permanently. |
 | **Sharing** | Invite players by link with a role. Optionally give the world a public address for a read-only, party-visible-only view, with a public Ask the Loremaster behind a monthly cap the GM sets. |
-| **Cost visibility** | Every AI call is metered by operation, model, and user, against a per-world daily budget, with Prep drafting and its conversation on a monthly budget of its own. |
+| **Your own AI keys** | Each user can save an OpenAI, Anthropic (Claude) or Google Gemini key, or an OpenAI-compatible endpoint, checked on save and stored encrypted. A world's AI runs on its creator's keys, on the model they pick per task: the ones Nornis has tested and priced first, then anything else the key can reach, costed as an estimate. A rejected or empty key fails visibly, and failed sources are read again once a working key is saved. |
+| **Cost visibility** | Every AI call is metered by operation, model, and user, against a per-world daily budget, with Prep drafting and its conversation on a monthly budget of its own, and with who paid: the creator's key or Nornis. |
 
 Roles are **GM**, **Player**, and **Observer** — and they see genuinely different worlds. A
 player and a GM asking the Loremaster the same question get different answers, because
@@ -100,14 +101,14 @@ nornis-worker   Background processor — drains the extraction queue
 |---|---|
 | `src/Nornis.Domain` | Entities, enums, repository interfaces. No EF Core, no Azure, no UI. |
 | `src/Nornis.Application` | Use cases, services, authorization, AI orchestration. Depends on interfaces only. |
-| `src/Nornis.Infrastructure` | EF Core repositories, migrations, blob storage, Service Bus, Azure OpenAI. |
+| `src/Nornis.Infrastructure` | EF Core repositories, migrations, blob storage, Service Bus, the AI providers (Azure OpenAI, and OpenAI, Anthropic and Gemini on users' keys). |
 | `src/Nornis.Api` | Controllers, request/response contracts, auth filters. |
 | `src/Nornis.Web` | Blazor pages and components, API client. |
 | `src/Nornis.Worker` | Queue-driven extraction, indexing, and transcription jobs. |
 
 **Stack:** .NET 10 · Blazor · ASP.NET Core · Azure SQL (EF Core, repository pattern) ·
-Azure Blob Storage · Azure Service Bus · Azure OpenAI · Auth0 (Discord) · Azure Container
-Apps · GitHub Actions.
+Azure Blob Storage · Azure Service Bus · Azure OpenAI · Microsoft.Extensions.AI with the
+OpenAI, Anthropic and Google GenAI SDKs · Auth0 (Discord) · Azure Container Apps · GitHub Actions.
 
 Every project has a matching test project under [`tests/`](tests); NUnit throughout.
 
