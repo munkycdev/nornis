@@ -490,14 +490,28 @@ public class AdventureCoverService
     private static (string Code, AppError Error) Classify(Exception ex) => ex switch
     {
         AiRefusalException refusal => (refusal.Category, refusal.ToAppError()),
-        AiHttpException { StatusCode: 400 } =>
+        CoverArtRejectedException { Moderation: true } =>
             ("ContentRefused", new AppError(422, "cover_refused",
-                "The image model turned this brief down. Try rewording it, or upload your own art.")),
+                "The image model's safety check turned this brief down. Try rewording it, or upload your own art.")),
+        // Not the brief: the provider names a problem rewording won't fix (billing, the account,
+        // the request), so the GM is told what it said rather than to reword.
+        CoverArtRejectedException rejected =>
+            ("Rejected", new AppError(422, "cover_rejected",
+                $"OpenAI didn't accept the request: {RejectionReason(rejected.Reason)} Nothing was charged against this adventure's images.")),
         AiHttpException { StatusCode: 429 } =>
             ("RateLimited", new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")),
         AiTimeoutException or OperationCanceledException => ("Timeout", Unavailable),
         _ => ("ServiceError", Unavailable),
     };
+
+    private const int MaxReasonChars = 300;
+
+    private static string RejectionReason(string? reason)
+    {
+        var text = string.IsNullOrWhiteSpace(reason) ? "it gave no reason." : reason.Trim();
+        text = text.Length > MaxReasonChars ? text[..MaxReasonChars].TrimEnd() + "…" : text;
+        return text.EndsWith('.') || text.EndsWith('…') ? text : text + ".";
+    }
 
     private static readonly AppError Unavailable =
         new(503, "service_unavailable", "Cover art is temporarily unavailable. Nothing was changed. Please try again.");
