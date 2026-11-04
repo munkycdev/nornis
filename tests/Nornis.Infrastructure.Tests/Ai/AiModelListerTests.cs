@@ -93,6 +93,34 @@ public class AiModelListerTests
     }
 
     [Test]
+    public async Task Geminis_answer_keeps_chat_models_that_generate_content_without_the_models_prefix()
+    {
+        var handler = new RecordingHandler(_ => Json("""
+            {"models":[
+              {"name":"models/gemini-3.8-flash","displayName":"Gemini 3.8 Flash","supportedGenerationMethods":["generateContent","countTokens"]},
+              {"name":"models/gemini-3.8-flash-live","displayName":"Gemini 3.8 Flash Live","supportedGenerationMethods":["bidiGenerateContent"]},
+              {"name":"models/gemini-3.8-flash-tts","displayName":"Gemini 3.8 Flash TTS","supportedGenerationMethods":["generateContent"]},
+              {"name":"models/gemini-embedding-2","displayName":"Gemini Embedding","supportedGenerationMethods":["embedContent"]},
+              {"name":"models/gemma-4-27b","displayName":"Gemma 4","supportedGenerationMethods":["generateContent"]},
+              {"name":"models/gemini-3.5-flash-lite","supportedGenerationMethods":["generateContent"]}
+            ]}
+            """));
+
+        var models = await Lister(handler).ListChatModelsAsync(Key(AiProvider.Gemini), Secret, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(models, Is.EqualTo(
+            [
+                new Nornis.Application.Ai.AiListedModel("gemini-3.5-flash-lite", "gemini-3.5-flash-lite"),
+                new Nornis.Application.Ai.AiListedModel("gemini-3.8-flash", "Gemini 3.8 Flash"),
+            ]));
+            Assert.That(handler.Uris.Single(), Is.EqualTo(new Uri("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000")));
+            Assert.That(handler.GoogleKeys.Single(), Is.EqualTo(Secret));
+        });
+    }
+
+    [Test]
     public async Task An_answer_is_kept_an_hour_per_key_version_and_a_replaced_key_is_asked_afresh()
     {
         var handler = new RecordingHandler(_ => Json("""{"data":[{"id":"gpt-4.1-mini"}]}"""));
@@ -137,7 +165,7 @@ public class AiModelListerTests
     }
 
     [TestCase(AiProvider.OpenAiCompatible)]
-    [TestCase(AiProvider.Gemini)]
+    [TestCase(AiProvider.AzureOpenAi)]
     public async Task Providers_without_a_list_here_are_not_asked(AiProvider provider)
     {
         var handler = new RecordingHandler(_ => Json("""{"data":[]}"""));
@@ -159,11 +187,14 @@ public class AiModelListerTests
 
         public List<string?> ApiKeys { get; } = [];
 
+        public List<string?> GoogleKeys { get; } = [];
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Uris.Add(request.RequestUri!);
             Authorizations.Add(request.Headers.Authorization?.ToString());
             ApiKeys.Add(request.Headers.TryGetValues("x-api-key", out var keys) ? keys.Single() : null);
+            GoogleKeys.Add(request.Headers.TryGetValues("x-goog-api-key", out var googleKeys) ? googleKeys.Single() : null);
             return Task.FromResult(respond(request));
         }
     }

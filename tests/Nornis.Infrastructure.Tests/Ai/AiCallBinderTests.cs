@@ -121,8 +121,8 @@ public class AiCallBinderTests
         Assert.ThrowsAsync<AiKeyRejectedException>(() => Bind(Binder(() => KeyFunding(key))));
     }
 
-    [TestCase(AiProvider.Gemini)]
-    public void KeyFunding_ProvidersWithoutAClientYet_AreNotSupported(AiProvider provider)
+    [TestCase(AiProvider.AzureOpenAi)]
+    public void KeyFunding_ProvidersWithoutAClient_AreNotSupported(AiProvider provider)
     {
         var key = SavedKey(provider);
 

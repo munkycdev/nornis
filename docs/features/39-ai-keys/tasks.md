@@ -38,8 +38,11 @@ Shipped as three PRs. **B1** (with migration `AddAiKeys`): B1a to B4 and B6a, be
 and their tests, with no migration. **B2 Web**: B8. (2026-11-03: B2 was ready while B1 still
 waited for its migration, so both went out in one PR, #97, merged once `AddAiKeys` is on prod.)
 
-- [ ] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
+- [x] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
       conformance test of streaming, images, schema and usage; record the choice here.
+      **Chosen (2026-11-04): Google's `Google.GenAI` SDK and its `IChatClient` adapter** (real
+      schemas and usage; see the design amendment). The conformance test is
+      `LiveGeminiConformanceTests`, run by hand on a key.
 - [x] B1a. (from A3) The `AiModels` catalog and its startup validation; `AiUsageRecorder`
       prices key-funded calls from it. `ModelPricing` stays for Nornis's own deployments (see
       the design amendment); there are no `azure/…` lines.
@@ -79,10 +82,11 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
 - [x] C2. Anthropic traits and client (official C# SDK, `IChatClient`), with explicit caching
       of the system prompt. Its tests (C5's half) are in `AnthropicProviderTraitsTests`.
 - [x] C2b. The model picker: catalog models, then "More from your key" (design.md amendment).
-- [ ] C3. Gemini traits and client (B0's route).
+- [x] C3. Gemini traits and client (B0's route).
 - [ ] C4. Eval runs on the candidate models of each provider; the catalog gets the ones Dave
       accepts, per task.
-- [ ] C5. Tests per design.md for C2 and C3.
+- [x] C5. Tests per design.md for C2 and C3 (`AnthropicProviderTraitsTests`,
+      `GeminiProviderTraitsTests`, the key check and model list for both).
 
 ## Phase D — Cutover and ship
 

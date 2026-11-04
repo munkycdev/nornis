@@ -32,6 +32,7 @@ public sealed class UserKeyChatClients : IDisposable
     private readonly int _maxRetries;
     private readonly HttpClient _compatibleHttp;
     private readonly HttpClient _anthropicHttp;
+    private readonly HttpClient _geminiHttp;
 
     /// <param name="maxRetries">The host's SDK retry count, as for Nornis's own clients
     /// (<see cref="AzureOpenAiClientFactory"/>): the Worker's queue owns its retries, the API allows one.</param>
@@ -39,7 +40,12 @@ public sealed class UserKeyChatClients : IDisposable
     /// default <see cref="PublicEndpointGuard"/>'s handler, since their URLs are users' own. Tests
     /// pass a fake.</param>
     /// <param name="anthropicHandler">What Anthropic is reached through; tests pass a fake.</param>
-    public UserKeyChatClients(int maxRetries, HttpMessageHandler? compatibleHandler = null, HttpMessageHandler? anthropicHandler = null)
+    /// <param name="geminiHandler">What Gemini is reached through; tests pass a fake.</param>
+    public UserKeyChatClients(
+        int maxRetries,
+        HttpMessageHandler? compatibleHandler = null,
+        HttpMessageHandler? anthropicHandler = null,
+        HttpMessageHandler? geminiHandler = null)
     {
         _maxRetries = maxRetries;
 
@@ -54,6 +60,9 @@ public sealed class UserKeyChatClients : IDisposable
         // Prep draft off mid-stream.
         _anthropicHttp = anthropicHandler is null ? new HttpClient() : new HttpClient(anthropicHandler);
         _anthropicHttp.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+
+        _geminiHttp = geminiHandler is null ? new HttpClient() : new HttpClient(geminiHandler);
+        _geminiHttp.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
     }
 
     /// <summary>The client for <paramref name="key"/> on <paramref name="model"/>.
@@ -96,6 +105,22 @@ public sealed class UserKeyChatClients : IDisposable
             return new AnthropicPromptCaching(anthropic.AsIChatClient(model, AnthropicDefaultMaxTokens));
         }
 
+        if (key.Provider == AiProvider.Gemini)
+        {
+            // The Gemini Developer API, never Vertex: said outright, because the SDK otherwise
+            // reads GOOGLE_GENAI_USE_VERTEXAI and friends from the environment. Gemini caches a
+            // repeated prefix by itself (implicit caching), so nothing marks a breakpoint.
+            var gemini = new Google.GenAI.Client(
+                enterprise: false,
+                apiKey: secret,
+                httpOptions: new Google.GenAI.Types.HttpOptions
+                {
+                    RetryOptions = _maxRetries > 0 ? new Google.GenAI.Types.HttpRetryOptions { Attempts = _maxRetries + 1 } : null,
+                },
+                clientOptions: new Google.GenAI.Types.ClientOptions { HttpClientFactory = () => _geminiHttp });
+            return new GeminiBilledUsage(gemini.AsIChatClient(model));
+        }
+
         var options = new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) };
         switch (key.Provider)
         {
@@ -124,5 +149,6 @@ public sealed class UserKeyChatClients : IDisposable
         _cache.Dispose();
         _compatibleHttp.Dispose();
         _anthropicHttp.Dispose();
+        _geminiHttp.Dispose();
     }
 }

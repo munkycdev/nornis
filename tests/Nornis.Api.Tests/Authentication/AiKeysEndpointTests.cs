@@ -90,9 +90,9 @@ public class AiKeysEndpointTests
     }
 
     [Test]
-    public async Task Providers_without_a_client_yet_are_refused()
+    public async Task Nornis_own_Azure_resource_is_not_a_key_users_save()
     {
-        var response = await _voss.PutAsJsonAsync("/api/me/ai-keys/gemini", new { Key = Secret });
+        var response = await _voss.PutAsJsonAsync("/api/me/ai-keys/azureopenai", new { Key = Secret });
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("provider_not_supported"));

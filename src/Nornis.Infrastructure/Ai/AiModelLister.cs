@@ -24,6 +24,13 @@ public sealed class AiModelLister : IAiModelLister
         "search", "instruct", "codex", "-pro", "deep-research", "computer-use", "sora", "whisper",
     ];
 
+    /// <summary>Google's list also holds the Live, speech, image and embedding models, some of
+    /// which answer generateContent but not as a chat model.</summary>
+    private static readonly string[] GeminiNonChat =
+    [
+        "live", "tts", "image", "embedding", "native-audio", "transcribe", "translate", "omni", "robotics", "computer-use",
+    ];
+
     private readonly HttpClient _http;
     private readonly IMemoryCache _cache;
     private readonly ILogger<AiModelLister> _logger;
@@ -37,7 +44,7 @@ public sealed class AiModelLister : IAiModelLister
 
     public async Task<IReadOnlyList<AiListedModel>?> ListChatModelsAsync(UserAiKey key, string secret, CancellationToken ct)
     {
-        if (key.Provider is not (AiProvider.OpenAi or AiProvider.Anthropic))
+        if (key.Provider is not (AiProvider.OpenAi or AiProvider.Anthropic or AiProvider.Gemini))
         {
             return null;
         }
@@ -59,8 +66,14 @@ public sealed class AiModelLister : IAiModelLister
 
     private async Task<IReadOnlyList<AiListedModel>?> AskAsync(AiProvider provider, string secret, CancellationToken ct)
     {
-        // Anthropic pages its list, twenty by default; one page of a thousand is all of it.
-        using var request = AiKeyChecker.ModelsRequest(provider, secret, null, provider == AiProvider.Anthropic ? "?limit=1000" : null);
+        // Anthropic and Google page their lists; one page of a thousand is all of it.
+        var query = provider switch
+        {
+            AiProvider.Anthropic => "?limit=1000",
+            AiProvider.Gemini => "?pageSize=1000",
+            _ => null,
+        };
+        using var request = AiKeyChecker.ModelsRequest(provider, secret, null, query);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(AiKeyChecker.Timeout);
         try
@@ -84,9 +97,15 @@ public sealed class AiModelLister : IAiModelLister
         }
     }
 
-    /// <summary>The chat models in a provider's <c>{"data":[{"id":…}]}</c> answer, sorted by id.</summary>
+    /// <summary>The chat models in a provider's answer, sorted by id: <c>{"data":[{"id":…}]}</c>
+    /// from OpenAI and Anthropic, <c>{"models":[{"name":"models/…"}]}</c> from Google.</summary>
     internal static IReadOnlyList<AiListedModel> Parse(AiProvider provider, JsonElement root)
     {
+        if (provider == AiProvider.Gemini)
+        {
+            return ParseGemini(root);
+        }
+
         if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
         {
             return [];
@@ -111,8 +130,45 @@ public sealed class AiModelLister : IAiModelLister
         return models.DistinctBy(m => m.Id).OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>Google lists every model with the methods it answers; a chat model answers
+    /// <c>generateContent</c>. Its name carries a <c>models/</c> prefix the SDK adds itself.</summary>
+    private static IReadOnlyList<AiListedModel> ParseGemini(JsonElement root)
+    {
+        if (!root.TryGetProperty("models", out var list) || list.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var models = new List<AiListedModel>();
+        foreach (var entry in list.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("name", out var nameElement) || nameElement.GetString() is not { } name
+                || !entry.TryGetProperty("supportedGenerationMethods", out var methods) || methods.ValueKind != JsonValueKind.Array
+                || !methods.EnumerateArray().Any(m => m.GetString() == "generateContent"))
+            {
+                continue;
+            }
+
+            var id = name.StartsWith("models/", StringComparison.Ordinal) ? name["models/".Length..] : name;
+            if (id.Length is 0 or > 80 || !IsChatModel(AiProvider.Gemini, id))
+            {
+                continue;
+            }
+
+            var shown = entry.TryGetProperty("displayName", out var display) && display.GetString() is { Length: > 0 } text
+                ? text
+                : id;
+            models.Add(new AiListedModel(id, shown));
+        }
+
+        return models.DistinctBy(m => m.Id).OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
+    }
+
     internal static bool IsChatModel(AiProvider provider, string id) => provider switch
     {
+        AiProvider.Gemini => id.StartsWith("gemini-", StringComparison.Ordinal)
+            && !GeminiNonChat.Any(part => id.Contains(part, StringComparison.Ordinal)),
         AiProvider.Anthropic => id.StartsWith("claude-", StringComparison.Ordinal),
         AiProvider.OpenAi => (id.StartsWith("gpt-", StringComparison.Ordinal)
                 || id.StartsWith("chatgpt-", StringComparison.Ordinal)

@@ -64,7 +64,8 @@
     usage recorder: a failed call reaches the recorder without its usage, so without its
     provider. A parse failure no longer counts as the provider failing, since the provider
     answered. `/status` has `azure-openai` (Nornis's resource, which embeddings also report to),
-    `ai-openai` and `ai-openai-compatible`; Anthropic and Gemini join with their clients.
+    `ai-openai` and `ai-openai-compatible`; Anthropic and Gemini join with their clients
+    (`ai-anthropic`, `ai-gemini`).
   - **Requeue on save** runs in the save request, only when the user's keys now cover extraction
     (or the sources would fail again), in batches of 50 until none are left, through
     `SourceService.MarkReadyAsync` with the creator's role in each world. `Source.FailureCategory`
@@ -105,6 +106,30 @@
 >   provider no longer lists keeps running and stays shown. A key whose check failed, an
 >   OpenAI-compatible key (its lines are already its own), and cover art get no extra models. A
 >   pick the catalog later lists runs as the catalog model, at its real price.
+> - **Phase C3 (2026-11-04), Gemini keys; B0's route.** Google's official `Google.GenAI` SDK
+>   (1.28) and its own `AsIChatClient` adapter, not the OpenAI-compatible endpoint: the adapter
+>   sends `ChatOptions.ResponseFormat` as `responseJsonSchema` (a real schema, not "JSON mode")
+>   and reports usage with cached and thinking tokens, the compatible endpoint emulates both, and
+>   the same SDK has the image model a later cover-art line can use. The client is built with
+>   `enterprise: false`, so the environment can't turn it into a Vertex client, and the key
+>   travels as `x-goog-api-key`, never in the URL. The SDK retries only when Nornis asks
+>   (`maxRetries`, as for the others). Two Gemini specifics:
+>   - **Thinking is billed as output.** Google's `candidatesTokenCount` leaves thinking out and
+>     its prices include it, so `GeminiBilledUsage`, a delegating client, folds
+>     `ReasoningTokenCount` into `OutputTokenCount` before the ledger sees it; the reasoning
+>     count stays for the record.
+>   - **A bad key answers 400**, `INVALID_ARGUMENT` with reason `API_KEY_INVALID` (or "API key
+>     expired"), not 401; the traits and the key check read that as rejected, and 401/403 too.
+>     402 is out of credit. A 429 is `RESOURCE_EXHAUSTED` for a rate limit and a used-up quota
+>     alike, so it stays retryable rather than "out of credit", unlike the original text above.
+>   `IAiProviderTraits` needs nothing more: Gemini accepts the strict dialect's schemas as they
+>   are. The catalog adds Gemini 3.5 Flash-Lite (chores), 3.8 Flash (all four tasks) and 4 Argon
+>   (Ask, extraction, Prep) at the list prices that apply from December 2026 and January 2027
+>   (the introductory ones end then); all three read images. Like the Claude lines they are
+>   provisional until C4's eval. `LiveGeminiConformanceTests` (Explicit, on `NORNIS_GEMINI_KEY`)
+>   checks each Gemini catalog line live: it is on the key's model list, streams with usage,
+>   answers to a strict schema, reads an image, and a bad key is refused on save and on a call.
+>   "More from your key" lists Gemini's `generateContent` models, filtered by name like OpenAI's.
 
 ## Overview
 

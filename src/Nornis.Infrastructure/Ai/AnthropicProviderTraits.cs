@@ -28,7 +28,12 @@ public sealed class AnthropicProviderTraits : IAiProviderTraits
     /// schemas are already in the strict dialect (<see cref="AiJsonSchema"/>), which is the subset
     /// Anthropic's structured outputs accept.
     /// </summary>
-    public ChatOptions? ChatOptions(AiCallOptions? options)
+    public ChatOptions? ChatOptions(AiCallOptions? options) => AdapterChatOptions(options);
+
+    /// <summary>The options for an SDK whose own <see cref="IChatClient"/> adapter reads
+    /// <see cref="ChatOptions.ResponseFormat"/> and <see cref="ChatOptions.MaxOutputTokens"/>
+    /// itself (Anthropic's and Google's); shared with <see cref="GeminiProviderTraits"/>.</summary>
+    internal static ChatOptions? AdapterChatOptions(AiCallOptions? options)
     {
         if (options is null || (options.Schema is null && options.MaxOutputTokens is null))
         {
