@@ -78,7 +78,8 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
 ## Phase C — Anthropic, Gemini and the eval
 
 - [ ] C1. `tests/Nornis.Evals`: the corpus runner and report; the gpt-5.4 baseline, reviewed
-      by Dave once.
+      by Dave once. **Runner and report built 2026-11-04** (design amendment); the baseline run
+      on Dave's key and his review are what's left.
 - [x] C2. Anthropic traits and client (official C# SDK, `IChatClient`), with explicit caching
       of the system prompt. Its tests (C5's half) are in `AnthropicProviderTraitsTests`.
 - [x] C2b. The model picker: catalog models, then "More from your key" (design.md amendment).

@@ -10,7 +10,9 @@
        TreatWarningsAsErrors. -->
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
 
-  <PropertyGroup>
+  <!-- Nornis.Evals (feature 39) lives here too but is a plain console app run by hand with
+       live keys, never a test project, so none of the test platform applies to it. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'Nornis.Evals'">
     <!-- NUnit3TestAdapter 6.x ships the Microsoft.Testing.Platform runner; this turns it
          on. Test projects become self-contained executables (hence OutputType), which is
          what lets `dotnet test` in MTP mode — and plain `dotnet run` — execute them
@@ -19,7 +21,7 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Nornis.Evals'">
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.0" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.0" />
   </ItemGroup>

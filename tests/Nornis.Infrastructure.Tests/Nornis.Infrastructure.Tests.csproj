@@ -20,6 +20,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nornis.Infrastructure\Nornis.Infrastructure.csproj" />
     <ProjectReference Include="..\Nornis.Application.Tests\Nornis.Application.Tests.csproj" />
+    <!-- The extraction eval's scoring and replay (feature 39); the eval itself never runs here. -->
+    <ProjectReference Include="..\Nornis.Evals\Nornis.Evals.csproj" />
   </ItemGroup>
 
 </Project>

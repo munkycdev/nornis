@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Nornis.Application.Tests" />
+    <InternalsVisibleTo Include="Nornis.Evals" />
   </ItemGroup>
 
   <ItemGroup>

@@ -791,7 +791,9 @@ public class ExtractionService : IExtractionService
             succeeded, errorCode, sourceId: source.Id, reviewBatchId: reviewBatchId,
             fallbackModel: _options.AiModel, ct: ct);
 
-    private static string? ValidateResponse(AiExtractionResponse response)
+    /// <summary>Internal so the extraction eval (tests/Nornis.Evals) counts a rejected answer
+    /// exactly as the Worker does.</summary>
+    internal static string? ValidateResponse(AiExtractionResponse response)
     {
         if (response.Proposals.Count > 50)
         {
