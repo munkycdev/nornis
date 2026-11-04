@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The extraction eval (feature 39, design.md "Extraction eval (outside CI)"): a console app
+       run by hand with live keys. CI builds it so it keeps compiling, and never runs it. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <!-- The Worker's: Nornis's own Azure deployment is read from the same user secrets. -->
+    <UserSecretsId>6085c24d-9697-4e82-bd83-41e59b59be30</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Nornis.Infrastructure\Nornis.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Nornis.Infrastructure.Tests" />
+  </ItemGroup>
+
+</Project>
