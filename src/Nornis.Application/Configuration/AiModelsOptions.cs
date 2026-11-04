@@ -28,9 +28,9 @@ public sealed class AiModelsOptions
     /// <summary>In default order: a task's default is the first entry its key holder has a key for.</summary>
     public List<AiCatalogModel> Catalog { get; set; } = [];
 
-    /// <summary>Providers a catalog entry may name: each needs a client and traits. Gemini joins
-    /// later in Phase C.</summary>
-    public static readonly IReadOnlySet<AiProvider> CatalogProviders = new HashSet<AiProvider> { AiProvider.OpenAi, AiProvider.Anthropic };
+    /// <summary>Providers a catalog entry may name: each needs a client and traits.</summary>
+    public static readonly IReadOnlySet<AiProvider> CatalogProviders =
+        new HashSet<AiProvider> { AiProvider.OpenAi, AiProvider.Anthropic, AiProvider.Gemini };
 
     public AiCatalogModel? Find(string id) =>
         Catalog.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.Ordinal));

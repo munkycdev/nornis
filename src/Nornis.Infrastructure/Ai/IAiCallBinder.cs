@@ -146,6 +146,7 @@ public sealed class AiCallBinder : IAiCallBinder, IAiImageBinder
     {
         AiProvider.OpenAi or AiProvider.OpenAiCompatible => OpenAiProviderTraits.Instance,
         AiProvider.Anthropic => AnthropicProviderTraits.Instance,
+        AiProvider.Gemini => GeminiProviderTraits.Instance,
         _ => throw new NotSupportedException($"No client is built for {provider} keys yet (feature 39 Phase C)."),
     };
 }

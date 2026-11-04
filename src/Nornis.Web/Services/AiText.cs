@@ -6,8 +6,8 @@ namespace Nornis.Web.Services;
 /// </summary>
 public static class AiText
 {
-    /// <summary>The providers a key can be added for today. Gemini joins with its client (Phase C).</summary>
-    public static readonly IReadOnlyList<string> AddableProviders = ["OpenAi", "Anthropic", "OpenAiCompatible"];
+    /// <summary>The providers a key can be added for.</summary>
+    public static readonly IReadOnlyList<string> AddableProviders = ["OpenAi", "Anthropic", "Gemini", "OpenAiCompatible"];
 
     /// <summary>The kinds of AI work, in the order Profile shows them.</summary>
     public static readonly IReadOnlyList<string> Tasks = ["Ask", "Extraction", "Prep", "Chores", "CoverArt"];
@@ -32,11 +32,11 @@ public static class AiText
         _ => provider,
     };
 
-    /// <summary>Where a provider's keys are made, for the AI keys card.</summary>
-    /// <summary>"an OpenAI", "an Anthropic", "a Gemini": the article a provider's name takes.</summary>
+    /// <summary>"an OpenAI", "an Anthropic", "a Google Gemini": the article a provider's name takes.</summary>
     public static string WithArticle(string name) =>
         ("AEIOU".Contains(char.ToUpperInvariant(name[0])) ? "an " : "a ") + name;
 
+    /// <summary>Where a provider's keys are made, for the AI keys card.</summary>
     public static string? KeysUrl(string provider) => provider switch
     {
         "OpenAi" => "https://platform.openai.com/api-keys",

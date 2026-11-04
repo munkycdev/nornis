@@ -109,8 +109,18 @@ public class AiKeysCardTests : BunitContext
         ClickButton(cut, "Check and save");
 
         cut.WaitForAssertion(() => Assert.That(_handler.PutPath, Is.EqualTo("/api/me/ai-keys/Anthropic")));
-        Assert.That(cut.FindAll("button").Select(b => b.TextContent), Has.None.Contains("Gemini"),
-            "Gemini has no client yet, so no button");
+    }
+
+    [Test]
+    public void AGeminiKey_CanBeAdded_AndGoesToTheGeminiRoute()
+    {
+        var cut = RenderCard();
+        cut.WaitForAssertion(() => ClickButton(cut, "Add a Google Gemini key"));
+
+        cut.FindAll("[data-testid='ai-key-editor'] input")[0].Change("AIzaSyabcdefgh1234");
+        ClickButton(cut, "Check and save");
+
+        cut.WaitForAssertion(() => Assert.That(_handler.PutPath, Is.EqualTo("/api/me/ai-keys/Gemini")));
     }
 
     [Test]

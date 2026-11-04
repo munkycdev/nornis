@@ -22,7 +22,7 @@ internal static class AiModelPicker
     /// <summary>The providers whose own model lists Profile offers beyond the catalog: those with
     /// a client and a model list. An OpenAI-compatible key names its models itself.</summary>
     internal static readonly IReadOnlySet<AiProvider> UntestedProviders =
-        new HashSet<AiProvider> { AiProvider.OpenAi, AiProvider.Anthropic };
+        new HashSet<AiProvider> { AiProvider.OpenAi, AiProvider.Anthropic, AiProvider.Gemini };
 
     /// <summary>
     /// The chosen model when it still fits, otherwise the first catalog model, in catalog order,

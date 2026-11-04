@@ -60,6 +60,28 @@ public class AiKeyCheckerTests
         });
     }
 
+    [TestCase(HttpStatusCode.OK, AiKeyCheckOutcome.Accepted)]
+    [TestCase(HttpStatusCode.BadRequest, AiKeyCheckOutcome.Rejected)]
+    [TestCase(HttpStatusCode.Forbidden, AiKeyCheckOutcome.Rejected)]
+    public async Task A_gemini_key_is_checked_with_googles_own_header(HttpStatusCode status, AiKeyCheckOutcome expected)
+    {
+        // Google answers a key it doesn't know with 400 API_KEY_INVALID, not a 401.
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(status));
+        var checker = new AiKeyChecker(new HttpClient(handler), NullLogger<AiKeyChecker>.Instance);
+
+        var outcome = await checker.CheckAsync(AiProvider.Gemini, Secret, null, CancellationToken.None);
+
+        var request = handler.Requests.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(expected));
+            Assert.That(request.RequestUri, Is.EqualTo(new Uri("https://generativelanguage.googleapis.com/v1beta/models")));
+            Assert.That(request.RequestUri!.Query, Does.Not.Contain(Secret), "the key travels in a header, never the URL");
+            Assert.That(request.Headers.GetValues("x-goog-api-key").Single(), Is.EqualTo(Secret));
+            Assert.That(request.Headers.Authorization, Is.Null);
+        });
+    }
+
     [Test]
     public async Task A_compatible_key_is_checked_at_its_own_base_url()
     {
@@ -89,6 +111,7 @@ public class AiKeyCheckerTests
     /// </summary>
     [TestCase(AiProvider.OpenAi)]
     [TestCase(AiProvider.Anthropic)]
+    [TestCase(AiProvider.Gemini)]
     public async Task The_key_appears_in_no_log_line(AiProvider keyProvider)
     {
         var logs = new CapturingLoggerProvider();

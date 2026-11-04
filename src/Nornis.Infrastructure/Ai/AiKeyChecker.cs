@@ -20,6 +20,8 @@ public sealed class AiKeyChecker : IAiKeyChecker
 
     public static readonly Uri AnthropicEndpoint = new("https://api.anthropic.com/v1/");
 
+    public static readonly Uri GeminiEndpoint = new("https://generativelanguage.googleapis.com/v1beta/");
+
     /// <summary>The Messages API version the key check sends; listing models is the same in every version.</summary>
     public const string AnthropicApiVersion = "2023-06-01";
 
@@ -44,6 +46,9 @@ public sealed class AiKeyChecker : IAiKeyChecker
             return response.StatusCode switch
             {
                 HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => AiKeyCheckOutcome.Rejected,
+                // Gemini answers a bad key with a 400 (API_KEY_INVALID); listing models takes
+                // nothing else that could be invalid.
+                HttpStatusCode.BadRequest when provider == AiProvider.Gemini => AiKeyCheckOutcome.Rejected,
                 HttpStatusCode.NotFound => AiKeyCheckOutcome.NotFound,
                 _ when response.IsSuccessStatusCode => AiKeyCheckOutcome.Accepted,
                 _ => Unreachable(provider, $"HTTP {(int)response.StatusCode}"),
@@ -67,6 +72,7 @@ public sealed class AiKeyChecker : IAiKeyChecker
         {
             AiProvider.OpenAi => OpenAiEndpoint,
             AiProvider.Anthropic => AnthropicEndpoint,
+            AiProvider.Gemini => GeminiEndpoint,
             AiProvider.OpenAiCompatible => baseUrl ?? throw new ArgumentNullException(nameof(baseUrl)),
             _ => throw new NotSupportedException($"No key check for {provider} yet (feature 39 Phase C)."),
         };
@@ -78,6 +84,12 @@ public sealed class AiKeyChecker : IAiKeyChecker
             // on every request. Both are redacted by the client factory's logging like any header.
             request.Headers.Add("x-api-key", key);
             request.Headers.Add("anthropic-version", AnthropicApiVersion);
+        }
+        else if (provider == AiProvider.Gemini)
+        {
+            // Google takes the key in x-goog-api-key; a ?key= query would put it in the URL,
+            // which the client factory logs.
+            request.Headers.Add("x-goog-api-key", key);
         }
         else
         {

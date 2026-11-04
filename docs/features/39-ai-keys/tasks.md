@@ -2,7 +2,7 @@
 
 Four phases, one PR each. Built after the Prep wave (features 35 to 38) unless Dave moves it
 earlier; feature 38's cover art is written against Phase A's resolver if A lands first, so it
-doesn't need rework. The version number is set when Phase B ships. Each PR merges once its
+doesn't need rework. The version number is 3.10. Each PR merges once its
 checks pass (Dave, 2026-11-03: "you may merge PRs as you finish each one"). Phase B's migration is applied by Dave by hand before its PR merges.
 
 **Status: specified 2026-11-03. Phase A built 2026-11-03; see the amendment at the top of
@@ -38,8 +38,11 @@ Shipped as three PRs. **B1** (with migration `AddAiKeys`): B1a to B4 and B6a, be
 and their tests, with no migration. **B2 Web**: B8. (2026-11-03: B2 was ready while B1 still
 waited for its migration, so both went out in one PR, #97, merged once `AddAiKeys` is on prod.)
 
-- [ ] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
+- [x] B0. Decide Gemini's route (its .NET GenAI SDK or the OpenAI-compatible endpoint) with a
       conformance test of streaming, images, schema and usage; record the choice here.
+      **Chosen (2026-11-04): Google's `Google.GenAI` SDK and its `IChatClient` adapter** (real
+      schemas and usage; see the design amendment). The conformance test is
+      `LiveGeminiConformanceTests`, run by hand on a key.
 - [x] B1a. (from A3) The `AiModels` catalog and its startup validation; `AiUsageRecorder`
       prices key-funded calls from it. `ModelPricing` stays for Nornis's own deployments (see
       the design amendment); there are no `azure/…` lines.
@@ -69,7 +72,7 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
       Prep drafting and conversation streams and Capture's page reading; an out-of-credit
       refusal links to the provider's billing page when its message names one.
 - [x] B9. Tests per design.md; build, `dotnet test`, `dotnet format --verify-no-changes`.
-- [ ] B10. Dave: the key-ring blob and `AiKeys__KeyBlobUri` on both apps (targeted
+- [x] B10. Dave: the key-ring blob and `AiKeys__KeyBlobUri` on both apps (targeted
       `az containerapp update`), `AddAiKeys` applied, then the merge.
 
 ## Phase C — Anthropic, Gemini and the eval
@@ -79,10 +82,11 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
 - [x] C2. Anthropic traits and client (official C# SDK, `IChatClient`), with explicit caching
       of the system prompt. Its tests (C5's half) are in `AnthropicProviderTraitsTests`.
 - [x] C2b. The model picker: catalog models, then "More from your key" (design.md amendment).
-- [ ] C3. Gemini traits and client (B0's route).
+- [x] C3. Gemini traits and client (B0's route).
 - [ ] C4. Eval runs on the candidate models of each provider; the catalog gets the ones Dave
       accepts, per task.
-- [ ] C5. Tests per design.md for C2 and C3.
+- [x] C5. Tests per design.md for C2 and C3 (`AnthropicProviderTraitsTests`,
+      `GeminiProviderTraitsTests`, the key check and model list for both).
 
 ## Phase D — Cutover and ship
 
@@ -91,4 +95,7 @@ waited for its migration, so both went out in one PR, #97, merged once `AddAiKey
 - [ ] D2. A live walk: extraction on Gribbits through Dave's key; a fresh test account on the
       trial reaches "Trial: $0.00 left" and the "Add a key" refusal; a bad key is refused on
       save; public Ask is off for a trial world.
-- [ ] D3. Ship: `MinorVersion` bump; the change log, the Features page and the README; row 39.
+- [x] D3. Ship: `MinorVersion` bump; the change log, the Features page and the README; row 39.
+      Shipped early as **Nornis 3.10** (Dave, 2026-11-04: "let's go straight to the version bump,
+      change log, features, and readme"), before the eval and the cutover; the trial isn't
+      described as live until D's cutover sets `AiModels:Fallback` to `Trial`.

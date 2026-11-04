@@ -102,7 +102,7 @@ public class StatusEndpointTests
         var names = CheckNames(await GetStatusAsync());
 
         // Nornis's own Azure resource keeps its entry; each provider users' keys reach has its own.
-        Assert.That(names, Is.EquivalentTo(["azure-openai", "ai-openai", "ai-anthropic", "ai-openai-compatible", "worker-heartbeat"]));
+        Assert.That(names, Is.EquivalentTo(["azure-openai", "ai-openai", "ai-anthropic", "ai-gemini", "ai-openai-compatible", "worker-heartbeat"]));
     }
 
     [Test]
