@@ -1,5 +1,12 @@
 # Design Document
 
+> **Amendment (2026-11-03, after release):** the image model is `openai/gpt-image-2`. OpenAI shut
+> `gpt-image-1` down on 2026-10-23, so the first live Generate failed with "The model
+> 'gpt-image-1' does not exist", and the card called it a refusal. A 400 from the image endpoint
+> is now read from OpenAI's error body: its safety system's codes (`moderation_blocked`,
+> `content_policy_violation`) say "reword"; anything else shows OpenAI's own reason
+> (`cover_rejected`); `billing_hard_limit_reached` is the key's account out of credit.
+
 > **Amendment (2026-11-03, Phases B to D):** what building it changed. The text below is left
 > as written.
 >

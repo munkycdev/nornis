@@ -75,10 +75,12 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
                 return new AiKeyRejectedException(funding.Provider, clientResult);
             }
 
-            // OpenAI says "out of credit" as a 429 whose error code is insufficient_quota; any other
-            // 429 is a throttle and stays retryable.
+            // OpenAI says "out of credit" as a 429 whose error code is insufficient_quota (any other
+            // 429 is a throttle and stays retryable), or, from the image endpoint, as a 400 whose
+            // code is billing_hard_limit_reached.
             if (clientResult.Status == 402
-                || (clientResult.Status == 429 && body.Contains("insufficient_quota", StringComparison.Ordinal)))
+                || (clientResult.Status == 429 && body.Contains("insufficient_quota", StringComparison.Ordinal))
+                || (clientResult.Status == 400 && body.Contains("billing_hard_limit_reached", StringComparison.Ordinal)))
             {
                 logger.LogWarning("{Operation} AI call was refused: the key holder's {Provider} account is out of credit.",
                     operation, funding.Provider);

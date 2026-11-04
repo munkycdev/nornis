@@ -150,7 +150,7 @@ public class AiKeysEndpointTests
         Assert.That(before!.Select(t => t.Task), Is.EquivalentTo(Enum.GetNames<AiTask>()));
         Assert.That(before!.All(t => t.DefaultId is null && t.Options.All(o => !o.HasKey)), Is.True);
         Assert.That(after!.Where(t => t.Task != nameof(AiTask.CoverArt)).All(t => t.DefaultId == "openai/gpt-5.4"), Is.True);
-        Assert.That(after!.Single(t => t.Task == nameof(AiTask.CoverArt)).DefaultId, Is.EqualTo("openai/gpt-image-1"),
+        Assert.That(after!.Single(t => t.Task == nameof(AiTask.CoverArt)).DefaultId, Is.EqualTo("openai/gpt-image-2"),
             "cover art runs on the image model, and only on it");
     }
 

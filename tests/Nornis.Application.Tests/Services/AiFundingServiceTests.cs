@@ -247,12 +247,12 @@ public class AiFundingServiceTests
     [Test]
     public async Task CoverArt_RunsOnTheCreatorsOpenAiKey_OnTheImageModel()
     {
-        _options.Catalog.Add(Model("openai/gpt-image-1", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt));
         var key = _keys.Add(_creator, AiProvider.OpenAi);
 
         var funding = await ResolveCoverArt();
 
-        Assert.That((funding.Model, funding.FundedBy, funding.AiKeyId), Is.EqualTo(("gpt-image-1", AiFundedBy.Key, key.Id)));
+        Assert.That((funding.Model, funding.FundedBy, funding.AiKeyId), Is.EqualTo(("gpt-image-2", AiFundedBy.Key, key.Id)));
     }
 
     [TestCase(AiFallback.Nornis)]
@@ -260,7 +260,7 @@ public class AiFundingServiceTests
     public void CoverArt_WithNoKey_IsRefused_UnderEitherFallback(AiFallback fallback)
     {
         _options.Fallback = fallback;
-        _options.Catalog.Add(Model("openai/gpt-image-1", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt));
 
         var ex = Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
 
@@ -279,7 +279,7 @@ public class AiFundingServiceTests
     [Test]
     public void CatalogValidation_RefusesAnImageModelThatAlsoServesChat()
     {
-        var mixed = Model("openai/gpt-image-1", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.Prep);
+        var mixed = Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.Prep);
 
         Assert.That(new AiModelsOptions { Catalog = [mixed] }.StartupProblem(), Does.Contain("only CoverArt"));
     }

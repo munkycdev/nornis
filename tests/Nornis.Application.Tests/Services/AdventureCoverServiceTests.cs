@@ -170,15 +170,45 @@ public class AdventureCoverServiceTests
     }
 
     [Test]
-    public async Task AProviderContentRefusal_AsksTheGmToReword()
+    public async Task ASafetySystemBlock_AsksTheGmToReword()
     {
-        _generator.Throw = new AiHttpException("moderation", 400);
+        _generator.Throw = new CoverArtRejectedException(moderation: true, "Your request was rejected by our safety system.");
 
         var result = await GenerateAsync();
 
-        Assert.That(result.Error!.Code, Is.EqualTo("cover_refused"));
-        Assert.That(Stored.CoverImagesGenerated, Is.Zero);
-        Assert.That(_ledger.Records.Single().Succeeded, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.Code, Is.EqualTo("cover_refused"));
+            Assert.That(result.Error.Message, Does.Contain("Try rewording"));
+            Assert.That(Stored.CoverImagesGenerated, Is.Zero);
+            Assert.That(_ledger.Records.Single().Succeeded, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ARejectionThatIsntModeration_ShowsOpenAisReason_NotReword()
+    {
+        _generator.Throw = new CoverArtRejectedException(moderation: false, "The model 'gpt-image-1' does not exist.");
+
+        var result = await GenerateAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.Code, Is.EqualTo("cover_rejected"));
+            Assert.That(result.Error.Message, Does.Contain("The model 'gpt-image-1' does not exist."));
+            Assert.That(result.Error.Message, Does.Not.Contain("reword"));
+            Assert.That(Stored.CoverImagesGenerated, Is.Zero, "the count is given back");
+        });
+    }
+
+    [Test]
+    public async Task APlain400_IsUnavailable_NotARefusal()
+    {
+        _generator.Throw = new AiHttpException("HTTP 400", 400);
+
+        var result = await GenerateAsync();
+
+        Assert.That(result.Error!.Code, Is.EqualTo("service_unavailable"));
     }
 
     [Test]
