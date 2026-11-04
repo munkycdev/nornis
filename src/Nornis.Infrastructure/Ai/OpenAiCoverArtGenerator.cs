@@ -1,4 +1,6 @@
+using System.ClientModel;
 using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
 using Nornis.Application.Prep.Covers;
@@ -67,7 +69,9 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
             }
             else if (OpenAiProviderTraits.Instance.TranslateFailure(ex, binding.Funding, Operation, _logger) is { } translated)
             {
-                failure = translated;
+                failure = translated is { StatusCode: 400 } && ex is ClientResultException rejected
+                    ? Rejection(rejected, translated)
+                    : translated;
             }
             else
             {
@@ -96,6 +100,37 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
             .Select(i => new GeneratedCoverImage(i.ImageBytes.ToArray(), i.RevisedPrompt))
             .ToList();
         return new CoverArtGeneration(pictures, usage);
+    }
+
+    /// <summary>
+    /// A 400 from the image endpoint, read from OpenAI's error body: its safety system's codes
+    /// mean the prompt was turned down; anything else is passed on in OpenAI's own words.
+    /// </summary>
+    internal static CoverArtRejectedException Rejection(ClientResultException ex, Exception inner)
+    {
+        string? code = null;
+        string? message = null;
+        try
+        {
+            var body = ex.GetRawResponse()?.Content?.ToString();
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                using var json = JsonDocument.Parse(body);
+                if (json.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
+                {
+                    code = error.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
+                    message = error.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Not OpenAI's error shape: no reason to pass on.
+        }
+
+        var moderation = code is "moderation_blocked" or "content_policy_violation"
+            || (message?.Contains("safety system", StringComparison.OrdinalIgnoreCase) ?? false);
+        return new CoverArtRejectedException(moderation, message, inner);
     }
 
     public async Task<bool> CanGenerateAsync(AiCallScope scope, CancellationToken ct)
