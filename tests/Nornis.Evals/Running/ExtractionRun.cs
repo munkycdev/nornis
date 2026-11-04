@@ -13,6 +13,9 @@ namespace Nornis.Evals.Running;
 public interface IEvalContext
 {
     IReadOnlyList<ArtifactContext> Before(EvalWorld world, int caseIndex);
+
+    /// <summary>What a case's first pass answered; null when no attempt produced a valid answer.</summary>
+    void Read(EvalWorld world, int caseIndex, IReadOnlyList<JsonElement>? proposals);
 }
 
 /// <summary>A world that knows nothing yet, for a run with no baseline to build context from.</summary>
@@ -21,6 +24,10 @@ public sealed class EmptyContext : IEvalContext
     public static readonly EmptyContext Instance = new();
 
     public IReadOnlyList<ArtifactContext> Before(EvalWorld world, int caseIndex) => [];
+
+    public void Read(EvalWorld world, int caseIndex, IReadOnlyList<JsonElement>? proposals)
+    {
+    }
 }
 
 /// <summary>
@@ -43,7 +50,12 @@ public sealed class ExtractionRunner(IAiCallBinder binder, ILoggerFactory loggin
                 {
                     var evalCase = world.Cases[index];
                     Console.WriteLine($"  {world.Id}/{evalCase.Id}{(repeat > 1 ? $" (pass {pass})" : "")}");
-                    cases.Add(await ReadAsync(world, index, context.Before(world, index), pass, ct));
+                    var read = await ReadAsync(world, index, context.Before(world, index), pass, ct);
+                    cases.Add(read);
+                    if (pass == 1)
+                    {
+                        context.Read(world, index, read.Proposals);
+                    }
                 }
             }
         }

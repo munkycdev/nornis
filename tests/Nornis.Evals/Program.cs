@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Nornis.Evals.Corpus;
 using Nornis.Evals.Models;
 using Nornis.Evals.Running;
+using Nornis.Evals.Scoring;
 using Nornis.Infrastructure.Ai;
 
 namespace Nornis.Evals;
@@ -11,7 +12,9 @@ namespace Nornis.Evals;
 /// The extraction eval (feature 39). Run from the repository root:
 /// <code>
 /// dotnet run --project tests/Nornis.Evals -- corpus --spa Z:\repos\dnd\slime-tpk
-/// dotnet run --project tests/Nornis.Evals -- run --model openai/gpt-5.4
+/// dotnet run --project tests/Nornis.Evals -- baseline --model openai/gpt-5.4
+/// (review artifacts/evals/baseline/*.md once)
+/// dotnet run --project tests/Nornis.Evals -- run --model anthropic/claude-sonnet-5-5
 /// </code>
 /// Everything it writes goes under <c>artifacts/evals/</c>, which git ignores.
 /// </summary>
@@ -22,9 +25,17 @@ public static class Program
 
           corpus [--spa <folder of Slime Spa chapters>] [--out <folder>]
               Writes the corpus: the demo world's notes, and the Slime Spa chapters if named.
+          baseline --model <provider/model> [--corpus <corpus.json>] [--out <folder>] [--force true]
+              Reads the corpus with the baseline model, each source against the world its own
+              earlier answers built, and writes baseline/{world}.md checklists to review once.
           run --model <provider/model> [--corpus <corpus.json>] [--out <folder>] [--repeat <n>]
-              Reads every case with one model and saves the run. provider is openai, anthropic,
-              gemini, or azure (Nornis's own deployment, e.g. azure/nornis-extract).
+              Reads every source against the reviewed baseline's world, saves the run, and writes
+              its report beside it.
+          report --run <runs/....json> [--corpus <corpus.json>] [--out <folder>]
+              Scores a saved run again, after the baseline's ticks changed.
+
+        provider is openai, anthropic, gemini, or azure (Nornis's own deployment, e.g.
+        azure/nornis-extract).
 
         Keys: NORNIS_OPENAI_KEY, NORNIS_ANTHROPIC_KEY, NORNIS_GEMINI_KEY; Azure reads the Worker's
         Extraction settings. Output defaults to artifacts/evals/ under the repository root.
@@ -46,7 +57,9 @@ public static class Program
             return args[0] switch
             {
                 "corpus" => WriteCorpus(root, options, output),
+                "baseline" => await BaselineAsync(root, options, output),
                 "run" => await RunAsync(root, options, output),
+                "report" => Rescore(root, options, output),
                 _ => throw new ArgumentException($"Unknown command '{args[0]}'.\n\n{Usage}"),
             };
         }
@@ -76,28 +89,67 @@ public static class Program
         return 0;
     }
 
+    private static async Task<int> BaselineAsync(string root, Dictionary<string, string> options, string output)
+    {
+        var folder = Path.Combine(output, "baseline");
+        if (File.Exists(Path.Combine(folder, Baseline.RunFile)) && options.GetValueOrDefault("force") != "true")
+        {
+            // The checklists carry Dave's review; a second baseline would wipe it.
+            throw new InvalidOperationException($"{folder} already holds a baseline. Pass --force true to replace it and its review.");
+        }
+
+        var (corpus, model, run) = await ReadCorpusAsync(root, options, output, WorldReplay.AcceptAsRead());
+        Baseline.Write(folder, corpus, run);
+        Console.WriteLine($"Baseline by {model.Name}: review {string.Join(", ", corpus.Worlds.Select(w => Path.Combine(folder, w.Id + ".md")))}");
+        return 0;
+    }
+
     private static async Task<int> RunAsync(string root, Dictionary<string, string> options, string output)
+    {
+        var corpus = LoadCorpus(options, output);
+        var kept = Baseline.Load(Path.Combine(output, "baseline"), corpus);
+        var (_, model, run) = await ReadCorpusAsync(root, options, output, WorldReplay.From(kept));
+
+        var folder = Path.Combine(output, "runs");
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, $"{run.RanAt:yyyyMMdd-HHmmss}-{model.Name.Replace('/', '_')}");
+        run.Save(path + ".json");
+        File.WriteAllText(path + ".md", Report.Write(corpus, run, kept, model.Price));
+        Console.WriteLine($"Report: {path}.md");
+        return 0;
+    }
+
+    private static int Rescore(string root, Dictionary<string, string> options, string output)
+    {
+        var path = Required(options, "run");
+        var corpus = LoadCorpus(options, output);
+        var run = RunRecord.Load(path);
+        var model = EvalModel.Parse(run.Model, Configuration(root));
+        var report = Path.ChangeExtension(path, ".md");
+        File.WriteAllText(report, Report.Write(corpus, run, Baseline.Load(Path.Combine(output, "baseline"), corpus), model.Price));
+        Console.WriteLine($"Report: {report}");
+        return 0;
+    }
+
+    private static async Task<(EvalCorpus Corpus, EvalModel Model, RunRecord Run)> ReadCorpusAsync(
+        string root, Dictionary<string, string> options, string output, IEvalContext context)
     {
         var configuration = Configuration(root);
         var model = EvalModel.Parse(Required(options, "model"), configuration);
-        var corpus = EvalCorpus.Load(options.GetValueOrDefault("corpus") ?? Path.Combine(output, "corpus", EvalCorpus.ManifestName));
-        var repeat = options.TryGetValue("repeat", out var times) ? int.Parse(times) : 1;
+        var corpus = LoadCorpus(options, output);
+        var repeat = options.TryGetValue("repeat", out var times) ? int.Parse(times, System.Globalization.CultureInfo.InvariantCulture) : 1;
 
         using var userKeys = new UserKeyChatClients(maxRetries: 2);
         using var logging = LoggerFactory.Create(b => b.AddSimpleConsole().SetMinimumLevel(LogLevel.Warning));
         var runner = new ExtractionRunner(new EvalBinder(model.Bind(configuration, userKeys)), logging,
             configuration.GetValue("Extraction:MaxParseRetryAttempts", 2));
 
-        Console.WriteLine($"{model.Name}: {corpus.Worlds.Sum(w => w.Cases.Count)} cases");
-        var run = await runner.RunAsync(corpus, model, EmptyContext.Instance, repeat, CancellationToken.None);
-
-        var folder = Path.Combine(output, "runs");
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, $"{run.RanAt:yyyyMMdd-HHmmss}-{model.Name.Replace('/', '_')}.json");
-        run.Save(path);
-        Console.WriteLine($"Saved {path}");
-        return 0;
+        Console.WriteLine($"{model.Name}: {corpus.Worlds.Sum(w => w.Cases.Count)} sources");
+        return (corpus, model, await runner.RunAsync(corpus, model, context, repeat, CancellationToken.None));
     }
+
+    private static EvalCorpus LoadCorpus(Dictionary<string, string> options, string output) =>
+        EvalCorpus.Load(options.GetValueOrDefault("corpus") ?? Path.Combine(output, "corpus", EvalCorpus.ManifestName));
 
     /// <summary>The catalog and prices the API and Worker ship with, then the Worker's user
     /// secrets and the environment, as the Worker reads them.</summary>

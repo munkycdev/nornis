@@ -130,6 +130,29 @@
 >   checks each Gemini catalog line live: it is on the key's model list, streams with usage,
 >   answers to a strict schema, reads an image, and a bad key is refused on save and on a call.
 >   "More from your key" lists Gemini's `generateContent` models, filtered by name like OpenAI's.
+> - **C1 (2026-11-04), the eval runner as built** (the section "Extraction eval" below; design
+>   put to Dave in the thread). `tests/Nornis.Evals` is a console app in the solution, so CI
+>   compiles it, and never run there; its scoring and replay are tested in
+>   `Nornis.Infrastructure.Tests` (`ExtractionEvalTests`). Everything it writes goes under the
+>   ignored `artifacts/evals/`.
+>   - **Corpus:** `corpus` writes the demo world's GM notes and sessions (from the API's own
+>     template) and names the Slime Spa chapters where they are; two worlds, read in order.
+>   - **Context:** each source is read against the world the *reviewed baseline* built from the
+>     sources before it (`WorldReplay`), chosen as production chooses it (named artifacts first,
+>     then recent, 50 artifacts and 20 facts each, party-visible sources see only party-visible
+>     artifacts), with ids derived from names so a run can be rescored. Every model therefore
+>     sees the same world. Library passages and the party's last location aren't replayed.
+>   - **Calls** go through the real prompt builder and `ExtractionAiClient` with the Worker's
+>     retry rule (`ExtractionService.ValidateResponse`, now internal), on a client built as a
+>     GM's key gets it (`UserKeyChatClients`) or on Nornis's Azure deployment (`azure/…`).
+>   - **Baseline:** `baseline --model openai/gpt-5.4` reads the corpus accepting each answer as it
+>     comes and writes one Markdown checklist per world; Dave unticks what he would reject, once.
+>     The ticks are read back on every run. It refuses to overwrite a reviewed baseline.
+>   - **Scoring** has no model in it: same kind of change about the same artifact (names compared
+>     without case, articles or punctuation, a name inside the other's counts), facts also
+>     sharing enough words, links in either direction, each baseline proposal matched once. The
+>     report gives found, missed, invented (not in the baseline, listed to be read), refused
+>     answers, tokens, cost (refused attempts included) and pairs worded differently.
 
 ## Overview
 
