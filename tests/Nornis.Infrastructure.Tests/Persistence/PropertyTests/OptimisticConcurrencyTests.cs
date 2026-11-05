@@ -159,7 +159,7 @@ public class OptimisticConcurrencyTests : IDisposable
         // Context B still has stale OriginalValue — save should fail
         modifyB(entityB!);
 
-        NUnit.Framework.Assert.ThrowsAsync<DbUpdateConcurrencyException>(async () =>
+        await NUnit.Framework.Assert.ThrowsAsync<DbUpdateConcurrencyException>(async () =>
         {
             await contextB.SaveChangesAsync();
         });

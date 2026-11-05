@@ -119,7 +119,7 @@ public class RedeliveryBackoffTests
 
         var started = DateTimeOffset.UtcNow;
 
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await RedeliveryBackoff.WaitAsync(deliveryCount: 1, cts.Token));
 
         Assert.That(DateTimeOffset.UtcNow - started, Is.LessThan(TimeSpan.FromSeconds(1)),

@@ -44,11 +44,11 @@ public class AzureOpenAiEmbeddingClientTests
             .Returns(call => HangAsync(call.Arg<CancellationToken>()));
 
     [Test]
-    public void EmbedAsync_WhenTheCallHangs_ThrowsAiTimeout()
+    public async Task EmbedAsync_WhenTheCallHangs_ThrowsAiTimeout()
     {
         SetupHangingCall();
 
-        var ex = Assert.ThrowsAsync<AiTimeoutException>(
+        var ex = await Assert.ThrowsAsync<AiTimeoutException>(
             async () => await MakeClient(timeoutSeconds: 1).EmbedAsync(["chunk"], CancellationToken.None));
 
         // AiTimeoutException specifically, because TransientFailureClassifier reads it as
@@ -57,7 +57,7 @@ public class AzureOpenAiEmbeddingClientTests
     }
 
     [Test]
-    public void EmbedAsync_WhenTheCallerCancels_DoesNotClaimATimeout()
+    public async Task EmbedAsync_WhenTheCallerCancels_DoesNotClaimATimeout()
     {
         SetupHangingCall();
 
@@ -69,12 +69,12 @@ public class AzureOpenAiEmbeddingClientTests
         // make an abandoned request look like something worth re-buying.
         // CatchAsync, not ThrowsAsync: the SDK surfaces the derived TaskCanceledException, and
         // what matters is that it is still an OperationCanceledException rather than a timeout.
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await MakeClient(timeoutSeconds: 30).EmbedAsync(["chunk"], cts.Token));
     }
 
     [Test]
-    public void EmbedAsync_WhenTheServiceReturnsAnError_TranslatesTheStatus()
+    public async Task EmbedAsync_WhenTheServiceReturnsAnError_TranslatesTheStatus()
     {
         // Built before the Returns call, not inside it: a substitute created mid-recording
         // becomes the call NSubstitute thinks you are configuring.
@@ -91,7 +91,7 @@ public class AzureOpenAiEmbeddingClientTests
 
         // Translated at the boundary so the application layer can classify on a typed status
         // instead of matching prose, and so a 429 retries rather than failing the document.
-        var ex = Assert.ThrowsAsync<HttpRequestException>(
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(
             async () => await MakeClient(timeoutSeconds: 30).EmbedAsync(["chunk"], CancellationToken.None));
 
         Assert.That(ex!.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.TooManyRequests));

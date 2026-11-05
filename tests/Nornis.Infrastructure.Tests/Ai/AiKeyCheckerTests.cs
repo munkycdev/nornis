@@ -159,7 +159,7 @@ public class AiKeyCheckerTests
     }
 
     [Test]
-    public void The_real_compatible_transport_refuses_a_private_endpoint()
+    public async Task The_real_compatible_transport_refuses_a_private_endpoint()
     {
         using var clients = new UserKeyChatClients(maxRetries: 0);
         var key = new UserAiKey
@@ -170,7 +170,7 @@ public class AiKeyCheckerTests
             UpdatedAt = DateTimeOffset.UnixEpoch,
         };
 
-        var thrown = Assert.CatchAsync(() => clients.For(key, "llama-4", () => Secret).GetResponseAsync("hello"));
+        var thrown = await Assert.CatchAsync(() => clients.For(key, "llama-4", () => Secret).GetResponseAsync("hello"));
 
         Assert.That(Flatten(thrown).Any(e => e.Message.Contains("not a public internet address")), Is.True, thrown!.ToString());
     }

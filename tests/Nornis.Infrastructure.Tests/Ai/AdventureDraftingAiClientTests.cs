@@ -107,11 +107,11 @@ public class AdventureDraftingAiClientTests
     }
 
     [Test]
-    public void StreamAsync_HttpFailure_IsTheUsualTaxonomy()
+    public async Task StreamAsync_HttpFailure_IsTheUsualTaxonomy()
     {
         _chatClient.Streams([], thenThrow: FakeChatClient.HttpFailure(429));
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
+        var ex = await Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
 
         Assert.That(ex!.StatusCode, Is.EqualTo(429));
     }

@@ -90,7 +90,7 @@ public class LoremasterAiClientTests
     #region Timeout Tests
 
     [Test]
-    public void StreamAsync_Timeout_ThrowsAiTimeoutException()
+    public async Task StreamAsync_Timeout_ThrowsAiTimeoutException()
     {
         var shortTimeoutRequest = new AiPromptRequest
         {
@@ -102,20 +102,20 @@ public class LoremasterAiClientTests
         };
         _chatClient.Streams([], thenHang: true);
 
-        var ex = Assert.ThrowsAsync<AiTimeoutException>(
+        var ex = await Assert.ThrowsAsync<AiTimeoutException>(
             async () => await DrainAsync(shortTimeoutRequest));
 
         Assert.That(ex!.Message, Does.Contain("timed out"));
     }
 
     [Test]
-    public void StreamAsync_ExternalCancellation_ThrowsOperationCanceledException()
+    public async Task StreamAsync_ExternalCancellation_ThrowsOperationCanceledException()
     {
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         _chatClient.Streams([], thenHang: true);
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await DrainAsync(ct: cts.Token));
     }
 
@@ -127,21 +127,21 @@ public class LoremasterAiClientTests
     [TestCase(500)]
     [TestCase(503)]
     [TestCase(400)]
-    public void StreamAsync_HttpFailure_ThrowsAiHttpExceptionWithItsStatus(int status)
+    public async Task StreamAsync_HttpFailure_ThrowsAiHttpExceptionWithItsStatus(int status)
     {
         _chatClient.Streams([], thenThrow: FakeChatClient.HttpFailure(status));
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
+        var ex = await Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
 
         Assert.That(ex!.StatusCode, Is.EqualTo(status));
     }
 
     [Test]
-    public void StreamAsync_UnexpectedException_ThrowsAiHttpException()
+    public async Task StreamAsync_UnexpectedException_ThrowsAiHttpException()
     {
         _chatClient.Streams([], thenThrow: new InvalidOperationException("Something unexpected"));
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
+        var ex = await Assert.ThrowsAsync<AiHttpException>(async () => await DrainAsync());
 
         Assert.That(ex!.StatusCode, Is.Null);
         Assert.That(ex.Message, Does.Contain("Unexpected error"));

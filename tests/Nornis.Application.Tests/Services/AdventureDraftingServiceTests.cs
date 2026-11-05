@@ -451,7 +451,7 @@ public class AdventureDraftingServiceTests
         using var cts = new CancellationTokenSource();
         var result = await _sut.DraftAsync(Command(adventure, scene), cts.Token);
         var seen = new List<string>();
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
         {
             await foreach (var e in result.Value!.WithCancellation(cts.Token))
             {

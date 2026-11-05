@@ -46,7 +46,7 @@ public class SlugBackfillBackgroundServiceTests
 
         await service.StartAsync(CancellationToken.None);
 
-        Assert.DoesNotThrowAsync(() => service.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5)));
+        await Assert.DoesNotThrowAsync(() => service.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [Test]

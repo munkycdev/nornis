@@ -267,7 +267,7 @@ public class NavActivityCadenceTests
         var clock = new FakeClock { StopAfterWaits = 1 };
         await clock.Cts.CancelAsync();
 
-        Assert.DoesNotThrowAsync(async () => await RunAsync(clock, visible: () => true));
+        await Assert.DoesNotThrowAsync(async () => await RunAsync(clock, visible: () => true));
 
         Assert.That(clock.Fetches, Is.Zero);
     }

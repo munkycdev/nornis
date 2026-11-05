@@ -302,7 +302,7 @@ public class LoremasterServiceStreamingTests
         using var cts = new CancellationTokenSource();
         var begun = await service.BeginAskAsync(Command(), cts.Token);
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
         {
             await foreach (var e in begun.Value!.Events)
             {
@@ -331,7 +331,7 @@ public class LoremasterServiceStreamingTests
         var begun = await _service.BeginAskAsync(Command(), cts.Token);
         cts.CancelAfter(TimeSpan.FromMilliseconds(50));
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
         {
             await foreach (var e in begun.Value!.Events)
             {
