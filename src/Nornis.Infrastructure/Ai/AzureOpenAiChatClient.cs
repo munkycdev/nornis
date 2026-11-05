@@ -15,8 +15,12 @@ namespace Nornis.Infrastructure.Ai;
 /// 2026-09-28) probes that chunk for <c>reasoning_content</c> without checking it is there —
 /// "requires an element of type 'Object', but the target element has type 'Null'" — so every
 /// streamed answer failed on its last chunk, after all of its text had arrived. The SDK itself
-/// reads the chunk fine. <c>AzureOpenAiChatClientTests</c> replays that stream through both; when
-/// its adapter-throws test starts failing, the adapter is fixed and this override can go.
+/// reads the chunk fine. <c>AzureOpenAiChatClientTests</c> replays that stream through both.
+///
+/// Microsoft.Extensions.AI.OpenAI 10.11.0 fixed the adapter (the replay now streams through it
+/// cleanly), so this override is no longer needed and can be deleted in favour of
+/// <c>AsIChatClient()</c>. That is left to its own change, so a regression on the stock path can
+/// be reverted without undoing the package bump.
 /// </summary>
 public sealed class AzureOpenAiChatClient : DelegatingChatClient
 {
