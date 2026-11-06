@@ -44,6 +44,24 @@ public class AdventureDraftingAiClientTests
     }
 
     [Test]
+    public void OnlyAResearchTurn_AsksForTheSearchTool_WithItsOwnCeiling()
+    {
+        var research = new AiPromptRequest
+        {
+            Scope = Request.Scope, SystemPrompt = Request.SystemPrompt, UserMessage = Request.UserMessage,
+            Model = Request.Model, TimeoutSeconds = 180, WebSearch = new AiWebSearchRequest(MaxSearches: 5, OutputCeilingTokens: 6_000),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(AdventureDraftingAiClient.OptionsFor(Request), Is.SameAs(AdventureDraftingAiClient.CallOptions),
+                "a turn without the switch is sent exactly as before");
+            Assert.That(AdventureDraftingAiClient.OptionsFor(research),
+                Is.EqualTo(new AiCallOptions(MaxOutputTokens: 6_000, WebSearch: new AiWebSearch(5))));
+        });
+    }
+
+    [Test]
     public async Task StreamAsync_SendsThePromptWithTheCeiling()
     {
         _chatClient.Streams(["> Gulls wheel over the docks."], finishReason: ChatFinishReason.Stop);

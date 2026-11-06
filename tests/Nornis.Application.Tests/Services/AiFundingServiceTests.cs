@@ -381,6 +381,119 @@ public class AiFundingServiceTests
         Assert.That(price.Cost(1_000_000, 400_000, 100_000), Is.EqualTo(3.10m));
     }
 
+    // ------------------------------------------------------- web search (feature 40) --
+
+    [Test]
+    public void Price_AddsSearchesAtTheirOwnRate_AndAnUnreportedCountAsNone()
+    {
+        var price = new AiModelPrice(2.50m, 0.25m, 15.00m, WebSearchPerThousandUsd: 10.00m);
+
+        Assert.Multiple(() =>
+        {
+            // 100k input, 10k output: 0.25 + 0.15 = 0.40, plus 3 searches at $10 per 1,000 = 0.03.
+            Assert.That(price.Cost(100_000, null, 10_000, webSearches: 3), Is.EqualTo(0.43m));
+            Assert.That(price.Cost(100_000, null, 10_000, webSearches: null), Is.EqualTo(0.40m));
+            Assert.That(new AiModelPrice(2.50m, 0.25m, 15.00m).Cost(100_000, null, 10_000, webSearches: 3), Is.EqualTo(0.40m),
+                "a model with no search price can't be charged for searches it can't run");
+        });
+    }
+
+    [Test]
+    public void CatalogValidation_RefusesASearchModelWithoutASearchPrice_AndAPriceWithoutSearch()
+    {
+        var unpriced = Model("openai/s", AiProvider.OpenAi);
+        unpriced.SupportsWebSearch = true;
+        var stray = Model("openai/t", AiProvider.OpenAi);
+        stray.WebSearchPerThousandUsd = 10m;
+        var notPrep = Model("openai/u", AiProvider.OpenAi, true, AiTask.Ask);
+        notPrep.SupportsWebSearch = true;
+        notPrep.WebSearchPerThousandUsd = 10m;
+        var good = Model("openai/v", AiProvider.OpenAi);
+        good.SupportsWebSearch = true;
+        good.WebSearchPerThousandUsd = 10m;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new AiModelsOptions { Catalog = [unpriced] }.StartupProblem(), Does.Contain("no search price"));
+            Assert.That(new AiModelsOptions { Catalog = [stray] }.StartupProblem(), Does.Contain("doesn't search"));
+            Assert.That(new AiModelsOptions { Catalog = [notPrep] }.StartupProblem(), Does.Contain("doesn't serve Prep"));
+            Assert.That(new AiModelsOptions { Catalog = [good] }.StartupProblem(), Is.Null);
+        });
+    }
+
+    [Test]
+    public void TheEstimate_SearchesAtTheProvidersDearestSearchPrice()
+    {
+        var dearTokens = Model("openai/big", AiProvider.OpenAi);
+        dearTokens.OutputPerMillionUsd = 40m;
+        var cheapSearcher = Model("openai/small", AiProvider.OpenAi);
+        cheapSearcher.SupportsWebSearch = true;
+        cheapSearcher.WebSearchPerThousandUsd = 10m;
+        var dearSearcher = Model("openai/mid", AiProvider.OpenAi);
+        dearSearcher.SupportsWebSearch = true;
+        dearSearcher.WebSearchPerThousandUsd = 25m;
+
+        var estimate = new AiModelsOptions { Catalog = [cheapSearcher, dearTokens, dearSearcher] }.EstimateFor(AiProvider.OpenAi);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(estimate?.OutputPerMillionUsd, Is.EqualTo(40m), "tokens still from the dearest model");
+            Assert.That(estimate?.WebSearchPerThousandUsd, Is.EqualTo(25m), "searches from the dearest searcher, though another model is dearer per token");
+        });
+    }
+
+    [Test]
+    public async Task TheRecorder_PricesAKeyFundedCallsSearches()
+    {
+        var repository = new InMemoryAiUsageRecordRepository();
+        var recorder = TestUsageRecorder.Wrap(repository);
+        var price = new AiModelPrice(2.50m, null, 15.00m, WebSearchPerThousandUsd: 10.00m);
+
+        await recorder.RecordAsync(Guid.NewGuid(), Guid.NewGuid(), Domain.Enums.AiOperationType.AdventureConversation,
+            new AiUsage
+            {
+                Model = "gpt-5.4", InputTokens = 0, OutputTokens = 0, TotalTokens = 0, DurationMs = 1, WebSearches = 5,
+                Funding = new AiFunding(AiProvider.OpenAi, "gpt-5.4", AiFundedBy.Key, Price: price),
+            },
+            succeeded: true, errorCode: null);
+
+        Assert.That(repository.Records.Single().EstimatedCostUsd, Is.EqualTo(0.05m));
+    }
+
+    [Test]
+    public void TheShippedCatalog_MarksOnlyPrepModelsAsSearching_AndPricesThem()
+    {
+        var options = ShippedCatalog();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(options.StartupProblem(), Is.Null);
+            Assert.That(options.Catalog.Where(m => m.SupportsWebSearch).Select(m => m.Id), Is.EquivalentTo(new[]
+            {
+                "openai/gpt-5.4", "anthropic/claude-sonnet-5-5", "anthropic/claude-opus-5-5",
+                "gemini/gemini-3.8-flash", "gemini/gemini-4-argon",
+            }));
+        });
+    }
+
+    private static AiModelsOptions ShippedCatalog()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Nornis.sln")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.That(dir, Is.Not.Null, "could not locate the repository root");
+        var json = File.ReadAllText(Path.Combine(dir!.FullName, "src", "Nornis.Api", "appsettings.json"));
+        var section = System.Text.Json.JsonDocument.Parse(json).RootElement.GetProperty("AiModels").GetRawText();
+        return System.Text.Json.JsonSerializer.Deserialize<AiModelsOptions>(section, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        })!;
+    }
+
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;

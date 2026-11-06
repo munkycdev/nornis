@@ -19,4 +19,16 @@ public class AiPromptRequest
     public required string Model { get; init; }
 
     public required int TimeoutSeconds { get; init; }
+
+    /// <summary>
+    /// Let the model search the web through its provider (feature 40). Null on every call but a
+    /// research turn of Prep's side conversation, which is the only caller that sets it.
+    /// </summary>
+    public AiWebSearchRequest? WebSearch { get; init; }
 }
+
+/// <summary>What a research turn asks of its call (feature 40).</summary>
+/// <param name="MaxSearches">Searches the provider may run, where it can be held to a number.</param>
+/// <param name="OutputCeilingTokens">The turn's own output ceiling: searching and the reasoning
+/// around it count against it on some models.</param>
+public sealed record AiWebSearchRequest(int MaxSearches, int OutputCeilingTokens);

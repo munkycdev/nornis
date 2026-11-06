@@ -90,7 +90,7 @@ public class AiUsageRecorder : IAiUsageRecorder
         // (feature 39). Nornis's own deployments are priced from configuration, as before.
         if (usage.Funding?.Price is { } price)
         {
-            return price.Cost(usage.InputTokens, usage.CachedInputTokens, usage.OutputTokens);
+            return price.Cost(usage.InputTokens, usage.CachedInputTokens, usage.OutputTokens, usage.WebSearches);
         }
 
         var pricing = LookupPricing(usage.Model);
