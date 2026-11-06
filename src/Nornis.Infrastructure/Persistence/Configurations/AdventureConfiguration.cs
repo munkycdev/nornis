@@ -47,6 +47,9 @@ public class AdventureConfiguration : IEntityTypeConfiguration<Adventure>
             ai.Property(u => u.WroteText).HasColumnName("AiWroteText");
             ai.Property(u => u.MadeArt).HasColumnName("AiMadeArt");
             ai.Property(u => u.Declared).HasColumnName("AiDeclared");
+
+            // Feature 40, recorded like the two above.
+            ai.Property(u => u.ResearchedOnWeb).HasColumnName("AiResearchedOnWeb");
         });
 
         builder.Navigation(a => a.AiUse).IsRequired();

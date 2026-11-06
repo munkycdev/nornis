@@ -1,4 +1,5 @@
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Domain.Entities;
 
@@ -19,6 +20,13 @@ public class ConversationMessage
 
     /// <summary>The model that wrote an answer. Null on the GM's own messages.</summary>
     public string? Model { get; set; }
+
+    /// <summary>
+    /// What a research answer found on the web (feature 40), shown under it and never copied into
+    /// the adventure. Null: the turn wasn't a research turn, which every message before 3.11 and
+    /// every GM message is.
+    /// </summary>
+    public WebResearchResult? WebResearch { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

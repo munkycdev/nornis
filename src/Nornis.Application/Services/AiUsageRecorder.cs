@@ -60,6 +60,7 @@ public class AiUsageRecorder : IAiUsageRecorder
             Model = usage?.Model ?? fallbackModel ?? string.Empty,
             InputTokens = usage?.InputTokens ?? 0,
             CachedInputTokens = usage?.CachedInputTokens,
+            WebSearches = usage?.WebSearches,
             OutputTokens = usage?.OutputTokens ?? 0,
             TotalTokens = usage?.TotalTokens ?? 0,
             EstimatedCostUsd = CalculateCost(usage),

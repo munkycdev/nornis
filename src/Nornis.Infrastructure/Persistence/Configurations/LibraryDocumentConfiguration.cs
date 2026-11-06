@@ -88,8 +88,8 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
 
         builder.HasIndex(d => d.AdventureId);
 
-        // Nine nullable PrintDetails_* columns. Optional: a document that isn't a print has all
-        // nine null and reads back with no print details. Title, Type, Publisher and Author are
+        // Ten nullable PrintDetails_* columns. Optional: a document that isn't a print has all
+        // ten null and reads back with no print details. Title, Type, Publisher and Author are
         // required inside, so a half-written snapshot can't load as a print.
         builder.OwnsOne(d => d.PrintDetails, print =>
         {
@@ -103,6 +103,9 @@ public class LibraryDocumentConfiguration : IEntityTypeConfiguration<LibraryDocu
 
             // Feature 38. Null on prints filed before it: unknown, not "none".
             print.Property(p => p.AiUse).HasConversion<string>().HasMaxLength(20);
+
+            // Feature 40. Null on prints filed before it, read as false.
+            print.Property(p => p.ResearchedOnWeb);
         });
 
         // A Prep print's Adventure. Restrict (Worlds cascades to both tables);

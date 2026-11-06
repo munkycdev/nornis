@@ -32,6 +32,12 @@ public class AiUsageRecord
 
     public int TotalTokens { get; set; }
 
+    /// <summary>
+    /// Web searches the call ran (feature 40), priced into <see cref="EstimatedCostUsd"/>. Null:
+    /// not a research turn, or the provider didn't say; zero: it searched nothing.
+    /// </summary>
+    public int? WebSearches { get; set; }
+
     public decimal EstimatedCostUsd { get; set; }
 
     public Guid? SourceId { get; set; }

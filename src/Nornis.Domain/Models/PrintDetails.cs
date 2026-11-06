@@ -54,6 +54,12 @@ public sealed record PrintDetails
     /// </summary>
     public AiUseKind? AiUse { get; init; }
 
+    /// <summary>
+    /// The Adventure drew on web research when the print was made (feature 40), so its rights page
+    /// says so. Null only on prints filed before Nornis 3.11, read as false.
+    /// </summary>
+    public bool? ResearchedOnWeb { get; init; }
+
     /// <summary>The game system and edition as one line ("Shadowdark 2nd"), or null when neither is set. A method, so no serializer or mapping stores it.</summary>
     public string? SystemLine() => JoinSystem(GameSystem, Edition);
 
