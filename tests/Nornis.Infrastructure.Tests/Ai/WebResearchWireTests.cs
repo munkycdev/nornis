@@ -388,8 +388,49 @@ public class WebResearchWireTests
     private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
-    private static HttpResponseMessage Sse(string events) =>
-        new(HttpStatusCode.OK) { Content = new StringContent(events.Replace("\r\n", "\n"), Encoding.UTF8, "text/event-stream") };
+    /// <summary>
+    /// An event stream as the network delivers one: read once, front to back, and not a
+    /// MemoryStream. StringContent's stream is one, and System.ClientModel buffers a MemoryStream
+    /// body when the response is disposed — which throws once the SDK has read it to the end. With
+    /// the SDK's own network timeout on, its read-timeout wrapper hid that; the clients now leave
+    /// the timeout to the executor (see AzureOpenAiClientFactory.Options), so the test stream has
+    /// to look like the real one.
+    /// </summary>
+    private static HttpResponseMessage Sse(string events)
+    {
+        var bytes = Encoding.UTF8.GetBytes(events.Replace("\r\n", "\n"));
+        var content = new StreamContent(new NetworkStreamStandIn(bytes));
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream") { CharSet = "utf-8" };
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    private sealed class NetworkStreamStandIn(byte[] bytes) : Stream
+    {
+        private readonly MemoryStream _inner = new(bytes);
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            _inner.ReadAsync(buffer, cancellationToken);
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _inner.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
 
     private sealed class OneBinder(AiBinding binding) : IAiCallBinder
     {

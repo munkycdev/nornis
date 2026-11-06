@@ -102,7 +102,7 @@ public sealed class UserKeyChatClients : IDisposable
             entry.Size = 1;
             entry.SlidingExpiration = Idle;
             return key.Provider == AiProvider.OpenAi
-                ? new OpenAIClient(new ApiKeyCredential(secret()), new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) })
+                ? new OpenAIClient(new ApiKeyCredential(secret()), OpenAiOptions())
                     .GetImageClient(model)
                 : throw new NotSupportedException($"No image client is built for {key.Provider} keys.");
         })!;
@@ -173,9 +173,9 @@ public sealed class UserKeyChatClients : IDisposable
 #pragma warning restore OPENAI001
     }
 
-    private OpenAIClientOptions OpenAiOptions()
+    internal OpenAIClientOptions OpenAiOptions()
     {
-        var options = new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) };
+        var options = AzureOpenAiClientFactory.Options(_maxRetries);
         if (_openAiHttp is not null)
         {
             options.Transport = new HttpClientPipelineTransport(_openAiHttp);
