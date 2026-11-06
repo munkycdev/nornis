@@ -964,7 +964,9 @@ public record LibraryDocumentDto(
     // belongs to (GMs only); and whether it shows on the Shelf.
     string Category = "Other",
     Guid? LinkedAdventureId = null,
-    bool OnShelf = true)
+    bool OnShelf = true,
+    // Feature 40: a print of an Adventure that drew on the web, so sharing it warns.
+    bool ResearchedOnWeb = false)
 {
     /// <summary>A book from the world's Bibliotaph: read there, never downloaded or deleted here.</summary>
     public bool IsFromBibliotaph => Origin == "Bibliotaph";

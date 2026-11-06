@@ -60,7 +60,8 @@ else if (IsGmOnly)
         if (visibility == "PartyVisible" && Document.AdventureId is not null)
         {
             var confirmed = await DialogService.ShowMessageBoxAsync(
-                "Share this booklet with the party?", SharePrintWarning,
+                "Share this booklet with the party?",
+                Document.ResearchedOnWeb ? $"{SharePrintWarning} {WebResearchNotice.Warning}" : SharePrintWarning,
                 yesText: "Share it", cancelText: "Keep it GM only");
             if (confirmed != true)
             {

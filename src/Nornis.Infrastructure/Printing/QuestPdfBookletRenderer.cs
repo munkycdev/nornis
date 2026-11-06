@@ -315,6 +315,11 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             col.Item().PaddingVertical(10).PaddingHorizontal(96).LineHorizontal(0.5f).LineColor(Hairline);
 
             col.Item().AlignCenter().Text(rights.AiStatement).FontSize(8.5f).Italic();
+            if (rights.WebResearchStatement is { } web)
+            {
+                col.Item().PaddingTop(2).AlignCenter().Text(web).FontSize(8.5f).Italic();
+            }
+
             col.Item().PaddingTop(4).AlignCenter().Text(rights.Notice).FontSize(8).FontColor(Muted);
         });
     }

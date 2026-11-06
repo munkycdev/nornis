@@ -24,7 +24,9 @@ public record LibraryDocumentResponse(
     // Feature 36: decided by LibraryCategories, so no client decides them differently.
     string Category = "Other",
     Guid? LinkedAdventureId = null,
-    bool OnShelf = true);
+    bool OnShelf = true,
+    // Feature 40: a print of an Adventure that drew on the web, so sharing it warns (GMs only).
+    bool ResearchedOnWeb = false);
 
 /// <summary>Where opening a book sends the browser: Bibliotaph's reader, or a download.</summary>
 public record LibraryReadResponse(string Url, string Kind);

@@ -382,6 +382,28 @@ public class BookletModelTests
         });
     }
 
+    /// <summary>Feature 40, Requirement 6.2: a print of an Adventure that drew on the web says so; others, and prints from before 3.11, don't.</summary>
+    [TestCase(true, RightsStatement.WebResearch)]
+    [TestCase(false, null)]
+    [TestCase(null, null)]
+    public void TheWebResearchLine_IsOnlyOnAPrintThatRecordedIt(bool? researchedOnWeb, string? line)
+    {
+        var details = Bare with { ResearchedOnWeb = researchedOnWeb };
+
+        var rights = BookletModel.Build(Adventure("The Silver Key"), details, Imprint).Rights;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rights.WebResearchStatement, Is.EqualTo(line));
+            Assert.That(rights.Notice, Is.EqualTo(RightsStatement.Notice), "the non-affiliation line stays");
+        });
+    }
+
+    [Test]
+    public void TheWebResearchLine_IsTheRequirementsWords() =>
+        Assert.That(RightsStatement.WebResearch, Is.EqualTo(
+            "Research for this adventure drew on public web sources with AI assistance. The author is responsible for rights in any third-party setting or material."));
+
     /// <summary>Requirement 2.3: the statement says exactly what was recorded, and each kind has its own.</summary>
     [TestCase(AiUseKind.None, "No AI was used to write this adventure's text or art.")]
     [TestCase(AiUseKind.Declared, "AI was used in making this adventure.")]

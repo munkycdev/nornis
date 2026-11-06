@@ -66,9 +66,11 @@ public sealed record PrintDetails
     /// <summary>
     /// The details a print of this Adventure carries now. A null game system falls back to the
     /// world's; type and publisher are the fixed values; the author is the creator's username.
+    /// <paramref name="researchedOnWeb"/> is the Adventure's record that it drew on the web (feature 40).
     /// </summary>
     public static PrintDetails Resolve(
-        string title, AdventureDetails details, string? worldGameSystem, string authorUsername, AiUseKind aiUse) => new()
+        string title, AdventureDetails details, string? worldGameSystem, string authorUsername, AiUseKind aiUse,
+        bool researchedOnWeb = false) => new()
         {
             Title = title,
             GameSystem = GameSystemOf(details, worldGameSystem),
@@ -79,6 +81,7 @@ public sealed record PrintDetails
             Author = authorUsername,
             Year = details.Year,
             AiUse = aiUse,
+            ResearchedOnWeb = researchedOnWeb,
         };
 
     /// <summary>

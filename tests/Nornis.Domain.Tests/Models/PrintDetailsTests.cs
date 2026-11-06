@@ -41,6 +41,7 @@ public class PrintDetailsTests
             Author = "kelda",
             Year = 2026,
             AiUse = AiUseKind.None,
+            ResearchedOnWeb = false,
         }));
     }
 

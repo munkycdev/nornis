@@ -4,6 +4,7 @@
 @inject NornisApiClient Api
 @inject NavigationManager Nav
 @inject BreadcrumbState Crumbs
+@inject IJSRuntime JS
 
 @* The booklet (feature 34): a PDF the API lays out, the same one File to Library files. The page
    shows it in the browser's own PDF viewer, whose Print prints it on paper; Download saves it;
@@ -74,6 +75,15 @@ else if (_adventure is not null && Worlds.Current is { } world)
         </MudButton>
     </div>
 
+    @if (_showWebNotice)
+    {
+        @* Feature 40: once per adventure, remembered in this browser. It warns and never blocks. *@
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="nornis-booklet-toolbar nornis-booklet-web-notice"
+                  ShowCloseIcon="true" CloseIconClicked="DismissWebNoticeAsync">
+            @WebResearchNotice.Warning
+        </MudAlert>
+    }
+
     @if (_filed is not null)
     {
         <MudAlert Severity="Severity.Success" Dense="true" Class="nornis-booklet-toolbar nornis-booklet-filed">
@@ -105,6 +115,7 @@ else if (_adventure is not null && Worlds.Current is { } world)
     private bool _filing;
     private LibraryDocumentDto? _filed;
     private string? _fileError;
+    private bool _showWebNotice;
 
     /// <summary>Why Print props is off: the sheet is the Adventure's prop boxes, and it has none.</summary>
     public const string NoPropsReason = "No prop boxes yet. Add one with the Prop button in a section, and Print props makes a page of each to cut out.";
@@ -157,6 +168,7 @@ else if (_adventure is not null && Worlds.Current is { } world)
         if (adventure.IsSuccess)
         {
             _adventure = adventure.Value!;
+            _showWebNotice = _adventure.AiUse?.ResearchedOnWeb == true && !await WebNoticeSeenAsync(_adventure.Id);
             var adventureLink = Links.Adventure(_adventure.Slug, _adventure.Id);
             Crumbs.Set($"{adventureLink}/print", new Crumb("Prep", "/prep"), new Crumb(_adventure.Title, adventureLink), new Crumb("Print"));
             if (!Links.IsCanonical(Key, _adventure.Slug))
@@ -175,6 +187,37 @@ else if (_adventure is not null && Worlds.Current is { } world)
         }
 
         StateHasChanged();
+    }
+
+    /// <summary>Whether this browser has shown the web research reminder for the Adventure. Unreadable storage reads as not seen.</summary>
+    private async Task<bool> WebNoticeSeenAsync(Guid adventureId)
+    {
+        try
+        {
+            return !string.IsNullOrEmpty(await JS.InvokeAsync<string?>("localStorage.getItem", WebResearchNotice.SeenKey(adventureId)));
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
+    private async Task DismissWebNoticeAsync()
+    {
+        _showWebNotice = false;
+        if (_adventure is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", WebResearchNotice.SeenKey(_adventure.Id), "seen");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            // A browser that can't store it shows the reminder again next time, which is harmless.
+        }
     }
 
     private async Task FileToLibraryAsync()

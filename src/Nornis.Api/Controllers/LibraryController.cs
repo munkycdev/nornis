@@ -336,5 +336,6 @@ public class LibraryController : ControllerBase
         LibraryCategories.Of(d).ToString(),
         role == WorldRole.GM ? d.LinkedAdventureId : null,
         // A player's Shelf is everything they can see: the link that moves a document off it is the GM's.
-        role != WorldRole.GM || LibraryCategories.IsOnShelf(d));
+        role != WorldRole.GM || LibraryCategories.IsOnShelf(d),
+        role == WorldRole.GM && d.PrintDetails?.ResearchedOnWeb is true);
 }

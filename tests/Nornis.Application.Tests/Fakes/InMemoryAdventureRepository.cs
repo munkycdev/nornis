@@ -420,7 +420,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
-        AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared },
+        AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared, ResearchedOnWeb = a.AiUse.ResearchedOnWeb },
         Cover = a.Cover is null ? null : a.Cover with { },
         CoverImagesGenerated = a.CoverImagesGenerated,
         CoverBrief = a.CoverBrief,
