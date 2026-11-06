@@ -34,6 +34,12 @@ public sealed record AiUsage
     /// </summary>
     public int? ReasoningTokens { get; init; }
 
+    /// <summary>
+    /// Web searches the provider ran for the call (feature 40). Null means not reported, which
+    /// includes every call that couldn't search; zero means it could and didn't.
+    /// </summary>
+    public int? WebSearches { get; init; }
+
     /// <summary>Who paid and at what price (feature 39). Null where nothing bound the call, such
     /// as an estimate written after a stream that reported no usage.</summary>
     public AiFunding? Funding { get; init; }

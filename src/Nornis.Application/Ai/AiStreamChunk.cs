@@ -1,3 +1,5 @@
+using Nornis.Domain.Models;
+
 namespace Nornis.Application.Ai;
 
 /// <summary>
@@ -18,4 +20,10 @@ public sealed record AiStreamChunk
     /// ceiling can see this; for the rest it stays false.
     /// </summary>
     public bool CutOff { get; init; }
+
+    /// <summary>
+    /// On the final chunk of a call that could search the web (feature 40): the pages it drew on
+    /// and how many searches it ran. Null on every other call.
+    /// </summary>
+    public WebResearchResult? WebResearch { get; init; }
 }

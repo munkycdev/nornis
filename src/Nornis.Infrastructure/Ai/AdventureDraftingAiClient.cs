@@ -34,5 +34,12 @@ public class AdventureDraftingAiClient : IAdventureDraftingAiClient
     public static AiCallOptions CallOptions { get; } = new(MaxOutputTokens: OutputCeilingTokens);
 
     public IAsyncEnumerable<AiStreamChunk> StreamAsync(AiPromptRequest request, CancellationToken ct) =>
-        AiCallExecutor.StreamAsync(_binder, AiTask.Prep, request, CallOptions, "AdventureDrafting", _logger, ct);
+        AiCallExecutor.StreamAsync(_binder, AiTask.Prep, request, OptionsFor(request), "AdventureDrafting", _logger, ct);
+
+    /// <summary>A research turn (feature 40) carries its own, larger ceiling and the search tool;
+    /// every other call is <see cref="CallOptions"/>, exactly as before.</summary>
+    internal static AiCallOptions OptionsFor(AiPromptRequest request) =>
+        request.WebSearch is { } search
+            ? new AiCallOptions(MaxOutputTokens: search.OutputCeilingTokens, WebSearch: new AiWebSearch(search.MaxSearches))
+            : CallOptions;
 }

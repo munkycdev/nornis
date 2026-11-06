@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Anthropic.Exceptions;
+using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
@@ -30,20 +31,58 @@ public sealed class AnthropicProviderTraits : IAiProviderTraits
     /// caps how many union and optional properties a schema may have, so each one passes through
     /// <see cref="AnthropicSchemaLimits.Fit"/>, which leaves a schema under the caps as written.
     /// </summary>
-    public ChatOptions? ChatOptions(AiCallOptions? options) => AdapterChatOptions(options, AnthropicSchemaLimits.Fit);
+    public ChatOptions? ChatOptions(AiCallOptions? options) => AdapterChatOptions(options, AnthropicSchemaLimits.Fit, SearchTool);
+
+    /// <summary>
+    /// Claude's own web search, the basic version (feature 40): it runs without the code-execution
+    /// tool the newer versions' dynamic filtering calls, and never fetches a page itself. Its
+    /// <c>max_uses</c> holds a turn to the asked number of searches.
+    /// </summary>
+    internal static AITool SearchTool(AiWebSearch search) =>
+        new ToolUnion(new WebSearchTool20250305 { MaxUses = search.MaxSearches }).AsAITool();
+
+    /// <summary>The name Anthropic's adapter gives the search count in <see cref="UsageDetails.AdditionalCounts"/>,
+    /// from <c>usage.server_tool_use.web_search_requests</c>; pinned by <c>AnthropicWebResearchTests</c>.</summary>
+    internal const string WebSearchRequestsCount = "WebSearchRequests";
+
+    public void ReadWebResearch(ChatResponseUpdate update, WebResearchCollector into)
+    {
+        WebSearchReading.AddCitedPages(update, into);
+        foreach (var content in update.Contents)
+        {
+            if (content is UsageContent { Details.AdditionalCounts: { } counts }
+                && counts.TryGetValue(WebSearchRequestsCount, out var searches))
+            {
+                into.SetSearches((int)searches);
+            }
+        }
+    }
+
+    /// <summary>A 400 whose body names the search tool: the model doesn't take it.</summary>
+    public bool RefusedWebSearch(Exception ex) =>
+        ex is AnthropicApiException { StatusCode: HttpStatusCode.BadRequest } api
+        && api.ResponseBody.Contains("web_search", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The options for an SDK whose own <see cref="IChatClient"/> adapter reads
     /// <see cref="ChatOptions.ResponseFormat"/> and <see cref="ChatOptions.MaxOutputTokens"/>
     /// itself (Anthropic's and Google's); shared with <see cref="GeminiProviderTraits"/>.
-    /// <paramref name="adaptSchema"/> is the provider's own change to a schema, if it needs one.</summary>
-    internal static ChatOptions? AdapterChatOptions(AiCallOptions? options, Func<JsonNode, JsonNode>? adaptSchema = null)
+    /// <paramref name="adaptSchema"/> is the provider's own change to a schema, if it needs one;
+    /// <paramref name="searchTool"/> its own web search tool (feature 40), the only tool a call
+    /// is ever given.</summary>
+    internal static ChatOptions? AdapterChatOptions(
+        AiCallOptions? options, Func<JsonNode, JsonNode>? adaptSchema = null, Func<AiWebSearch, AITool>? searchTool = null)
     {
-        if (options is null || (options.Schema is null && options.MaxOutputTokens is null))
+        if (options is null || (options.Schema is null && options.MaxOutputTokens is null && options.WebSearch is null))
         {
             return null;
         }
 
         var chatOptions = new ChatOptions { MaxOutputTokens = options.MaxOutputTokens };
+        if (options.WebSearch is { } search)
+        {
+            chatOptions.Tools = [(searchTool ?? throw new InvalidOperationException("This provider has no web search tool.")).Invoke(search)];
+        }
+
         if (options.Schema is { } schema)
         {
             var node = JsonNode.Parse(schema.Schema)

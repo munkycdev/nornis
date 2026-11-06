@@ -1,5 +1,39 @@
 # Design Document
 
+> **Amendment (2026-11-06, Phase A):** what the spike found. The text below is left as written.
+>
+> - **No live calls yet.** The cloud container has no provider keys, so A1 probed the pinned SDKs
+>   (Anthropic 13.3.0, Google.GenAI 1.28.0, Microsoft.Extensions.AI.OpenAI 10.11.0) against fake
+>   providers fed streams shaped from each provider's documentation. `WebResearchWireTests` holds
+>   those streams. `LiveWebResearchTests` (Phase C) checks them against the real providers.
+> - **Claude**: `new ToolUnion(new WebSearchTool20250305 { MaxUses = n }).AsAITool()` sends
+>   `{"name":"web_search","type":"web_search_20250305","max_uses":n}`. The adapter maps citations
+>   to `CitationAnnotation` (url, title, cited text) and the search count to
+>   `UsageDetails.AdditionalCounts["WebSearchRequests"]`, so no raw reading is needed. The basic
+>   version stays: `web_search_20260209` and later default `allowed_callers` to code execution and
+>   need `["direct"]` to avoid it. The adapter requires `web_fetch_requests` beside
+>   `web_search_requests` in usage, as the real API sends it.
+> - **Gemini**: `HostedWebSearchTool` sends `tools: [{ "googleSearch": {} }]`. The adapter reports
+>   grounding as a `WebSearchToolCallContent` whose `Queries` are the searches and whose raw form
+>   is `GroundingMetadata` (chunks with redirect URIs and site titles, and
+>   `SearchEntryPoint.RenderedContent`). Pages come from the chunks; Gemini adds no citation
+>   annotations to the text.
+> - **OpenAI**: the SDK names are `OpenAIClient.GetResponsesClient` and
+>   `CreateResponseOptions.MaxToolCallCount` (`max_tool_calls`), so OpenAI gets a hard cap too.
+>   Until Phase B, asking OpenAI's traits for web search throws `NotSupportedException`.
+> - **Prices** (providers' pricing pages, 2026-11-06): OpenAI $10 per 1,000 calls on reasoning
+>   models, search content billed at model rates; Claude $10 per 1,000 searches plus tokens;
+>   Gemini 3 and later $14 per 1,000 queries after 5,000 free a month (shared), with a 1,500 a day
+>   cap. The catalog ignores Gemini's free allowance, so the Prep budget errs high.
+> - **The bounds live in the Domain**: `WebResearchResult.Create` (pages deduped by URL, http and
+>   https only, titles cut, host as a missing title, 20 pages, suggestions dropped whole over
+>   32 KB). The collector in Infrastructure only gathers.
+> - **Can't search** is `IAiProviderTraits.RefusedWebSearch`, checked by the executor only on a
+>   call that asked to search, before `TranslateFailure`, and raised as
+>   `AiWebSearchUnsupportedException` (an `AiHttpException` with status 400).
+> - Gemini's terms on showing search suggestions weren't read (the terms page wasn't fetched);
+>   Phase B shows them sandboxed as designed, which meets the documented ask either way.
+
 ## Overview
 
 ```

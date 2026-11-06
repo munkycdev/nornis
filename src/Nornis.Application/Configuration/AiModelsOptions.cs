@@ -40,12 +40,24 @@ public sealed class AiModelsOptions
     /// model, so an estimate errs high rather than low. Null when the catalog has none of the
     /// provider's, and then its untested models aren't offered.
     /// </summary>
-    public AiModelPrice? EstimateFor(AiProvider provider) =>
-        Catalog
-            .Where(m => m.Provider == provider && !m.Tasks.Contains(AiTask.CoverArt))
+    /// <remarks>Its search price is the provider's dearest search price (feature 40), whichever
+    /// model carries it, so an untested model's searches err high too; null when none of the
+    /// provider's catalog models searches.</remarks>
+    public AiModelPrice? EstimateFor(AiProvider provider)
+    {
+        var chat = Catalog.Where(m => m.Provider == provider && !m.Tasks.Contains(AiTask.CoverArt)).ToList();
+        var dearest = chat
             .OrderByDescending(m => m.OutputPerMillionUsd)
             .ThenByDescending(m => m.InputPerMillionUsd)
-            .FirstOrDefault()?.Price;
+            .FirstOrDefault();
+
+        return dearest is null
+            ? null
+            : dearest.Price with
+            {
+                WebSearchPerThousandUsd = chat.Where(m => m.SupportsWebSearch).Max(m => m.WebSearchPerThousandUsd),
+            };
+    }
 
     /// <summary>Null when the section can run; otherwise what is wrong with it, for startup to refuse.</summary>
     public string? StartupProblem()
@@ -69,6 +81,12 @@ public sealed class AiModelsOptions
                     $"'{model.Id}' makes images, so it can serve only CoverArt",
                 _ when model.InputPerMillionUsd <= 0 || model.OutputPerMillionUsd <= 0 => $"'{model.Id}' has no price",
                 _ when model.CachedInputPerMillionUsd is < 0 => $"'{model.Id}' has a negative cached price",
+                { SupportsWebSearch: true, WebSearchPerThousandUsd: null or <= 0 } =>
+                    $"'{model.Id}' searches the web but has no search price",
+                { SupportsWebSearch: false, WebSearchPerThousandUsd: not null } =>
+                    $"'{model.Id}' has a search price but doesn't search the web",
+                { SupportsWebSearch: true } when !model.Tasks.Contains(AiTask.Prep) =>
+                    $"'{model.Id}' searches the web, which only Prep asks for, but doesn't serve Prep",
                 _ => null,
             };
 
@@ -113,17 +131,36 @@ public sealed class AiCatalogModel
 
     public decimal OutputPerMillionUsd { get; set; }
 
-    public AiModelPrice Price => new(InputPerMillionUsd, CachedInputPerMillionUsd, OutputPerMillionUsd);
+    /// <summary>
+    /// Nornis has tested this model with its provider's own web search (feature 40), so Prep's
+    /// Web research switch is offered on it. False means it can't search; the price below is its
+    /// own field, never a stand-in for this one.
+    /// </summary>
+    public bool SupportsWebSearch { get; set; }
+
+    /// <summary>USD per 1,000 searches. Required, and above zero, exactly when <see cref="SupportsWebSearch"/>.</summary>
+    public decimal? WebSearchPerThousandUsd { get; set; }
+
+    public AiModelPrice Price => new(InputPerMillionUsd, CachedInputPerMillionUsd, OutputPerMillionUsd, WebSearchPerThousandUsd);
 }
 
-/// <summary>USD per million tokens. A null cached price means cached input costs full price.</summary>
-public sealed record AiModelPrice(decimal InputPerMillionUsd, decimal? CachedInputPerMillionUsd, decimal OutputPerMillionUsd)
+/// <summary>
+/// USD per million tokens, and per 1,000 web searches (feature 40). A null cached price means
+/// cached input costs full price. A null search price means the model doesn't search, so a call
+/// that reports searches on it prices them at zero rather than inventing a rate.
+/// </summary>
+public sealed record AiModelPrice(
+    decimal InputPerMillionUsd, decimal? CachedInputPerMillionUsd, decimal OutputPerMillionUsd,
+    decimal? WebSearchPerThousandUsd = null)
 {
-    public decimal Cost(int inputTokens, int? cachedInputTokens, int outputTokens)
+    /// <param name="webSearches">Searches the provider ran for the call; null when it reported none.</param>
+    public decimal Cost(int inputTokens, int? cachedInputTokens, int outputTokens, int? webSearches = null)
     {
         var cached = Math.Clamp(cachedInputTokens ?? 0, 0, inputTokens);
         var cachedRate = CachedInputPerMillionUsd ?? InputPerMillionUsd;
-        return ((inputTokens - cached) * InputPerMillionUsd + cached * cachedRate + outputTokens * OutputPerMillionUsd)
+        var tokens = ((inputTokens - cached) * InputPerMillionUsd + cached * cachedRate + outputTokens * OutputPerMillionUsd)
             / 1_000_000m;
+        var searches = Math.Max(webSearches ?? 0, 0) * (WebSearchPerThousandUsd ?? 0m) / 1_000m;
+        return tokens + searches;
     }
 }

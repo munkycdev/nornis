@@ -101,6 +101,9 @@ public static class AiCallExecutor
 
         UsageDetails? usage = null;
         var cutOff = false;
+
+        // Only a research turn (feature 40) reads the stream for its searching.
+        var research = options?.WebSearch is null ? null : new WebResearchCollector();
         IAsyncEnumerator<ChatResponseUpdate>? updates = null;
         try
         {
@@ -123,10 +126,15 @@ public static class AiCallExecutor
 
                     update = updates.Current;
                 }
-                catch (Exception ex) when (Translate(ex, binding, timeoutCts, ct, request.TimeoutSeconds, operation, logger) is { } translated)
+                catch (Exception ex) when (Translate(ex, binding, timeoutCts, ct, request.TimeoutSeconds, operation, logger, research is not null) is { } translated)
                 {
                     await binder.ReportAsync(binding, translated, CancellationToken.None);
                     throw translated;
+                }
+
+                if (research is not null)
+                {
+                    binding.Traits.ReadWebResearch(update, research);
                 }
 
                 foreach (var content in update.Contents)
@@ -164,8 +172,9 @@ public static class AiCallExecutor
         yield return new AiStreamChunk
         {
             Text = string.Empty,
-            Usage = usage is null ? null : ToUsage(usage, binding.Funding, stopwatch),
+            Usage = usage is null ? null : ToUsage(usage, binding.Funding, stopwatch) with { WebSearches = research?.Searches },
             CutOff = cutOff,
+            WebResearch = research?.ToResult(),
         };
     }
 
@@ -203,10 +212,16 @@ public static class AiCallExecutor
         CancellationToken ct,
         int timeoutSeconds,
         string operation,
-        ILogger logger)
+        ILogger logger,
+        bool searched = false)
     {
         switch (ex)
         {
+            case not OperationCanceledException and { } when searched && binding.Traits.RefusedWebSearch(ex):
+                logger.LogWarning(ex, "{Operation} AI call was refused: {Provider} won't search the web on {Model}.",
+                    operation, binding.Funding.Provider, binding.Funding.Model);
+                return new AiWebSearchUnsupportedException(ex);
+
             case OperationCanceledException when timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested:
                 logger.LogWarning("{Operation} AI call timed out after {TimeoutSeconds}s", operation, timeoutSeconds);
                 return new AiTimeoutException($"{operation} AI call timed out after {timeoutSeconds} seconds.");

@@ -28,9 +28,14 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
     /// </summary>
     public ChatOptions? ChatOptions(AiCallOptions? options)
     {
-        if (options is null || (options.Schema is null && options.MaxOutputTokens is null))
+        if (options is null || (options.Schema is null && options.MaxOutputTokens is null && options.WebSearch is null))
         {
             return null;
+        }
+
+        if (options.WebSearch is not null)
+        {
+            throw new NotSupportedException("OpenAI web search runs on the Responses API, which feature 40 Phase B adds.");
         }
 
         return new ChatOptions
@@ -55,6 +60,22 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
             },
         };
     }
+
+    /// <summary>
+    /// The Responses API reports each search as a <see cref="WebSearchToolCallContent"/> (a
+    /// <c>web_search_call</c> item) and each cited page as a <see cref="CitationAnnotation"/> on the
+    /// answer's text (<c>url_citation</c>). Only a Responses client searches (feature 40, Phase B).
+    /// </summary>
+    public void ReadWebResearch(ChatResponseUpdate update, WebResearchCollector into)
+    {
+        WebSearchReading.AddCitedPages(update, into);
+        into.CountSearches(update.Contents.Count(c => c is WebSearchToolCallContent));
+    }
+
+    /// <summary>A 400 whose body names the search tool: the model doesn't take it.</summary>
+    public bool RefusedWebSearch(Exception ex) =>
+        ex is ClientResultException { Status: 400 } clientResult
+        && RawResponseBody(clientResult).Contains("web_search", StringComparison.OrdinalIgnoreCase);
 
     public AiHttpException? TranslateFailure(Exception ex, AiFunding funding, string operation, ILogger logger)
     {
