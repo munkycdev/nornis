@@ -302,7 +302,9 @@ public class AdventureConversationService : IAdventureConversationService
 
         // The draft's accept: the revision, the trim and the stamp check are the same code, so
         // Undo gives back what was there.
-        if (!await _adventures.TryAcceptDraftAsync(revision, body, _options.MaxRevisionsPerSection, command.BasedOnUpdatedAt, now, ct))
+        // A research answer's text records that the Adventure drew on the web (feature 40), in the same save.
+        if (!await _adventures.TryAcceptDraftAsync(
+            revision, body, _options.MaxRevisionsPerSection, command.BasedOnUpdatedAt, now, researchedOnWeb: message.WebResearch is not null, ct))
         {
             return AppResult<PutInSectionResult>.Fail(SectionChanged());
         }

@@ -59,7 +59,8 @@ public class AdventureDesignService : IAdventureDesignService
 
         var now = DateTimeOffset.UtcNow;
         if (!await _adventures.TrySaveDraftAsync(
-            adventure.Id, markdown, revision: null, maxRevisions: 0, command.BasedOnUpdatedAt, now, loremasterWrote: false, ct))
+            adventure.Id, markdown, revision: null, maxRevisions: 0, command.BasedOnUpdatedAt, now, loremasterWrote: false,
+            cancellationToken: ct))
         {
             return AppResult<AdventureDraftState>.Fail(DraftChanged());
         }
@@ -124,7 +125,8 @@ public class AdventureDesignService : IAdventureDesignService
                 "The passage this edit changes isn't in the draft exactly once any more, so it can't be applied. Ask the Loremaster again."));
         }
 
-        return await WriteWithRevisionAsync(adventure, changed, AdventureDraftChange.Edit, command.BasedOnUpdatedAt, ct);
+        return await WriteWithRevisionAsync(adventure, changed, AdventureDraftChange.Edit, command.BasedOnUpdatedAt, ct,
+            researchedOnWeb: answer.WebResearch is not null);
     }
 
     public async Task<AppResult<AdventureDraftState>> PutInDraftAsync(PutInDraftCommand command, CancellationToken ct)
@@ -145,7 +147,8 @@ public class AdventureDesignService : IAdventureDesignService
         var markdown = command.Mode == PutInSectionMode.Append && !string.IsNullOrWhiteSpace(adventure.DraftMarkdown)
             ? adventure.DraftMarkdown.TrimEnd() + "\n\n" + text
             : text;
-        return await WriteWithRevisionAsync(adventure, markdown, AdventureDraftChange.Put, command.BasedOnUpdatedAt, ct);
+        return await WriteWithRevisionAsync(adventure, markdown, AdventureDraftChange.Put, command.BasedOnUpdatedAt, ct,
+            researchedOnWeb: answer.WebResearch is not null);
     }
 
     public async Task<AppResult<AdventureView>> SplitAsync(SplitDraftCommand command, CancellationToken ct)
@@ -259,9 +262,11 @@ public class AdventureDesignService : IAdventureDesignService
     /// <summary>
     /// Writes a change the GM didn't type, keeping the draft before it as a revision for Undo, on
     /// the stamp the change was based on. A first draft has nothing to keep, so no revision.
+    /// <paramref name="researchedOnWeb"/>: the text is a research answer's (feature 40).
     /// </summary>
     internal async Task<AppResult<AdventureDraftState>> WriteWithRevisionAsync(
-        Adventure adventure, string markdown, AdventureDraftChange reason, DateTimeOffset? basedOn, CancellationToken ct)
+        Adventure adventure, string markdown, AdventureDraftChange reason, DateTimeOffset? basedOn, CancellationToken ct,
+        bool researchedOnWeb = false)
     {
         if (markdown.Length > Adventure.MaxDraftChars)
         {
@@ -277,7 +282,7 @@ public class AdventureDesignService : IAdventureDesignService
             CreatedAt = now,
         };
         if (!await _adventures.TrySaveDraftAsync(adventure.Id, markdown, revision, _options.MaxRevisionsPerSection, basedOn, now,
-            reason.IsLoremasterWriting(), ct))
+            reason.IsLoremasterWriting(), researchedOnWeb, ct))
         {
             return AppResult<AdventureDraftState>.Fail(DraftChanged());
         }

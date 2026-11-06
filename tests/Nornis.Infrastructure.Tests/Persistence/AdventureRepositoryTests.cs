@@ -393,6 +393,35 @@ public class AdventureRepositoryTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task TheWebRecord_IsSavedWithTheTextItDescribes_AndNeverWithoutIt()
+    {
+        var adventure = await CreateAsync("a");
+        var section = adventure.Sections.Single();
+        var first = _now.AddMinutes(1);
+
+        // A GM's own save can't carry it: the record comes only with the Loremaster's text.
+        await _sut.TrySaveDraftAsync(adventure.Id, "mine", null, 20, basedOn: null, first, loremasterWrote: false, researchedOnWeb: true);
+        var afterGm = (await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id)).AiUse;
+        await _sut.TryAcceptDraftAsync(
+            new AdventureSectionRevision { Id = Guid.NewGuid(), SectionId = section.Id, Model = "nornis-ask", CreatedAt = first },
+            "researched", 20, basedOn: _now, updatedAt: first, researchedOnWeb: true);
+        Context.ChangeTracker.Clear();
+
+        var update = await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id);
+        update.AiUse = new AdventureAiUse();
+        await _sut.UpdateAsync(update);
+        Context.ChangeTracker.Clear();
+
+        var stored = (await Context.Adventures.AsNoTracking().SingleAsync(a => a.Id == adventure.Id)).AiUse;
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterGm.ResearchedOnWeb, Is.False, "never without AI text");
+            Assert.That(stored.ResearchedOnWeb, Is.True, "saved with Put in section's text");
+            Assert.That(stored.WroteText, Is.True);
+        });
+    }
+
+    [Test]
     public async Task ADraftSave_RecordsAiText_OnlyWhenTheLoremasterWrote_AndNoUpdateClearsIt()
     {
         var adventure = await CreateAsync("a");

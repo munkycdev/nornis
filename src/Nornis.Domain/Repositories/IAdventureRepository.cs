@@ -78,11 +78,12 @@ public interface IAdventureRepository
     /// (its own body is ignored) and the draft's revisions are trimmed to the newest
     /// <paramref name="maxRevisions"/>, in the same unit of work. False, and nothing written, when
     /// the stored draft stamp is not <paramref name="basedOn"/> (null: there was no draft).
-    /// <paramref name="loremasterWrote"/> records that AI wrote text (feature 38) in the same unit of work.
+    /// <paramref name="loremasterWrote"/> records that AI wrote text (feature 38) in the same unit of work,
+    /// and with it <paramref name="researchedOnWeb"/> that the text came from a research answer (feature 40).
     /// </summary>
     Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false, bool researchedOnWeb = false,
         CancellationToken cancellationToken = default);
 
     Task<int> CountDraftRevisionsAsync(Guid adventureId, CancellationToken cancellationToken = default);
@@ -139,10 +140,11 @@ public interface IAdventureRepository
     /// <paramref name="revision"/> (whose own body is ignored), the revision is inserted, the
     /// section's revisions are trimmed to the newest <paramref name="maxRevisions"/>, and
     /// <paramref name="newBody"/> is written with <paramref name="updatedAt"/> as the new stamp.
-    /// Every accept is the Loremaster's text, so it also records that AI wrote text (feature 38).
+    /// Every accept is the Loremaster's text, so it also records that AI wrote text (feature 38),
+    /// and <paramref name="researchedOnWeb"/> that it came from a research answer (feature 40).
     /// False, and nothing written, when the stored stamp is not <paramref name="basedOn"/>.
     /// </summary>
     Task<bool> TryAcceptDraftAsync(
         AdventureSectionRevision revision, string newBody, int maxRevisions,
-        DateTimeOffset basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default);
+        DateTimeOffset basedOn, DateTimeOffset updatedAt, bool researchedOnWeb = false, CancellationToken cancellationToken = default);
 }

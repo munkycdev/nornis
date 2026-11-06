@@ -887,6 +887,28 @@ public class AdventureConversationServiceTests
     }
 
     [Test]
+    public async Task PuttingAResearchAnswerInASection_RecordsTheWeb_AndAnOrdinaryAnswerDoesNot()
+    {
+        var adventure = await CreateAdventureAsync();
+        var ordinary = await AnsweredAsync(adventure, "Three cultists.");
+        await _sut.PutInSectionAsync(Put(adventure, Scene(adventure), ordinary, PutInSectionMode.Append), CancellationToken.None);
+        var stored = _adventures.Adventures.Single();
+        Assert.That((stored.AiUse.WroteText, stored.AiUse.ResearchedOnWeb), Is.EqualTo((true, false)));
+
+        _ai.Script("Waterdeep has wards.");
+        var events = await TurnAsync(Research(adventure));
+        var researched = ((ConversationEvent.Completed)events[^1]).Answer;
+        var put = await _sut.PutInSectionAsync(Put(adventure, Scene(adventure), researched, PutInSectionMode.Append), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(put.IsSuccess, Is.True, put.Error?.Message);
+            Assert.That(stored.AiUse.ResearchedOnWeb, Is.True);
+            Assert.That(Stored(Scene(adventure).Id).BodyMarkdown, Does.Not.Contain("From the web"), "the text goes in, never the list");
+        });
+    }
+
+    [Test]
     public async Task AResearchTurnsSearches_AreOnItsLedgerRow()
     {
         var adventure = await CreateAdventureAsync();

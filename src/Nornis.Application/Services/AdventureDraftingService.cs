@@ -312,7 +312,8 @@ public class AdventureDraftingService : IAdventureDraftingService
             CreatedAt = now,
         };
 
-        if (!await _adventures.TryAcceptDraftAsync(revision, body, _options.MaxRevisionsPerSection, command.BasedOnUpdatedAt, now, CancellationToken.None))
+        if (!await _adventures.TryAcceptDraftAsync(revision, body, _options.MaxRevisionsPerSection, command.BasedOnUpdatedAt, now,
+            researchedOnWeb: false, CancellationToken.None))
         {
             return (null, 0, new AppError(409, "section_changed",
                 "This section changed while the draft was being written, so the draft wasn't saved."));
