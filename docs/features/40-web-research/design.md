@@ -11,7 +11,7 @@
 >   and again when done. Once usage arrives the count is complete, so a research turn that ran
 >   none reports zero, not null.
 > - **The binder** takes `needsWebSearch` and throws `InvalidOperationException` on funding
->   `WebResearchAvailability` wouldn't allow. A whole-response call (`AiCallExecutor.CompleteAsync`)
+>   `WebResearchAvailability` wouldn't allow. A whole-response call (`AiCallExecutor.ExecuteAsync`)
 >   refuses a search outright: only the stream reads the pages.
 > - **The migration has four columns, not three**: `PrintDetails` is owned columns on
 >   `LibraryDocuments`, not a JSON snapshot, so `PrintDetails_ResearchedOnWeb` (bit, null) joins
