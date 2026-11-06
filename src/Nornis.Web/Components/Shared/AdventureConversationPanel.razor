@@ -100,12 +100,12 @@
                             continue;
                         }
                         <div class="nornis-prep-edit">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Suggested edit @(edits.Count > 1 ? $"{at + 1} of {edits.Count}" : "")</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nornis-prep-edit-label">@EditLabel(message, applied) @(edits.Count > 1 ? $"{at + 1} of {edits.Count}" : "")</MudText>
                             <div class="nornis-prep-edit-before">@(edit.Find.Length == 0 ? "(the empty draft)" : edit.Find)</div>
                             <div class="nornis-prep-edit-after">@(edit.Replace.Length == 0 ? "(taken out)" : edit.Replace)</div>
                             @if (applied)
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Success" Class="nornis-prep-edit-applied">Applied. Undo on the draft takes it back.</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Success" Class="nornis-prep-edit-applied">@(message.IsApplied(at) && message.EditsWereApplied ? "In the draft. Undo on the draft takes it back." : "Applied. Undo on the draft takes it back.")</MudText>
                             }
                             else
                             {
@@ -404,6 +404,13 @@
         {
         }
     }
+
+    /// <summary>
+    /// What an edit card is: a suggestion the GM may apply, or (feature 41) a change the server
+    /// already made, or one it couldn't make, so an applied change never reads as a suggestion.
+    /// </summary>
+    private static string EditLabel(ConversationMessageDto message, bool applied) =>
+        !message.EditsWereApplied ? "Suggested edit" : applied ? "Change" : "Change not made";
 
     private void ToggleChanges(Guid messageId)
     {

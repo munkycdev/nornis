@@ -781,6 +781,7 @@ public class AdventurePageTests : BunitContext
         {
             Assert.That(cut.Find(".nornis-prep-edit-after").TextContent, Is.EqualTo("The spa hums with slime."));
             Assert.That(cut.FindAll(".nornis-prep-edit-applied"), Has.Count.EqualTo(1), "it shows as applied, with nothing to press");
+            Assert.That(cut.Find(".nornis-prep-edit-label").TextContent.Trim(), Is.EqualTo("Change"), "an applied change isn't a suggestion");
             Assert.That(cut.Find("button.nornis-prep-talk-show-changes").TextContent.Trim(), Is.EqualTo("Hide changes"));
         });
     }
@@ -800,6 +801,11 @@ public class AdventurePageTests : BunitContext
         await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
 
         cut.WaitForAssertion(() => Assert.That(cut.Find("button.nornis-prep-design-undo").TextContent, Does.Contain("Undo (1)")));
+        cut.WaitForAssertion(() => Assert.That(
+            JSInterop.Invocations["nornisEditor.init"].Select(i => i.Arguments[1] as string),
+            Has.Some.Contains("The spa hums with slime."), "the editor shows the draft the turn wrote"));
+        var remount = JSInterop.Invocations["nornisEditor.init"].Single(i => (i.Arguments[1] as string)!.Contains("hums"));
+        Assert.That(remount.Arguments[5], Is.False, "the copy kept from before the turn is never put back over what it wrote");
         var saveAt = _handler.Requests.FindIndex(r => r.StartsWith("PUT", StringComparison.Ordinal) && r.EndsWith("/draft", StringComparison.Ordinal));
         var sendAt = _handler.Requests.FindIndex(r => r.EndsWith("/conversation/messages", StringComparison.Ordinal));
         Assert.Multiple(() =>

@@ -39,7 +39,7 @@
                  InitialMarkdown="@(Adventure.Draft?.Markdown ?? string.Empty)" ReadOnly="ReadOnly" Locked="Locked"
                  Placeholder="The whole adventure, as one document. Use # for chapters and ## for scenes; Split uses them."
                  PrepTools="true" AllowMaximize="true"
-                 BackupKey="@BackupKey(Adventure.Id)" PreferBackup="true"
+                 BackupKey="@BackupKey(Adventure.Id)" PreferBackup="_preferBackup"
                  Restored="at => _restoredAt = at" />
 
     <div class="d-flex gap-2 mt-3 flex-wrap align-center">
@@ -112,6 +112,13 @@
     private Guid? _shownFor;
     private DateTimeOffset? _knownStamp;
 
+    /// <summary>
+    /// The kept copy is loaded over the saved draft when the page opens: it is newer typing on
+    /// top of it. Not after the draft changed elsewhere (the Loremaster's edits, Undo, another
+    /// tab): then the kept copy is the text from before, and the editor shows the new draft.
+    /// </summary>
+    private bool _preferBackup = true;
+
     private bool IsDisabled => Disabled || Locked || _saving;
 
     private int RevisionCount => Adventure.Draft?.RevisionCount ?? 0;
@@ -126,6 +133,7 @@
         {
             _shownFor = Adventure.Id;
             _knownStamp = stamp;
+            _preferBackup = true;
             _conflict = false;
             _restoredAt = null;
             return;
@@ -143,6 +151,7 @@
                 await _editor.ClearBackupAsync();
             }
 
+            _preferBackup = false;
             _editorVersion++;
         }
     }
