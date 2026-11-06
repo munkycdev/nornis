@@ -452,7 +452,12 @@ public class AiFundingServiceTests
         await recorder.RecordAsync(Guid.NewGuid(), Guid.NewGuid(), Domain.Enums.AiOperationType.AdventureConversation,
             new AiUsage
             {
-                Model = "gpt-5.4", InputTokens = 0, OutputTokens = 0, TotalTokens = 0, DurationMs = 1, WebSearches = 5,
+                Model = "gpt-5.4",
+                InputTokens = 0,
+                OutputTokens = 0,
+                TotalTokens = 0,
+                DurationMs = 1,
+                WebSearches = 5,
                 Funding = new AiFunding(AiProvider.OpenAi, "gpt-5.4", AiFundedBy.Key, Price: price),
             },
             succeeded: true, errorCode: null);
@@ -464,15 +469,16 @@ public class AiFundingServiceTests
     public void TheShippedCatalog_MarksOnlyPrepModelsAsSearching_AndPricesThem()
     {
         var options = ShippedCatalog();
+        string[] searching =
+        [
+            "openai/gpt-5.4", "anthropic/claude-sonnet-5-5", "anthropic/claude-opus-5-5",
+            "gemini/gemini-3.8-flash", "gemini/gemini-4-argon",
+        ];
 
         Assert.Multiple(() =>
         {
             Assert.That(options.StartupProblem(), Is.Null);
-            Assert.That(options.Catalog.Where(m => m.SupportsWebSearch).Select(m => m.Id), Is.EquivalentTo(new[]
-            {
-                "openai/gpt-5.4", "anthropic/claude-sonnet-5-5", "anthropic/claude-opus-5-5",
-                "gemini/gemini-3.8-flash", "gemini/gemini-4-argon",
-            }));
+            Assert.That(options.Catalog.Where(m => m.SupportsWebSearch).Select(m => m.Id), Is.EquivalentTo(searching));
         });
     }
 

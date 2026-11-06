@@ -48,8 +48,12 @@ public class AdventureDraftingAiClientTests
     {
         var research = new AiPromptRequest
         {
-            Scope = Request.Scope, SystemPrompt = Request.SystemPrompt, UserMessage = Request.UserMessage,
-            Model = Request.Model, TimeoutSeconds = 180, WebSearch = new AiWebSearchRequest(MaxSearches: 5, OutputCeilingTokens: 6_000),
+            Scope = Request.Scope,
+            SystemPrompt = Request.SystemPrompt,
+            UserMessage = Request.UserMessage,
+            Model = Request.Model,
+            TimeoutSeconds = 180,
+            WebSearch = new AiWebSearchRequest(MaxSearches: 5, OutputCeilingTokens: 6_000),
         };
 
         Assert.Multiple(() =>

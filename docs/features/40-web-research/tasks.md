@@ -7,18 +7,21 @@ phase merges.
 leaving it out, and renumbered: hardening is deferred until the feature work is done, so this is
 feature 40.**
 
+**Status (2026-11-06): Phase A built. A1 ran against the pinned SDKs with documented stream
+shapes, not live providers (no keys in the cloud container); see the design's Phase A amendment.**
+
 ## Phase A — Spec and seam
 
 - [x] A0. `requirements.md`, `design.md` and this file; row 40 in the features README.
-- [ ] A1. Spike, recorded in the design as an amendment: each provider's real request and stream
+- [x] A1. Spike, recorded in the design as an amendment: each provider's real request and stream
       for one search (OpenAI Responses on gpt-5.4, Claude Sonnet 5.5, Gemini 3.8 Flash), saved
       as test fixtures with keys and ids scrubbed; the SDK names for the Responses client and
       `max_tool_calls`; which Claude search tool version runs without code execution; the
       current search prices; Gemini's current rule on showing search suggestions.
-- [ ] A2. `AiCallOptions.WebSearch`, `AiPromptRequest.WebSearch`, the catalog fields and their
+- [x] A2. `AiCallOptions.WebSearch`, `AiPromptRequest.WebSearch`, the catalog fields and their
       validation, `AiModelPrice` with searches, `AiUsage.WebSearches`, `WebResearchAvailability`.
       Tests.
-- [ ] A3. Claude and Gemini traits: the tool, `ReadWebResearch` over the fixtures, the
+- [x] A3. Claude and Gemini traits: the tool, `ReadWebResearch` over the fixtures, the
       can't-search translation, the fetch-tool guard. Wire tests.
 
 ## Phase B — OpenAI, the switch and the pages

@@ -1,5 +1,6 @@
 using System.Net;
 using Google.GenAI;
+using Google.GenAI.Types;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
@@ -22,7 +23,44 @@ public sealed class GeminiProviderTraits : IAiProviderTraits
     {
     }
 
-    public ChatOptions? ChatOptions(AiCallOptions? options) => AnthropicProviderTraits.AdapterChatOptions(options);
+    /// <summary>Web search (feature 40) is Google Search grounding, which the adapter sends as
+    /// <c>tools: [{ googleSearch: {} }]</c>. Gemini has no per-call cap; the prompt asks for one.</summary>
+    public ChatOptions? ChatOptions(AiCallOptions? options) =>
+        AnthropicProviderTraits.AdapterChatOptions(options, searchTool: _ => new HostedWebSearchTool());
+
+    /// <summary>
+    /// The adapter reports grounding as a <see cref="WebSearchToolCallContent"/> whose raw form is
+    /// Gemini's <see cref="GroundingMetadata"/>: the queries it ran (Gemini 3 bills each one), the
+    /// pages it grounded the answer in, and the search suggestions its terms ask to be shown.
+    /// Read whole each time, because a later chunk restates the call's grounding rather than adding to it.
+    /// </summary>
+    public void ReadWebResearch(ChatResponseUpdate update, WebResearchCollector into)
+    {
+        WebSearchReading.AddCitedPages(update, into);
+        foreach (var content in update.Contents)
+        {
+            if (content is WebSearchToolCallContent { RawRepresentation: GroundingMetadata grounding })
+            {
+                into.SetSearches(grounding.WebSearchQueries?.Count ?? 0);
+                foreach (var chunk in grounding.GroundingChunks ?? [])
+                {
+                    into.AddPage(chunk.Web?.Title, chunk.Web?.Uri);
+                }
+
+                if (grounding.SearchEntryPoint?.RenderedContent is { } suggestions)
+                {
+                    into.SuggestionsHtml = suggestions;
+                }
+            }
+        }
+    }
+
+    /// <summary>A 400 that names search grounding: the model doesn't take it.</summary>
+    public bool RefusedWebSearch(Exception ex) =>
+        ex is ApiException { StatusCode: (int)HttpStatusCode.BadRequest } api
+        && (api.Message.Contains("google_search", StringComparison.OrdinalIgnoreCase)
+            || api.Message.Contains("googleSearch", StringComparison.OrdinalIgnoreCase)
+            || api.Message.Contains("grounding", StringComparison.OrdinalIgnoreCase));
 
     public AiHttpException? TranslateFailure(Exception ex, AiFunding funding, string operation, ILogger logger)
     {
