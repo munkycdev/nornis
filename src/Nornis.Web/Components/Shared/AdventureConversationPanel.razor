@@ -45,6 +45,35 @@
             <div class="nornis-prep-talk-message @(message.IsAnswer ? "nornis-prep-talk-answer" : "nornis-prep-talk-question")">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">@(message.IsAnswer ? "Loremaster" : "You")</MudText>
                 <div class="nornis-prep-talk-text">@(message.Prose ?? message.Content)</div>
+                @if (message.IsAnswer && message.WebResearch is { } research)
+                {
+                    @* Feature 40: the pages the answer drew on, never copied into the adventure. *@
+                    <div class="nornis-prep-talk-web">
+                        @if (research.Pages.Count == 0)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nornis-prep-talk-web-none">Searched the web; no pages cited.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">From the web</MudText>
+                            <ul class="nornis-prep-talk-web-pages">
+                                @foreach (var webPage in research.Pages)
+                                {
+                                    <li><a href="@webPage.Url" target="_blank" rel="noopener noreferrer nofollow">@webPage.Title</a></li>
+                                }
+                            </ul>
+                        }
+                        @if (research.SuggestionsHtml is { } suggestions)
+                        {
+                            @* The provider's own search suggestions, which its terms ask to be shown (Gemini).
+                               Sandboxed without allow-scripts or allow-same-origin, so nothing in it runs
+                               or reaches Nornis's page; its links open in a new tab. *@
+                            <iframe class="nornis-prep-talk-web-suggestions" title="Search suggestions"
+                                    sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"
+                                    srcdoc="@SuggestionsDocument(suggestions)"></iframe>
+                        }
+                    </div>
+                }
                 @if (message.IsAnswer && message.Edits is { Count: > 0 } edits)
                 {
                     @foreach (var (edit, editIndex) in edits.Select((e, i) => (e, i)))
@@ -103,7 +132,7 @@
         {
             <div class="nornis-prep-talk-message nornis-prep-talk-answer nornis-prep-talk-streaming">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Loremaster</MudText>
-                <div class="nornis-prep-talk-text">@(_answer is { Length: > 0 } ? _answer : "Thinking…")</div>
+                <div class="nornis-prep-talk-text">@(_answer is { Length: > 0 } ? _answer : _researching ? "Searching the web…" : "Thinking…")</div>
             </div>
         }
     </div>
@@ -140,12 +169,19 @@
             }
             else
             {
+                @* Feature 40: off for every turn, and off again after each send, so every search is a choice. *@
+                <MudSwitch T="bool" @bind-Value="_webResearch" Color="Color.Primary" Class="nornis-prep-talk-research"
+                           Label="Web research" Disabled="@(_researchUnavailable is not null)" />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Send"
                            Class="nornis-prep-talk-send" Disabled="@string.IsNullOrWhiteSpace(_text)" OnClick="SendAsync">
                     Send
                 </MudButton>
             }
         </div>
+        @if (!_streaming && _researchUnavailable is not null)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nornis-prep-talk-research-reason">@_researchUnavailable</MudText>
+        }
     }
 </MudPaper>
 
@@ -187,6 +223,11 @@
     private string? _answer;
     private CancellationTokenSource? _cts;
     private Guid _loadedFor;
+    private bool _webResearch;
+    private bool _researching;
+
+    /// <summary>Why the switch is off, as the API says; null when a turn can search.</summary>
+    private string? _researchUnavailable = "Web research isn't available right now.";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -205,6 +246,13 @@
         {
             _messages = result.Value!.Messages.ToList();
             _isFull = result.Value.IsFull;
+            _researchUnavailable = result.Value.WebResearch switch
+            {
+                { Available: true } => null,
+                { Reason: { } reason } => reason,
+                _ => "Web research isn't available right now.",
+            };
+            _webResearch &= _researchUnavailable is null;
             _loadError = null;
         }
         else
@@ -236,6 +284,8 @@
         _streaming = true;
         _answer = string.Empty;
         _error = null;
+        _researching = _webResearch && _researchUnavailable is null;
+        _webResearch = false;
         // Shown at once; the reload after the turn replaces it with the saved copy.
         _messages.Add(new ConversationMessageDto(Guid.Empty, ConversationMessageDto.UserRole, text, null, DateTimeOffset.UtcNow));
         _text = string.Empty;
@@ -244,8 +294,8 @@
         {
             await foreach (var e in Api.StreamAdventureConversationAsync(WorldId, AdventureId,
                                DraftMode
-                                   ? new SendConversationMessageRequest(text, null, SendConversationMessageRequest.DraftScope)
-                                   : new SendConversationMessageRequest(text, SelectedSectionId), _cts.Token))
+                                   ? new SendConversationMessageRequest(text, null, SendConversationMessageRequest.DraftScope, _researching)
+                                   : new SendConversationMessageRequest(text, SelectedSectionId, WebResearch: _researching), _cts.Token))
             {
                 switch (e)
                 {
@@ -266,6 +316,7 @@
         finally
         {
             _streaming = false;
+            _researching = false;
             _answer = null;
             await ReloadAsync();
             StateHasChanged();
@@ -273,6 +324,15 @@
     }
 
     private void Stop() => _cts?.Cancel();
+
+    /// <summary>
+    /// The suggestions as the sandboxed frame's whole document: the provider's markup as it sent
+    /// it, after a base that opens every link in a new tab, since the frame may not navigate itself
+    /// to a search page that refuses to be framed.
+    /// </summary>
+    internal static string SuggestionsDocument(string suggestionsHtml) =>
+        "<!doctype html><html><head><meta charset=\"utf-8\"><base target=\"_blank\"></head><body style=\"margin:0\">"
+        + suggestionsHtml + "</body></html>";
 
     private async Task ClearAsync()
     {

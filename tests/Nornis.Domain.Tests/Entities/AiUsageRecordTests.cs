@@ -138,6 +138,8 @@ public class AiUsageRecordTests
         // hits" stays distinguishable from "the provider reported no cache hit".
         // 17th to 21st (feature 39): Provider, ModelId, FundedBy, AiKeyId, KeyHolderUserId —
         // who paid, all nullable because rows written before it said nothing.
-        Assert.That(properties, Has.Length.EqualTo(21));
+        // 22nd (feature 40): WebSearches — null when the call wasn't a research turn or the
+        // provider didn't say, zero when it searched nothing.
+        Assert.That(properties, Has.Length.EqualTo(22));
     }
 }

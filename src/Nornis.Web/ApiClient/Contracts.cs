@@ -1198,9 +1198,10 @@ public record SetHandoutsRequest(IReadOnlyList<Guid> DocumentIds);
 /// <summary>
 /// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is
 /// ticked and can't be unticked. <see cref="Kind"/> is None, Declared, Text, Art or TextAndArt.
-/// Mirrors <c>AdventureAiUseResponse</c>.
+/// Mirrors <c>AdventureAiUseResponse</c>. <see cref="ResearchedOnWeb"/> (feature 40): a research
+/// answer's text went into the Adventure.
 /// </summary>
-public record AdventureAiUseDto(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind);
+public record AdventureAiUseDto(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind, bool ResearchedOnWeb = false);
 
 /// <summary>The GM's own AI-use tick (feature 38); the API ignores it once AI use is recorded.</summary>
 public record SetAiDeclaredRequest(bool Declared);
@@ -1286,9 +1287,10 @@ public record AdventureExportDto(Guid SourceId, string Title, string? Slug);
 /// <summary>One message of an Adventure's side conversation. Mirrors the API's <c>ConversationMessageResponse</c>.</summary>
 /// <param name="Edits">The suggested edits to the design draft the answer carries (feature 37), read by the API; null when none.</param>
 /// <param name="Prose">The answer without its edit fences, to show around the edit cards; null when it has none.</param>
+/// <param name="WebResearch">What a research answer found on the web (feature 40); null when the turn wasn't one.</param>
 public record ConversationMessageDto(
     Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
-    IReadOnlyList<DraftEditDto>? Edits = null, string? Prose = null)
+    IReadOnlyList<DraftEditDto>? Edits = null, string? Prose = null, WebResearchDto? WebResearch = null)
 {
     /// <summary>The role names the API sends, the domain's <c>ConversationRole</c>; pinned by a test.</summary>
     public const string UserRole = "User";
@@ -1297,11 +1299,22 @@ public record ConversationMessageDto(
     public bool IsAnswer => Role == AssistantRole;
 }
 
+/// <summary>A research answer's web pages in the provider's order, and Gemini's search suggestions (feature 40). Mirrors <c>WebResearchResponse</c>.</summary>
+public record WebResearchDto(IReadOnlyList<WebPageDto> Pages, int? Searches, string? SuggestionsHtml);
+
+public record WebPageDto(string Title, string Url);
+
+/// <summary>Whether the Web research switch can be turned on, and why not (feature 40). Mirrors <c>WebResearchAvailabilityResponse</c>.</summary>
+public record WebResearchAvailabilityDto(bool Available, string? Reason);
+
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared first.</summary>
-public record ConversationDto(IReadOnlyList<ConversationMessageDto> Messages, bool IsFull);
+/// <param name="WebResearch">Whether the switch can be on (feature 40); null from an API before 3.11, read as off.</param>
+public record ConversationDto(IReadOnlyList<ConversationMessageDto> Messages, bool IsFull, WebResearchAvailabilityDto? WebResearch = null);
 
 /// <param name="Scope">Section, or Draft in Design mode (feature 37); the API's <c>ConversationScope</c>, pinned by a test.</param>
-public record SendConversationMessageRequest(string Text, Guid? SectionId, string Scope = SendConversationMessageRequest.SectionScope)
+/// <param name="WebResearch">The Web research switch (feature 40): this turn may search the web.</param>
+public record SendConversationMessageRequest(
+    string Text, Guid? SectionId, string Scope = SendConversationMessageRequest.SectionScope, bool WebResearch = false)
 {
     public const string SectionScope = "Section";
     public const string DraftScope = "Draft";

@@ -7,8 +7,9 @@ phase merges.
 leaving it out, and renumbered: hardening is deferred until the feature work is done, so this is
 feature 40.**
 
-**Status (2026-11-06): Phase A built. A1 ran against the pinned SDKs with documented stream
-shapes, not live providers (no keys in the cloud container); see the design's Phase A amendment.**
+**Status (2026-11-06): Phase A merged (PR #110). Phase B built; `AddWebResearch` waits for Dave
+before it merges. A1 ran against the pinned SDKs with documented stream shapes, not live
+providers (no keys in the cloud container); see the design's amendments.**
 
 ## Phase A — Spec and seam
 
@@ -26,14 +27,14 @@ shapes, not live providers (no keys in the cloud container); see the design's Ph
 
 ## Phase B — OpenAI, the switch and the pages
 
-- [ ] B1. `AiClientShape.Responses` in `UserKeyChatClients`, the binder's `needsWebSearch` and its
+- [x] B1. `AiClientShape.Responses` in `UserKeyChatClients`, the binder's `needsWebSearch` and its
       assertion, OpenAI traits for the Responses path. Wire tests, and today's Chat Completions
       body pinned unchanged.
-- [ ] B2. Domain and migration: `ConversationMessage.WebResearch`, `AdventureAiUse.ResearchedOnWeb`,
+- [x] B2. Domain and migration: `ConversationMessage.WebResearch`, `AdventureAiUse.ResearchedOnWeb`,
       `AiUsageRecord.WebSearches`, `PrintDetails.ResearchedOnWeb`. Dave applies `AddWebResearch`.
-- [ ] B3. Service and API: the command flag, the 409 before save, the research prompt block,
+- [x] B3. Service and API: the command flag, the 409 before save, the research prompt block,
       timeout and ceiling, `WebPageLinks.Strip`, saving the pages, the availability on GET.
-- [ ] B4. Web: the switch, From the web, the sandboxed suggestions. bUnit tests.
+- [x] B4. Web: the switch, From the web, the sandboxed suggestions. bUnit tests.
 
 ## Phase C — Rights and release
 

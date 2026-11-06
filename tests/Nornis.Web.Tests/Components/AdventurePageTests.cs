@@ -283,6 +283,98 @@ public class AdventurePageTests : BunitContext
         });
     }
 
+    // ------------------------------------------------------------- web research --
+
+    private const string ResearchAvailable = "\"webResearch\":{\"available\":true,\"reason\":null}";
+
+    [Test]
+    public async Task WebResearch_WhenTheKeyCantSearch_IsOff_Disabled_AndSaysWhy()
+    {
+        _handler.ConversationJson = """
+            {"messages":[],"isFull":false,"webResearch":{"available":false,"reason":"Web research runs on your own AI key. Add one under Profile, AI keys."}}
+            """;
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-talk-research input").HasAttribute("disabled"), Is.True);
+            Assert.That(cut.Find(".nornis-prep-talk-research-reason").TextContent,
+                Is.EqualTo("Web research runs on your own AI key. Add one under Profile, AI keys."));
+        }));
+    }
+
+    [Test]
+    public async Task WebResearch_RidesWithOneTurn_ThenTurnsItselfOff()
+    {
+        _handler.ConversationJson = "{\"messages\":[],\"isFull\":false," + ResearchAvailable + "}";
+        _handler.ConversationAfterSendJson = StubHandler.Answered("Waterdeep?", "Wards.").TrimEnd()[..^1] + "," + ResearchAvailable + "}";
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-talk-research input").HasAttribute("disabled"), Is.False));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-research input").Change(true));
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Waterdeep?"));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-put"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(JsonDocument.Parse(_handler.LastSendBody!).RootElement.GetProperty("webResearch").GetBoolean(), Is.True);
+            Assert.That(cut.Find(".nornis-prep-talk-research input").HasAttribute("checked"), Is.False,
+                "off again after the send, so the next search is a choice too");
+        });
+    }
+
+    [Test]
+    public async Task ATurnWithoutTheSwitch_DoesNotAskToSearch()
+    {
+        _handler.ConversationJson = "{\"messages\":[],\"isFull\":false," + ResearchAvailable + "}";
+        _handler.ConversationAfterSendJson = StubHandler.Answered("Who else?", "Three cultists.");
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Talk it through")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Who else?"));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastSendBody, Is.Not.Null));
+        Assert.That(JsonDocument.Parse(_handler.LastSendBody!).RootElement.GetProperty("webResearch").GetBoolean(), Is.False);
+    }
+
+    [Test]
+    public async Task AResearchAnswer_ListsItsPages_FromTheWeb_AndShowsSuggestionsSandboxed()
+    {
+        _handler.ConversationJson = $$$"""
+            {"messages":[
+              {"id":"{{{Guid.NewGuid()}}}","role":"User","content":"Waterdeep?","model":null,"createdAt":"2026-11-02T10:30:00+00:00"},
+              {"id":"{{{StubHandler.AnswerId}}}","role":"Assistant","content":"Wards.","model":"nornis-ask","createdAt":"2026-11-02T10:30:05+00:00",
+               "webResearch":{"pages":[{"title":"Wards of Waterdeep","url":"https://example.org/wards"}],"searches":2,
+                              "suggestionsHtml":"<a href=\"https://www.google.com/search?q=waterdeep\">waterdeep</a><script>alert(1)</script>"}},
+              {"id":"{{{Guid.NewGuid()}}}","role":"User","content":"And Neverwinter?","model":null,"createdAt":"2026-11-02T10:31:00+00:00"},
+              {"id":"{{{Guid.NewGuid()}}}","role":"Assistant","content":"The record says.","model":"nornis-ask","createdAt":"2026-11-02T10:31:05+00:00",
+               "webResearch":{"pages":[],"searches":0,"suggestionsHtml":null}}],
+             "isFull":false}
+            """;
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-web"), Has.Count.EqualTo(2)));
+        var link = cut.Find(".nornis-prep-talk-web-pages a");
+        var frame = cut.Find("iframe.nornis-prep-talk-web-suggestions");
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.FindAll(".nornis-prep-talk-web")[0].TextContent, Does.Contain("From the web"));
+            Assert.That(link.TextContent, Is.EqualTo("Wards of Waterdeep"));
+            Assert.That(link.GetAttribute("href"), Is.EqualTo("https://example.org/wards"));
+            Assert.That(link.GetAttribute("target"), Is.EqualTo("_blank"));
+            Assert.That(link.GetAttribute("rel"), Is.EqualTo("noopener noreferrer nofollow"));
+            Assert.That(frame.GetAttribute("sandbox"), Does.Not.Contain("allow-scripts").And.Not.Contain("allow-same-origin"),
+                "the provider's markup can't run script or reach Nornis's page");
+            Assert.That(frame.GetAttribute("srcdoc"), Does.Contain("<base target=\"_blank\">").And.Contain("waterdeep</a>"));
+            Assert.That(cut.Find(".nornis-prep-talk-web-none").TextContent, Is.EqualTo("Searched the web; no pages cited."));
+            Assert.That(cut.FindAll(".nornis-prep-talk-web-suggestions"), Has.Count.EqualTo(1));
+        });
+    }
+
     [Test]
     public async Task Enter_SendsTheMessage()
     {

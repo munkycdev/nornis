@@ -4484,6 +4484,41 @@ a.nornis-cite:hover {
     font-style: italic;
 }
 
+/* Feature 40: the pages a research answer drew on, under its text. */
+.nornis-prep-talk-web {
+    margin-top: 6px;
+}
+
+.nornis-prep-talk-web-pages {
+    margin: 2px 0 0;
+    padding-left: 18px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.nornis-prep-talk-web-pages a {
+    overflow-wrap: anywhere;
+}
+
+.nornis-prep-talk-web-none {
+    display: block;
+    font-style: italic;
+}
+
+/* Gemini's search suggestions, sandboxed: a short strip of chips. */
+.nornis-prep-talk-web-suggestions {
+    display: block;
+    width: 100%;
+    height: 64px;
+    margin-top: 4px;
+    border: 0;
+}
+
+.nornis-prep-talk-research-reason {
+    display: block;
+    margin-top: 4px;
+}
+
 /* ---------------------------------------------------------- Prep booklet --- */
 
 /* The booklet (/prep/{key}/print, feature 34): a PDF the API lays out, shown in the browser's
