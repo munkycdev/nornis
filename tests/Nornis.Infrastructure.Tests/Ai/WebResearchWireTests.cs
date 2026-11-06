@@ -214,10 +214,130 @@ public class WebResearchWireTests
 
     // ------------------------------------------------------------------ OpenAI --
 
+    private const string OpenAiModel = "gpt-5.4";
+
+    private const string OpenAiAnswer =
+        """{"type":"output_text","text":"Waterdeep is divided into wards.","annotations":[{"type":"url_citation","start_index":0,"end_index":9,"url":"https://example.org/waterdeep?utm_source=openai","title":"Waterdeep"}]}""";
+
+    /// <summary>
+    /// A Responses stream for one search: the <c>web_search_call</c> item is reported as it starts
+    /// and again when done, which is why searches are counted by call id.
+    /// </summary>
+    private static readonly string OpenAiStream = ResponsesSse(
+        "{\"type\":\"response.created\",\"sequence_number\":0,\"response\":" + OpenAiResponse("in_progress", "[]", usage: null) + "}",
+        """{"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"web_search_call","id":"ws_1","status":"in_progress"}}""",
+        """{"type":"response.web_search_call.in_progress","sequence_number":2,"output_index":0,"item_id":"ws_1"}""",
+        """{"type":"response.web_search_call.searching","sequence_number":3,"output_index":0,"item_id":"ws_1"}""",
+        """{"type":"response.web_search_call.completed","sequence_number":4,"output_index":0,"item_id":"ws_1"}""",
+        """{"type":"response.output_item.done","sequence_number":5,"output_index":0,"item":{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"waterdeep wards"}}}""",
+        """{"type":"response.output_item.added","sequence_number":6,"output_index":1,"item":{"type":"message","id":"msg_1","status":"in_progress","role":"assistant","content":[]}}""",
+        """{"type":"response.content_part.added","sequence_number":7,"output_index":1,"item_id":"msg_1","content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}""",
+        """{"type":"response.output_text.delta","sequence_number":8,"output_index":1,"item_id":"msg_1","content_index":0,"delta":"Waterdeep is divided into wards."}""",
+        """{"type":"response.output_text.annotation.added","sequence_number":9,"output_index":1,"item_id":"msg_1","content_index":0,"annotation_index":0,"annotation":{"type":"url_citation","start_index":0,"end_index":9,"url":"https://example.org/waterdeep?utm_source=openai","title":"Waterdeep"}}""",
+        """{"type":"response.output_text.done","sequence_number":10,"output_index":1,"item_id":"msg_1","content_index":0,"text":"Waterdeep is divided into wards."}""",
+        "{\"type\":\"response.content_part.done\",\"sequence_number\":11,\"output_index\":1,\"item_id\":\"msg_1\",\"content_index\":0,\"part\":" + OpenAiAnswer + "}",
+        "{\"type\":\"response.output_item.done\",\"sequence_number\":12,\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_1\",\"status\":\"completed\",\"role\":\"assistant\",\"content\":[" + OpenAiAnswer + "]}}",
+        "{\"type\":\"response.completed\",\"sequence_number\":13,\"response\":" + OpenAiResponse(
+            "completed",
+            """[{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"waterdeep wards"}},{"type":"message","id":"msg_1","status":"completed","role":"assistant","content":[""" + OpenAiAnswer + "]}]",
+            usage: """{"input_tokens":5000,"input_tokens_details":{"cached_tokens":0},"output_tokens":40,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":5040}""") + "}");
+
+    /// <summary>A research turn where the model answered without searching.</summary>
+    private static readonly string OpenAiStreamWithoutSearching = ResponsesSse(
+        "{\"type\":\"response.created\",\"sequence_number\":0,\"response\":" + OpenAiResponse("in_progress", "[]", usage: null) + "}",
+        """{"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"message","id":"msg_1","status":"in_progress","role":"assistant","content":[]}}""",
+        """{"type":"response.output_text.delta","sequence_number":2,"output_index":0,"item_id":"msg_1","content_index":0,"delta":"The record already says."}""",
+        "{\"type\":\"response.completed\",\"sequence_number\":3,\"response\":" + OpenAiResponse(
+            "completed",
+            """[{"type":"message","id":"msg_1","status":"completed","role":"assistant","content":[{"type":"output_text","text":"The record already says.","annotations":[]}]}]""",
+            usage: """{"input_tokens":5000,"input_tokens_details":{"cached_tokens":0},"output_tokens":10,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":5010}""") + "}");
+
+    private const string ChatCompletionsStream =
+        "data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"gpt-5.4\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Wards.\"},\"finish_reason\":null}]}\n\n"
+        + "data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"gpt-5.4\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n"
+        + "data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"gpt-5.4\",\"choices\":[],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":2,\"total_tokens\":102}}\n\n"
+        + "data: [DONE]\n\n";
+
     [Test]
-    public void OpenAi_doesnt_search_on_chat_completions() =>
-        Assert.Throws<NotSupportedException>(() => OpenAiProviderTraits.Instance.ChatOptions(Research),
-            "OpenAI's search is a Responses tool, which feature 40 Phase B adds");
+    public async Task OpenAi_research_goes_to_responses_with_only_the_search_tool_capped_and_not_stored()
+    {
+        var handler = new RecordingHandler(_ => Sse(OpenAiStream));
+        await DrainAsync(OpenAi(handler, AiClientShape.Responses), Research);
+
+        var body = handler.Bodies.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Uris.Single().AbsolutePath, Is.EqualTo("/v1/responses"));
+            Assert.That(JsonNode.DeepEquals(body["tools"], JsonNode.Parse("""[{"type":"web_search"}]""")), Is.True, body.ToJsonString());
+            Assert.That(body["max_tool_calls"]?.GetValue<int>(), Is.EqualTo(5));
+            Assert.That(body["max_output_tokens"]?.GetValue<int>(), Is.EqualTo(6_000));
+            Assert.That(body["store"]?.GetValue<bool>(), Is.False, "a Prep prompt carries Hidden truth; OpenAI keeps stored responses for 30 days");
+        });
+    }
+
+    [Test]
+    public async Task OpenAi_without_the_switch_stays_on_chat_completions_as_before()
+    {
+        var handler = new RecordingHandler(_ => Sse(ChatCompletionsStream));
+        var chunks = await DrainAsync(OpenAi(handler, AiClientShape.Chat), Plain);
+
+        // Today's body, pinned: a research-free turn must not change by a byte.
+        var expected = JsonNode.Parse("""
+            {"messages":[{"role":"system","content":"You are the Loremaster."},{"role":"user","content":"What are Waterdeep's wards?"}],
+             "model":"gpt-5.4","max_completion_tokens":2500,"stream":true,"stream_options":{"include_usage":true}}
+            """);
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Uris.Single().AbsolutePath, Is.EqualTo("/v1/chat/completions"));
+            Assert.That(JsonNode.DeepEquals(handler.Bodies.Single(), expected), Is.True, handler.Bodies.Single().ToJsonString());
+            Assert.That(chunks[^1].WebResearch, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task OpenAi_reports_the_cited_pages_and_counts_each_search_once()
+    {
+        var chunks = await DrainAsync(OpenAi(new RecordingHandler(_ => Sse(OpenAiStream)), AiClientShape.Responses), Research);
+
+        var last = chunks[^1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(string.Concat(chunks.Select(c => c.Text)), Is.EqualTo("Waterdeep is divided into wards."));
+            Assert.That(last.WebResearch?.Pages.Select(p => (p.Title, p.Url)),
+                Is.EqualTo([("Waterdeep", "https://example.org/waterdeep?utm_source=openai")]));
+            Assert.That(last.WebResearch?.Searches, Is.EqualTo(1), "the call is reported as it starts and when done");
+            Assert.That(last.Usage?.WebSearches, Is.EqualTo(1));
+            Assert.That(last.Usage?.InputTokens, Is.EqualTo(5_000));
+        });
+    }
+
+    [Test]
+    public async Task OpenAi_research_that_didnt_search_reports_zero_searches()
+    {
+        var chunks = await DrainAsync(OpenAi(new RecordingHandler(_ => Sse(OpenAiStreamWithoutSearching)), AiClientShape.Responses), Research);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(chunks[^1].WebResearch?.Searches, Is.Zero, "every search is an item of the response, so none is a count");
+            Assert.That(chunks[^1].WebResearch?.Pages, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task OpenAi_refusing_the_tool_fails_as_cant_search()
+    {
+        const string refused = """{"error":{"message":"Tool 'web_search' is not supported with gpt-5.4-nano.","type":"invalid_request_error","param":"tools","code":null}}""";
+
+        var thrown = await Assert.CatchAsync(() =>
+            DrainAsync(OpenAi(new RecordingHandler(_ => Json(HttpStatusCode.BadRequest, refused)), AiClientShape.Responses), Research));
+
+        Assert.That(thrown, Is.InstanceOf<AiWebSearchUnsupportedException>());
+    }
+
+    [Test]
+    public void OpenAi_search_options_never_take_a_schema() =>
+        Assert.Throws<NotSupportedException>(() => OpenAiProviderTraits.Instance.ChatOptions(
+            Research with { Schema = new AiJsonSchema("x", """{"type":"object"}""") }));
 
     // ------------------------------------------------------------------ plumbing --
 
@@ -228,6 +348,16 @@ public class WebResearchWireTests
     private static (IChatClient Client, IAiProviderTraits Traits, AiFunding Funding) Gemini(HttpMessageHandler handler) =>
         (new UserKeyChatClients(maxRetries: 0, geminiHandler: handler).For(KeyFor(AiProvider.Gemini), GeminiModel, () => "AIza-test"),
             GeminiProviderTraits.Instance, new AiFunding(AiProvider.Gemini, GeminiModel, AiFundedBy.Key, AiKeyId: Guid.NewGuid()));
+
+    private static (IChatClient Client, IAiProviderTraits Traits, AiFunding Funding) OpenAi(HttpMessageHandler handler, AiClientShape shape) =>
+        (new UserKeyChatClients(maxRetries: 0, openAiHandler: handler).For(KeyFor(AiProvider.OpenAi), OpenAiModel, () => "sk-test", shape),
+            OpenAiProviderTraits.Instance, new AiFunding(AiProvider.OpenAi, OpenAiModel, AiFundedBy.Key, AiKeyId: Guid.NewGuid()));
+
+    private static string OpenAiResponse(string status, string output, string? usage) =>
+        $$"""{"id":"resp_1","object":"response","created_at":1,"status":"{{status}}","model":"gpt-5.4","parallel_tool_calls":true,"tool_choice":"auto","tools":[],"output":{{output}}{{(usage is null ? "" : ",\"usage\":" + usage)}}}""";
+
+    private static string ResponsesSse(params string[] events) =>
+        string.Concat(events.Select(e => $"event: {JsonNode.Parse(e)!["type"]}\ndata: {e}\n\n"));
 
     private static UserAiKey KeyFor(AiProvider provider) => new() { Id = Guid.NewGuid(), Provider = provider, UpdatedAt = DateTimeOffset.UnixEpoch };
 
@@ -263,7 +393,7 @@ public class WebResearchWireTests
 
     private sealed class OneBinder(AiBinding binding) : IAiCallBinder
     {
-        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct) =>
+        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct) =>
             Task.FromResult(binding);
 
         public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct) => Task.CompletedTask;
@@ -273,8 +403,11 @@ public class WebResearchWireTests
     {
         public List<JsonNode> Bodies { get; } = [];
 
+        public List<Uri> Uris { get; } = [];
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            Uris.Add(request.RequestUri!);
             if (request.Content is not null)
             {
                 Bodies.Add(JsonNode.Parse(await request.Content.ReadAsStringAsync(ct))!);
