@@ -165,6 +165,57 @@ public class AdventurePrintPageTests : BunitContext
     }
 
     [Test]
+    public async Task SharingAPrintThatDrewOnTheWeb_AlsoRemindsOfTheRights()
+    {
+        var (researched, dialogs) = await RenderChipAsync(adventureId: StubHandler.AdventureId, researchedOnWeb: true);
+
+        await ChooseAsync(researched, "Party visible");
+
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup,
+            Does.Contain(LibraryVisibilityChip.SharePrintWarning).And.Contain(WebResearchNotice.Warning)));
+    }
+
+    [Test]
+    public async Task SharingAPrintThatDidntDrawOnTheWeb_SaysNothingOfIt()
+    {
+        var (chip, dialogs) = await RenderChipAsync(adventureId: StubHandler.AdventureId);
+
+        await ChooseAsync(chip, "Party visible");
+
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain(LibraryVisibilityChip.SharePrintWarning)));
+        Assert.That(dialogs.Markup, Does.Not.Contain(WebResearchNotice.Warning));
+    }
+
+    [Test]
+    public async Task ThePrintPage_OfAnAdventureThatDrewOnTheWeb_WarnsOnce_AndRemembersItWasSeen()
+    {
+        _handler.AiUse = """{"wroteText":true,"madeArt":false,"declared":false,"locked":true,"kind":"Text","researchedOnWeb":true}""";
+        var stored = JSInterop.Setup<string?>("localStorage.getItem", WebResearchNotice.SeenKey(StubHandler.AdventureId)).SetResult(null);
+        var saved = JSInterop.SetupVoid("localStorage.setItem", WebResearchNotice.SeenKey(StubHandler.AdventureId), "seen");
+        saved.SetVoidResult();
+
+        var cut = await RenderPrintAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-booklet-web-notice").TextContent, Does.Contain(WebResearchNotice.Warning)));
+        await cut.InvokeAsync(() => cut.Find(".nornis-booklet-web-notice button").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-web-notice"), Is.Empty));
+        Assert.That(saved.Invocations, Has.Count.EqualTo(1), "seen once, remembered in this browser");
+    }
+
+    [Test]
+    public async Task ThePrintPage_SaysNothing_WhenTheReminderWasSeen_OrTheAdventureDidntDrawOnTheWeb()
+    {
+        _handler.AiUse = """{"wroteText":true,"madeArt":false,"declared":false,"locked":true,"kind":"Text","researchedOnWeb":true}""";
+        JSInterop.Setup<string?>("localStorage.getItem", WebResearchNotice.SeenKey(StubHandler.AdventureId)).SetResult("seen");
+
+        var seen = await RenderPrintAsync();
+        seen.WaitForAssertion(() => Assert.That(seen.FindAll("iframe"), Has.Count.EqualTo(1)));
+
+        Assert.That(seen.FindAll(".nornis-booklet-web-notice"), Is.Empty);
+    }
+
+    [Test]
     public async Task SharingAnyOtherDocument_AsksNothing()
     {
         var (chip, dialogs) = await RenderChipAsync(adventureId: null);
@@ -178,12 +229,12 @@ public class AdventurePrintPageTests : BunitContext
     private IRenderedComponent<MudPopoverProvider>? _popovers;
 
     private async Task<(IRenderedComponent<LibraryVisibilityChip> Chip, IRenderedComponent<MudDialogProvider> Dialogs)> RenderChipAsync(
-        Guid? adventureId)
+        Guid? adventureId, bool researchedOnWeb = false)
     {
         await Services.GetRequiredService<WorldState>().EnsureSelectionRestoredAsync();
         _popovers = Render<MudPopoverProvider>();
         var dialogs = Render<MudDialogProvider>();
-        var document = StubHandler.Document("GMOnly", adventureId);
+        var document = StubHandler.Document("GMOnly", adventureId, researchedOnWeb);
         var chip = Render<LibraryVisibilityChip>(p => p.Add(x => x.Document, document));
         return (chip, dialogs);
     }
@@ -239,12 +290,15 @@ public class AdventurePrintPageTests : BunitContext
         public string Role { get; set; } = "GM";
         public bool FileFails { get; set; }
         public string Sections { get; set; } = "[]";
+
+        /// <summary>The Adventure's recorded AI use; none until a test says otherwise.</summary>
+        public string AiUse { get; set; } = "null";
         public List<string> Requests { get; } = [];
 
-        public static LibraryDocumentDto Document(string visibility, Guid? adventureId) => new(
+        public static LibraryDocumentDto Document(string visibility, Guid? adventureId, bool researchedOnWeb = false) => new(
             DocumentId, WorldId, "The Silver Key, printed 2026-11-02", "booklet.pdf", "application/pdf", 8, "Handout",
             visibility, "Indexing", null, 0, null, Guid.NewGuid(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            "the-silver-key-printed-2026-11-02", adventureId);
+            "the-silver-key-printed-2026-11-02", adventureId, ResearchedOnWeb: researchedOnWeb);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -274,7 +328,8 @@ public class AdventurePrintPageTests : BunitContext
                 return Json($$"""
                     {"id":"{{AdventureId}}","worldId":"{{WorldId}}","campaignId":null,"title":"The Silver Key",
                      "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
-                     "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00","sections":{{Sections}}}
+                     "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00","sections":{{Sections}},
+                     "aiUse":{{AiUse}}}
                     """);
             }
 

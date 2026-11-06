@@ -14,6 +14,9 @@ public sealed class FakePrepAiClient : IAdventureDraftingAiClient
 
     public bool CutOff { get; set; }
 
+    /// <summary>What the final chunk reports a research turn found (feature 40).</summary>
+    public Nornis.Domain.Models.WebResearchResult? WebResearch { get; set; }
+
     public bool HangAfterText { get; set; }
 
     public Exception? ThrowAfterText { get; set; }
@@ -47,6 +50,6 @@ public sealed class FakePrepAiClient : IAdventureDraftingAiClient
             await BeforeEnd();
         }
 
-        yield return new AiStreamChunk { Text = string.Empty, Usage = Usage, CutOff = CutOff };
+        yield return new AiStreamChunk { Text = string.Empty, Usage = Usage, CutOff = CutOff, WebResearch = WebResearch };
     }
 }

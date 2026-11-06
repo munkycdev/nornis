@@ -358,7 +358,7 @@ public class AiCallExecutorTests
 
     private sealed class RemappingBinder(FakeChatClient client, string model) : IAiCallBinder
     {
-        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct) =>
+        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct) =>
             Task.FromResult(new AiBinding(client, OpenAiProviderTraits.Instance,
                 new AiFunding(AiProvider.OpenAi, model, AiFundedBy.Key)));
 
@@ -367,7 +367,7 @@ public class AiCallExecutorTests
 
     private sealed class ThrowingBinder(Exception exception) : IAiCallBinder
     {
-        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct) =>
+        public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct) =>
             Task.FromException<AiBinding>(exception);
 
         public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct) => Task.CompletedTask;

@@ -31,7 +31,7 @@ public sealed class FakeAiCallBinder : IAiCallBinder
     public IReadOnlyList<AiBinding> Rejections =>
         _reports.Where(r => r.Failure is AiKeyRejectedException).Select(r => r.Binding).ToList();
 
-    public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct)
+    public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct)
     {
         _binds.Add((scope, task, nornisModel, needsImages));
         var funding = _funding(nornisModel);

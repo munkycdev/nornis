@@ -19,6 +19,13 @@ public sealed class AdventureAiUse
     /// <summary>A generated image became the cover. An uploaded cover never sets it.</summary>
     public bool MadeArt { get; set; }
 
+    /// <summary>
+    /// A research answer's text went into a section or the draft (feature 40): the Adventure drew
+    /// on the web. Recorded with <see cref="WroteText"/>, which it never comes without, so it adds
+    /// a line to the rights page, not a kind of use.
+    /// </summary>
+    public bool ResearchedOnWeb { get; set; }
+
     /// <summary>The GM's own tick. It can be unticked only while nothing is recorded.</summary>
     public bool Declared { get; set; }
 

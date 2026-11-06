@@ -737,6 +737,28 @@ public class PrepEndpointTests
     }
 
     [Test]
+    public async Task WebResearch_OnNornissOwnKey_IsOffWithItsReason_AndATurnAskingForItIsA409()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var conversation = await scenario.GmClient.GetFromJsonAsync<ConversationResponse>($"{Base(worldId)}/{adventure.Id}/conversation");
+        var response = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
+            new SendConversationMessageRequest("What are Waterdeep's wards?", null, WebResearch: true));
+        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(conversation!.WebResearch.Available, Is.False, "the test world has no key of its creator's");
+            Assert.That(conversation.WebResearch.Reason, Is.EqualTo("Web research runs on your own AI key. Add one under Profile, AI keys."));
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(error!.Code, Is.EqualTo("web_research_unavailable"));
+            Assert.That(_factory.FakeDrafting.Requests, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task ABlankMessage_IsAPlain400_NotAStream()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);

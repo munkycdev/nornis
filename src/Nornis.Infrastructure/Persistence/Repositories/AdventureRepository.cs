@@ -201,7 +201,7 @@ public class AdventureRepository : IAdventureRepository
 
     public async Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false, bool researchedOnWeb = false,
         CancellationToken cancellationToken = default)
     {
         var adventure = await _context.LoadForUpdateAsync<Adventure>(adventureId, cancellationToken);
@@ -225,6 +225,12 @@ public class AdventureRepository : IAdventureRepository
         if (loremasterWrote)
         {
             adventure.AiUse.WroteText = true;
+
+            // Feature 40: only ever with the text it describes.
+            if (researchedOnWeb)
+            {
+                adventure.AiUse.ResearchedOnWeb = true;
+            }
         }
 
         // One SaveChanges: the revision, the trim, the new draft and the AI-use record commit
@@ -414,7 +420,7 @@ public class AdventureRepository : IAdventureRepository
 
     public async Task<bool> TryAcceptDraftAsync(
         AdventureSectionRevision revision, string newBody, int maxRevisions,
-        DateTimeOffset basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+        DateTimeOffset basedOn, DateTimeOffset updatedAt, bool researchedOnWeb = false, CancellationToken cancellationToken = default)
     {
         var section = await _context.LoadForUpdateAsync<AdventureSection>(revision.SectionId, cancellationToken);
         if (section.UpdatedAt != basedOn)
@@ -445,6 +451,10 @@ public class AdventureRepository : IAdventureRepository
         // Every accept is the Loremaster's text (a draft or Put in section), so it records AI use
         // (feature 38) in the same unit of work as the text it records.
         adventure.AiUse.WroteText = true;
+        if (researchedOnWeb)
+        {
+            adventure.AiUse.ResearchedOnWeb = true;
+        }
 
         // One SaveChanges: the revision, the trim, the new body and the AI-use record commit
         // together or not at all.

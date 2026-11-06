@@ -54,15 +54,23 @@ public sealed record PrintDetails
     /// </summary>
     public AiUseKind? AiUse { get; init; }
 
+    /// <summary>
+    /// The Adventure drew on web research when the print was made (feature 40), so its rights page
+    /// says so. Null only on prints filed before Nornis 3.11, read as false.
+    /// </summary>
+    public bool? ResearchedOnWeb { get; init; }
+
     /// <summary>The game system and edition as one line ("Shadowdark 2nd"), or null when neither is set. A method, so no serializer or mapping stores it.</summary>
     public string? SystemLine() => JoinSystem(GameSystem, Edition);
 
     /// <summary>
     /// The details a print of this Adventure carries now. A null game system falls back to the
     /// world's; type and publisher are the fixed values; the author is the creator's username.
+    /// <paramref name="researchedOnWeb"/> is the Adventure's record that it drew on the web (feature 40).
     /// </summary>
     public static PrintDetails Resolve(
-        string title, AdventureDetails details, string? worldGameSystem, string authorUsername, AiUseKind aiUse) => new()
+        string title, AdventureDetails details, string? worldGameSystem, string authorUsername, AiUseKind aiUse,
+        bool researchedOnWeb = false) => new()
         {
             Title = title,
             GameSystem = GameSystemOf(details, worldGameSystem),
@@ -73,6 +81,7 @@ public sealed record PrintDetails
             Author = authorUsername,
             Year = details.Year,
             AiUse = aiUse,
+            ResearchedOnWeb = researchedOnWeb,
         };
 
     /// <summary>

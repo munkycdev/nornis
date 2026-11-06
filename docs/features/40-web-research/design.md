@@ -1,5 +1,31 @@
 # Design Document
 
+> **Amendment (2026-11-06, Phase B):** what building it changed. The text below is left as written.
+>
+> - **OpenAI on Responses**: `OpenAIClient.GetResponsesClient().AsIChatClient(model)`, which the
+>   SDK marks for evaluation (`OPENAI001`, suppressed in `UserKeyChatClients.BuildResponses` and
+>   the traits only). The body is `tools: [{"type":"web_search"}]`, `max_tool_calls`,
+>   `max_output_tokens` and **`store: false`**: the Responses API keeps a response for 30 days
+>   unless told not to, and a Prep prompt carries Hidden truth.
+> - **OpenAI counts searches by call id**: the adapter reports a `web_search_call` as it starts
+>   and again when done. Once usage arrives the count is complete, so a research turn that ran
+>   none reports zero, not null.
+> - **The binder** takes `needsWebSearch` and throws `InvalidOperationException` on funding
+>   `WebResearchAvailability` wouldn't allow. A whole-response call (`AiCallExecutor.ExecuteAsync`)
+>   refuses a search outright: only the stream reads the pages.
+> - **The migration has four columns, not three**: `PrintDetails` is owned columns on
+>   `LibraryDocuments`, not a JSON snapshot, so `PrintDetails_ResearchedOnWeb` (bit, null) joins
+>   `ConversationMessages.WebResearchJson`, `Adventures.AiResearchedOnWeb` and
+>   `AiUsageRecords.WebSearches`. `PrintDetails.Resolve` starts filling it in Phase C.
+> - **The research prompt** also says never to put the world's record, above all Hidden truth,
+>   into a search: the queries leave the provider for its search backend.
+> - **The 409** is checked after the budget, before the GM's message is saved. A world with no key
+>   and no trial reads as `NeedsOwnKey`. The page bounds stay in `WebResearchResult` (Domain), not
+>   `PrepOptions`.
+> - **Gemini's suggestions** render in `<iframe sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc>`
+>   behind a `<base target="_blank">`, so a chip opens Google in a new tab; no `allow-scripts`, no
+>   `allow-same-origin`.
+
 > **Amendment (2026-11-06, Phase A):** what the spike found. The text below is left as written.
 >
 > - **No live calls yet.** The cloud container has no provider keys, so A1 probed the pinned SDKs

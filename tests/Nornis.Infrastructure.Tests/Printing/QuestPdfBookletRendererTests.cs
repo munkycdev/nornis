@@ -83,6 +83,28 @@ public class QuestPdfBookletRendererTests
         });
     }
 
+    /// <summary>Feature 40, Requirement 6.2: the web research line sits after the AI statement, and the notice stays last.</summary>
+    [Test]
+    public void AnAdventureThatDrewOnTheWeb_SaysSoOnItsRightsPage_AboveTheNotice()
+    {
+        var researched = Rights with { WebResearchStatement = "webresearchline drew on public web sources." };
+
+        var plain = Render(Chapter("Arrival", P("chapterword one.")));
+        var pdf = _renderer.Render(new Booklet(Cover, researched, [Chapter("Arrival", P("chapterword one."))]));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        using var plainDocument = PdfDocument.Open(plain.Bytes);
+        var words = Words(document.GetPage(2)).ToList();
+        double TopOf(string token) => words.First(w => w.Text == token).BoundingBox.Top;
+        Assert.Multiple(() =>
+        {
+            Assert.That(words.Select(w => w.Text), Does.Contain("webresearchline"));
+            Assert.That(Words(plainDocument.GetPage(2)).Select(w => w.Text), Does.Not.Contain("webresearchline"));
+            Assert.That(TopOf("assistance."), Is.GreaterThan(TopOf("webresearchline")));
+            Assert.That(TopOf("webresearchline"), Is.GreaterThan(TopOf("rightsnotice")), "the non-affiliation notice stays last");
+        });
+    }
+
     // ------------------------------------------------------------- Cover art --
 
     /// <summary>Portrait art the size the image model makes, in two colours so a crop shows.</summary>

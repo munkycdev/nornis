@@ -200,7 +200,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
 
     public Task<bool> TryAcceptDraftAsync(
         AdventureSectionRevision revision, string newBody, int maxRevisions,
-        DateTimeOffset basedOn, DateTimeOffset updatedAt, CancellationToken cancellationToken = default)
+        DateTimeOffset basedOn, DateTimeOffset updatedAt, bool researchedOnWeb = false, CancellationToken cancellationToken = default)
     {
         var section = Required(_sections, s => s.Id == revision.SectionId);
         if (section.UpdatedAt != basedOn)
@@ -223,7 +223,9 @@ public class InMemoryAdventureRepository : IAdventureRepository
         });
         section.BodyMarkdown = newBody;
         section.UpdatedAt = updatedAt;
-        Required(_adventures, a => a.Id == section.AdventureId).AiUse.WroteText = true;
+        var adventure = Required(_adventures, a => a.Id == section.AdventureId);
+        adventure.AiUse.WroteText = true;
+        adventure.AiUse.ResearchedOnWeb |= researchedOnWeb;
         return Task.FromResult(true);
     }
 
@@ -271,7 +273,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
 
     public Task<bool> TrySaveDraftAsync(
         Guid adventureId, string? markdown, AdventureDraftRevision? revision, int maxRevisions,
-        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false,
+        DateTimeOffset? basedOn, DateTimeOffset updatedAt, bool loremasterWrote = false, bool researchedOnWeb = false,
         CancellationToken cancellationToken = default)
     {
         var row = Required(_adventures, a => a.Id == adventureId);
@@ -302,6 +304,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         if (loremasterWrote)
         {
             row.AiUse.WroteText = true;
+            row.AiUse.ResearchedOnWeb |= researchedOnWeb;
         }
 
         return Task.FromResult(true);
@@ -417,7 +420,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
-        AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared },
+        AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared, ResearchedOnWeb = a.AiUse.ResearchedOnWeb },
         Cover = a.Cover is null ? null : a.Cover with { },
         CoverImagesGenerated = a.CoverImagesGenerated,
         CoverBrief = a.CoverBrief,

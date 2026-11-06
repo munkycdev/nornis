@@ -44,7 +44,13 @@ public static class AiCallExecutor
         ILogger logger,
         CancellationToken ct)
     {
-        var binding = await binder.BindAsync(scope, task, nornisModel, CarriesImages(messages), ct);
+        // Only the stream reads a search's pages, so a whole-response call can't ask for one.
+        if (options?.WebSearch is not null)
+        {
+            throw new NotSupportedException("Web search runs only on a streamed call (StreamAsync), which reads its pages.");
+        }
+
+        var binding = await binder.BindAsync(scope, task, nornisModel, CarriesImages(messages), needsWebSearch: false, ct);
         var chatClient = binding.Client;
         var chatOptions = binding.Traits.ChatOptions(options);
         var stopwatch = Stopwatch.StartNew();
@@ -91,7 +97,7 @@ public static class AiCallExecutor
         ILogger logger,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var binding = await binder.BindAsync(request.Scope, task, request.Model, needsImages: false, ct);
+        var binding = await binder.BindAsync(request.Scope, task, request.Model, needsImages: false, needsWebSearch: options?.WebSearch is not null, ct);
         var chatClient = binding.Client;
         var chatOptions = binding.Traits.ChatOptions(options);
         var stopwatch = Stopwatch.StartNew();

@@ -18,7 +18,7 @@ namespace Nornis.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -300,6 +300,9 @@ namespace Nornis.Infrastructure.Migrations
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("WebSearches")
+                        .HasColumnType("int");
 
                     b.Property<Guid?>("WorldId")
                         .HasColumnType("uniqueidentifier");
@@ -950,6 +953,10 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("WebResearch")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("WebResearchJson");
 
                     b.HasKey("Id");
 
@@ -2244,6 +2251,10 @@ namespace Nornis.Infrastructure.Migrations
                                 .HasColumnType("bit")
                                 .HasColumnName("AiMadeArt");
 
+                            b1.Property<bool>("ResearchedOnWeb")
+                                .HasColumnType("bit")
+                                .HasColumnName("AiResearchedOnWeb");
+
                             b1.Property<bool>("WroteText")
                                 .HasColumnType("bit")
                                 .HasColumnName("AiWroteText");
@@ -2782,6 +2793,9 @@ namespace Nornis.Infrastructure.Migrations
                                 .IsRequired()
                                 .HasMaxLength(50)
                                 .HasColumnType("nvarchar(50)");
+
+                            b1.Property<bool?>("ResearchedOnWeb")
+                                .HasColumnType("bit");
 
                             b1.Property<string>("Title")
                                 .IsRequired()

@@ -227,7 +227,26 @@ public class LibraryPrintTests
             Author = TestPrintDetails.Username,
             Year = 2026,
             AiUse = AiUseKind.None,
+            ResearchedOnWeb = false,
         }));
+    }
+
+    /// <summary>Feature 40, Requirement 6.3: the print says what was true when it was made.</summary>
+    [Test]
+    public async Task APrint_OfAnAdventureThatDrewOnTheWeb_KeepsThatRecord()
+    {
+        var plain = await FileAsync();
+        var stored = _adventures.Adventures.Single(a => a.Id == _adventure.Id);
+        stored.AiUse.WroteText = true;
+        stored.AiUse.ResearchedOnWeb = true;
+
+        var researched = await FileAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_documents.Documents.Single(d => d.Id == plain.Id).PrintDetails!.ResearchedOnWeb, Is.False);
+            Assert.That(_documents.Documents.Single(d => d.Id == researched.Id).PrintDetails!.ResearchedOnWeb, Is.True);
+        });
     }
 
     [Test]

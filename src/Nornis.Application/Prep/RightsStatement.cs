@@ -13,6 +13,13 @@ public static class RightsStatement
     public const string Notice =
         "Game system names are trademarks of their owners. This adventure is not affiliated with or endorsed by them.";
 
+    /// <summary>
+    /// The line an Adventure that drew on web research adds (feature 40, Requirement 6.2), after
+    /// the AI sentence and before the notice, which stays.
+    /// </summary>
+    public const string WebResearch =
+        "Research for this adventure drew on public web sources with AI assistance. The author is responsible for rights in any third-party setting or material.";
+
     /// <summary>The sentence for what was recorded or declared (Requirement 2.3).</summary>
     public static string For(AiUseKind aiUse) => aiUse switch
     {

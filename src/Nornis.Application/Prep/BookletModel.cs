@@ -112,7 +112,8 @@ public static class BookletModel
             $"Printed {imprint.Printed.ToString("d MMMM yyyy", CultureInfo.InvariantCulture)}",
             $"Made with Nornis {imprint.Version}",
             RightsStatement.For(details.AiUse ?? AiUseKind.None),
-            RightsStatement.Notice);
+            RightsStatement.Notice,
+            details.ResearchedOnWeb is true ? RightsStatement.WebResearch : null);
     }
 
     private static string? LevelsLine(PrintDetails details) =>

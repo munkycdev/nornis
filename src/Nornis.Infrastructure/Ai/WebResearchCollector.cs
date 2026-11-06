@@ -10,6 +10,7 @@ namespace Nornis.Infrastructure.Ai;
 public sealed class WebResearchCollector
 {
     private readonly List<WebPage> _pages = [];
+    private readonly HashSet<string> _searchCalls = new(StringComparer.Ordinal);
 
     public IReadOnlyList<WebPage> Pages => _pages;
 
@@ -26,8 +27,15 @@ public sealed class WebResearchCollector
         }
     }
 
-    /// <summary>Adds to the count, for providers that report searches one call at a time.</summary>
-    public void CountSearches(int searches) => Searches = (Searches ?? 0) + searches;
+    /// <summary>Counts one search, for providers that report searches one call at a time and may
+    /// report the same call more than once as it runs.</summary>
+    public void CountSearch(string callId)
+    {
+        if (_searchCalls.Add(callId))
+        {
+            Searches = (Searches ?? 0) + 1;
+        }
+    }
 
     /// <summary>Sets the count, for providers that report a total for the call.</summary>
     public void SetSearches(int searches) => Searches = searches;

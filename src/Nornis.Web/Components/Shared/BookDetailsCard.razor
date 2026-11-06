@@ -34,6 +34,11 @@
                 {
                     <div class="nornis-book-details-caption">Tick it for AI you used outside Nornis. The rights page says so.</div>
                 }
+                @if (ai.ResearchedOnWeb)
+                {
+                    @* Feature 40: recorded with the text, so its rights page adds a line. *@
+                    <div class="nornis-book-details-caption nornis-book-details-ai-web">The Loremaster researched this adventure on the web.</div>
+                }
             </div>
         }
 

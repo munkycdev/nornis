@@ -53,6 +53,7 @@ public sealed record BookletArt(byte[] Image, CoverLayout Layout);
 /// <param name="Printed">"Printed 3 November 2026".</param>
 /// <param name="MadeWith">"Made with Nornis 3.9".</param>
 /// <param name="AiStatement">What the Adventure recorded about AI, from <see cref="RightsStatement.For"/>.</param>
+/// <param name="WebResearchStatement"><see cref="RightsStatement.WebResearch"/> when the Adventure drew on the web (feature 40); null otherwise.</param>
 public sealed record BookletRights(
     string Title,
     string Publisher,
@@ -63,7 +64,8 @@ public sealed record BookletRights(
     string Printed,
     string MadeWith,
     string AiStatement,
-    string Notice);
+    string Notice,
+    string? WebResearchStatement = null);
 
 /// <summary>When a booklet was printed and by which release (feature 38): what the rights page dates it by.</summary>
 public sealed record BookletImprint(DateOnly Printed, string Version);

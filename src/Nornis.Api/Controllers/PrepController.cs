@@ -8,6 +8,7 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Api.Extensions;
 using Nornis.Api.Filters;
+using Nornis.Application.Ai;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Prep;
@@ -264,7 +265,12 @@ public class PrepController : ControllerBase
     {
         var result = await _conversation.GetAsync(worldId, adventureId, HttpContext.GetWorldMember().Role, ct);
         return result.IsSuccess
-            ? Ok(new ConversationResponse(result.Value!.Messages.Select(ToMessage).ToList(), result.Value.IsFull))
+            ? Ok(new ConversationResponse(
+                result.Value!.Messages.Select(ToMessage).ToList(),
+                result.Value.IsFull,
+                new WebResearchAvailabilityResponse(
+                    result.Value.WebResearch == WebResearchAvailabilityKind.Available,
+                    WebResearchAvailability.Reason(result.Value.WebResearch))))
             : result.Error!.ToActionResult();
     }
 
@@ -286,7 +292,7 @@ public class PrepController : ControllerBase
 
         var result = await _conversation.SendAsync(new SendConversationMessageCommand(
             worldId, adventureId, HttpContext.GetNornisUser().Id, HttpContext.GetWorldMember().Role,
-            request.Text ?? "", request.SectionId, scope), ct);
+            request.Text ?? "", request.SectionId, scope, request.WebResearch), ct);
         return result.IsSuccess
             ? new ServerSentEventsActionResult(ToServerSentEvents(result.Value!))
             : result.Error!.ToActionResult();
@@ -337,10 +343,13 @@ public class PrepController : ControllerBase
     private static ConversationMessageResponse ToMessage(ConversationMessage m)
     {
         var edits = m.Role == ConversationRole.Assistant ? DraftEdits.Parse(m.Content) : [];
+        var research = m.WebResearch is { } r
+            ? new WebResearchResponse(r.Pages.Select(p => new WebPageResponse(p.Title, p.Url)).ToList(), r.Searches, r.SuggestionsHtml)
+            : null;
         return edits.Count == 0
-            ? new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt)
+            ? new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt, WebResearch: research)
             : new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt,
-                edits.Select(e => new DraftEditResponse(e.Find, e.Replace)).ToList(), DraftEdits.ProseOf(m.Content));
+                edits.Select(e => new DraftEditResponse(e.Find, e.Replace)).ToList(), DraftEdits.ProseOf(m.Content), research);
     }
 
     private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(
@@ -392,7 +401,8 @@ public class PrepController : ControllerBase
                 .OrderBy(b => b.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ToList(),
             new AdventureAiUseResponse(
-                a.AiUse.WroteText, a.AiUse.MadeArt, a.AiUse.Declared, a.AiUse.IsLocked(), a.AiUse.Kind().ToString()),
+                a.AiUse.WroteText, a.AiUse.MadeArt, a.AiUse.Declared, a.AiUse.IsLocked(), a.AiUse.Kind().ToString(),
+                a.AiUse.ResearchedOnWeb),
             a.Handouts.OrderBy(h => h.SortOrder)
                 .Select(h => new AdventureHandoutResponse(
                     h.LibraryDocumentId, h.LibraryDocument.Title, h.LibraryDocument.Slug,

@@ -63,7 +63,7 @@ public class AiWorldNameGenerator : IWorldNameGenerator
             //
             // Both were cosmetic here: the system prompt already asks for one to three words.
             // There is no world yet, so the creating user's keys pay (feature 39).
-            var binding = await _binder.BindAsync(AiCallScope.ForUser(userId), AiTask.Chores, _options.AiModel, needsImages: false, linkedCts.Token);
+            var binding = await _binder.BindAsync(AiCallScope.ForUser(userId), AiTask.Chores, _options.AiModel, needsImages: false, needsWebSearch: false, linkedCts.Token);
             var response = await binding.Client.GetResponseAsync(messages, options: null, linkedCts.Token);
 
             var name = response.Text.Trim();

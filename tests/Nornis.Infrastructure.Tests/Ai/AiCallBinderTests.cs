@@ -1,5 +1,7 @@
 using System.ClientModel;
+using Microsoft.Extensions.AI;
 using Nornis.Application.Ai;
+using Nornis.Application.Configuration;
 using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
@@ -37,7 +39,7 @@ public class AiCallBinderTests
     public void TearDown() => _userKeys.Dispose();
 
     private AiCallBinder Binder(Func<AiFunding> funding) =>
-        new(new FixedFunding(funding), Nornis, _userKeys, _keys, _protector, _outcomes, TimeProvider.System);
+        new(new FixedFunding(funding), Nornis, _userKeys, _keys, _protector, _outcomes, Microsoft.Extensions.Options.Options.Create(new AiModelsOptions()), TimeProvider.System);
 
     private UserAiKey SavedKey(AiProvider provider = AiProvider.OpenAi, string? baseUrl = null)
     {
@@ -50,8 +52,8 @@ public class AiCallBinderTests
     private static AiFunding KeyFunding(UserAiKey key, string model = "gpt-5.4") =>
         new(key.Provider, model, AiFundedBy.Key, key.Id, key.UserId);
 
-    private static Task<AiBinding> Bind(AiCallBinder binder) =>
-        binder.BindAsync(AiCallScope.ForWorld(Guid.NewGuid()), AiTask.Ask, "nornis-ask", needsImages: false, CancellationToken.None);
+    private static Task<AiBinding> Bind(AiCallBinder binder, bool needsWebSearch = false) =>
+        binder.BindAsync(AiCallScope.ForWorld(Guid.NewGuid()), AiTask.Prep, "nornis-ask", needsImages: false, needsWebSearch, CancellationToken.None);
 
     [Test]
     public async Task NornisFunding_BindsNornisClientForThatDeployment_OnTheOpenAiWire()
@@ -127,6 +129,82 @@ public class AiCallBinderTests
         var key = SavedKey(provider);
 
         await Assert.ThrowsAsync<NotSupportedException>(() => Bind(Binder(() => KeyFunding(key))));
+    }
+
+    // ------------------------------------------------------- web search (feature 40) --
+
+    [Test]
+    public async Task SearchOnAnOpenAiKey_BindsAResponsesClient_AndOnlyThatCall()
+    {
+        var key = SavedKey();
+        var binder = Binder(() => KeyFunding(key));
+
+        var chat = await Bind(binder);
+        var search = await Bind(binder, needsWebSearch: true);
+        var searchAgain = await Bind(binder, needsWebSearch: true);
+
+#pragma warning disable OPENAI001
+        Assert.Multiple(() =>
+        {
+            Assert.That(search.Client.GetService<OpenAI.Responses.ResponsesClient>(), Is.Not.Null, "OpenAI searches only on the Responses API");
+            Assert.That(chat.Client.GetService<OpenAI.Responses.ResponsesClient>(), Is.Null, "every other call stays on Chat Completions");
+            Assert.That(search.Client, Is.Not.SameAs(chat.Client));
+            Assert.That(searchAgain.Client, Is.SameAs(search.Client), "the shape is part of the cache key");
+            Assert.That(search.Traits, Is.SameAs(OpenAiProviderTraits.Instance));
+        });
+#pragma warning restore OPENAI001
+    }
+
+    [TestCase(AiProvider.Anthropic)]
+    [TestCase(AiProvider.Gemini)]
+    public async Task SearchOnClaudeOrGemini_KeepsTheChatClient(AiProvider provider)
+    {
+        var key = SavedKey(provider);
+        var binder = Binder(() => KeyFunding(key, "some-model"));
+
+        var chat = await Bind(binder);
+        var search = await Bind(binder, needsWebSearch: true);
+
+        Assert.That(search.Client, Is.SameAs(chat.Client), "their chat API takes the search tool");
+    }
+
+    [TestCase(AiFundedBy.Nornis)]
+    [TestCase(AiFundedBy.Trial)]
+    public async Task SearchFundedByNornisOrTheTrial_IsNeverBound(AiFundedBy fundedBy)
+    {
+        var binder = Binder(() => new AiFunding(AiProvider.AzureOpenAi, "nornis-ask", fundedBy));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Bind(binder, needsWebSearch: true));
+    }
+
+    [Test]
+    public async Task SearchOnAnOpenAiCompatibleKey_IsNeverBound()
+    {
+        var key = SavedKey(AiProvider.OpenAiCompatible, "https://models.example.com/v1/");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Bind(Binder(() => KeyFunding(key)), needsWebSearch: true));
+    }
+
+    [Test]
+    public async Task SearchOnACatalogModelThatCantSearch_IsNeverBound()
+    {
+        var key = SavedKey();
+        var models = new AiModelsOptions
+        {
+            Catalog = [new AiCatalogModel { Id = "openai/gpt-small", Provider = AiProvider.OpenAi, Model = "gpt-small", Tasks = [AiTask.Prep], SupportsWebSearch = false }],
+        };
+        var binder = new AiCallBinder(new FixedFunding(() => KeyFunding(key) with { ModelId = "openai/gpt-small" }),
+            Nornis, _userKeys, _keys, _protector, _outcomes, Microsoft.Extensions.Options.Options.Create(models), TimeProvider.System);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Bind(binder, needsWebSearch: true));
+    }
+
+    [Test]
+    public void AResponsesClient_IsOnlyEverBuiltForOpenAi()
+    {
+        var key = SavedKey(AiProvider.Anthropic);
+
+        Assert.Throws<NotSupportedException>(() => _userKeys.For(key, "claude-sonnet-5-5", () => "sk-ant", AiClientShape.Responses));
     }
 
     [Test]

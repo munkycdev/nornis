@@ -371,7 +371,7 @@ public class AdventureDesignServiceTests
         (await _sut.SaveDraftAsync(new(WorldId, _adventureId, WorldRole.GM, markdown, _adventures.Adventures.Single().DraftUpdatedAt), default))
         .Value!.UpdatedAt!.Value;
 
-    private async Task<Guid> AnswerAsync(string content, Guid? adventureId = null)
+    private async Task<Guid> AnswerAsync(string content, Guid? adventureId = null, WebResearchResult? webResearch = null)
     {
         var conversationId = Guid.NewGuid();
         var answer = new ConversationMessage
@@ -380,6 +380,7 @@ public class AdventureDesignServiceTests
             ConversationId = conversationId,
             Role = ConversationRole.Assistant,
             Content = content,
+            WebResearch = webResearch,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         await _conversations.CreateAsync(new Conversation
@@ -487,6 +488,42 @@ public class AdventureDesignServiceTests
             Assert.That(_adventures.DraftRevisions.Select(r => r.Reason), Is.All.EqualTo(AdventureDraftChange.Put));
             Assert.That(AiUse.WroteText, Is.True, "Put in draft records AI use");
         });
+    }
+
+    [Test]
+    public async Task AnOrdinaryAnswer_PutInTheDraft_IsAiText_NotResearch()
+    {
+        var stamp = await DraftAsync("Mine.");
+        var ordinary = await AnswerAsync("Three cultists wait in the steam.");
+
+        await _sut.PutInDraftAsync(new(WorldId, _adventureId, WorldRole.GM, ordinary, PutInSectionMode.Append, stamp), default);
+
+        Assert.That((AiUse.WroteText, AiUse.ResearchedOnWeb), Is.EqualTo((true, false)));
+    }
+
+    [Test]
+    public async Task ApplyingAResearchAnswersEdit_RecordsTheWeb_AndUndoDoesNotClearIt()
+    {
+        var stamp = await DraftAsync("# The Spa\n\nThe spa is quiet.\n\nThe end.");
+        var researched = await AnswerAsync(TwoEdits, webResearch: WebResearchResult.Create([], 1, null));
+
+        var applied = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, researched, 0, stamp), default);
+        Assert.That(applied.IsSuccess, Is.True, applied.Error?.Message);
+        Assert.That(AiUse.ResearchedOnWeb, Is.True);
+
+        await _sut.UndoDraftAsync(new(WorldId, _adventureId, WorldRole.GM), default);
+        Assert.That(AiUse.ResearchedOnWeb, Is.True, "Undo restores text, not the fact that the web was used");
+    }
+
+    [Test]
+    public async Task PuttingAResearchAnswerInTheDraft_RecordsTheWeb()
+    {
+        var stamp = await DraftAsync("Mine.");
+        var researched = await AnswerAsync("Waterdeep has wards.", webResearch: WebResearchResult.Create([], 1, null));
+
+        await _sut.PutInDraftAsync(new(WorldId, _adventureId, WorldRole.GM, researched, PutInSectionMode.Append, stamp), default);
+
+        Assert.That(AiUse.ResearchedOnWeb, Is.True);
     }
 
     [Test]

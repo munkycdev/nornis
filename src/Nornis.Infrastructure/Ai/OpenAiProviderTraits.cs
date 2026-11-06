@@ -25,6 +25,9 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
     /// the output ceiling has to reach the wire as <c>max_completion_tokens</c>, which the
     /// SDK's own property does (<c>OutputCeilingWireTests</c>). A factory, not a shared
     /// instance, because the SDK mutates the options object it sends.
+    ///
+    /// A search call (feature 40) is bound to a Responses client (<see cref="AiClientShape.Responses"/>),
+    /// so its options are the Responses API's own.
     /// </summary>
     public ChatOptions? ChatOptions(AiCallOptions? options)
     {
@@ -33,9 +36,9 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
             return null;
         }
 
-        if (options.WebSearch is not null)
+        if (options.WebSearch is { } search)
         {
-            throw new NotSupportedException("OpenAI web search runs on the Responses API, which feature 40 Phase B adds.");
+            return SearchOptions(options, search);
         }
 
         return new ChatOptions
@@ -62,14 +65,55 @@ public sealed class OpenAiProviderTraits : IAiProviderTraits
     }
 
     /// <summary>
+    /// The Responses API's search tool, and nothing else, capped by <c>max_tool_calls</c>, with the
+    /// ceiling as <c>max_output_tokens</c>. <c>store</c> is off: the Responses API keeps a
+    /// response for 30 days unless told not to, and a Prep prompt carries Hidden truth. No schema:
+    /// research is a side-conversation turn, which answers in prose.
+    /// </summary>
+    private static ChatOptions SearchOptions(AiCallOptions options, AiWebSearch search)
+    {
+        if (options.Schema is not null)
+        {
+            throw new NotSupportedException("A web search call answers in prose; it takes no schema.");
+        }
+
+#pragma warning disable OPENAI001 // The Responses API's options; see UserKeyChatClients.BuildResponses.
+        return new ChatOptions
+        {
+            Tools = [new HostedWebSearchTool()],
+            RawRepresentationFactory = _ => new OpenAI.Responses.CreateResponseOptions
+            {
+                MaxToolCallCount = search.MaxSearches,
+                MaxOutputTokenCount = options.MaxOutputTokens,
+                StoredOutputEnabled = false,
+            },
+        };
+#pragma warning restore OPENAI001
+    }
+
+    /// <summary>
     /// The Responses API reports each search as a <see cref="WebSearchToolCallContent"/> (a
-    /// <c>web_search_call</c> item) and each cited page as a <see cref="CitationAnnotation"/> on the
-    /// answer's text (<c>url_citation</c>). Only a Responses client searches (feature 40, Phase B).
+    /// <c>web_search_call</c> item), more than once as it runs, so searches are counted by call id;
+    /// each cited page is a <see cref="CitationAnnotation"/> (<c>url_citation</c>). Every search is
+    /// an item of the response, so once usage arrives at the end of the stream the count is
+    /// complete, and none is a count of zero, not an unreported one.
     /// </summary>
     public void ReadWebResearch(ChatResponseUpdate update, WebResearchCollector into)
     {
         WebSearchReading.AddCitedPages(update, into);
-        into.CountSearches(update.Contents.Count(c => c is WebSearchToolCallContent));
+        foreach (var content in update.Contents)
+        {
+            switch (content)
+            {
+                case WebSearchToolCallContent { CallId: { } callId }:
+                    into.CountSearch(callId);
+                    break;
+
+                case UsageContent:
+                    into.SetSearches(into.Searches ?? 0);
+                    break;
+            }
+        }
     }
 
     /// <summary>A 400 whose body names the search tool: the model doesn't take it.</summary>

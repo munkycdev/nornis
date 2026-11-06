@@ -215,6 +215,20 @@ public class BookDetailsCardTests : BunitContext
         });
     }
 
+    [TestCase(true, 1)]
+    [TestCase(false, 0)]
+    public void AnAdventureThatDrewOnTheWeb_SaysSoUnderTheAiBox(bool researchedOnWeb, int lines)
+    {
+        var cut = RenderCard(WithAi(new(true, false, false, true, "Text", ResearchedOnWeb: researchedOnWeb)));
+
+        var line = cut.FindAll(".nornis-book-details-ai-web");
+        Assert.That(line, Has.Count.EqualTo(lines));
+        if (researchedOnWeb)
+        {
+            Assert.That(line[0].TextContent, Is.EqualTo("The Loremaster researched this adventure on the web."));
+        }
+    }
+
     [Test]
     public void TickingTheAiBox_SendsTheGmsTick_AndRaisesTheSavedAdventure()
     {

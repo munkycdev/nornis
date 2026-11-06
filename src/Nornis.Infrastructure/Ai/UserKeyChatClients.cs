@@ -33,6 +33,7 @@ public sealed class UserKeyChatClients : IDisposable
     private readonly HttpClient _compatibleHttp;
     private readonly HttpClient _anthropicHttp;
     private readonly HttpClient _geminiHttp;
+    private readonly HttpClient? _openAiHttp;
 
     /// <param name="maxRetries">The host's SDK retry count, as for Nornis's own clients
     /// (<see cref="AzureOpenAiClientFactory"/>): the Worker's queue owns its retries, the API allows one.</param>
@@ -41,11 +42,14 @@ public sealed class UserKeyChatClients : IDisposable
     /// pass a fake.</param>
     /// <param name="anthropicHandler">What Anthropic is reached through; tests pass a fake.</param>
     /// <param name="geminiHandler">What Gemini is reached through; tests pass a fake.</param>
+    /// <param name="openAiHandler">What OpenAI is reached through; by default the SDK's own
+    /// transport, as before. Tests pass a fake.</param>
     public UserKeyChatClients(
         int maxRetries,
         HttpMessageHandler? compatibleHandler = null,
         HttpMessageHandler? anthropicHandler = null,
-        HttpMessageHandler? geminiHandler = null)
+        HttpMessageHandler? geminiHandler = null,
+        HttpMessageHandler? openAiHandler = null)
     {
         _maxRetries = maxRetries;
 
@@ -63,17 +67,29 @@ public sealed class UserKeyChatClients : IDisposable
 
         _geminiHttp = geminiHandler is null ? new HttpClient() : new HttpClient(geminiHandler);
         _geminiHttp.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+
+        _openAiHttp = openAiHandler is null ? null : new HttpClient(openAiHandler) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
     }
 
-    /// <summary>The client for <paramref name="key"/> on <paramref name="model"/>.
-    /// <paramref name="secret"/> is asked for only when the client has to be built.</summary>
-    public IChatClient For(UserAiKey key, string model, Func<string> secret) =>
-        _cache.GetOrCreate((key.Id, key.UpdatedAt, model), entry =>
+    /// <summary>The client for <paramref name="key"/> on <paramref name="model"/>, speaking
+    /// <paramref name="shape"/>. <paramref name="secret"/> is asked for only when the client has
+    /// to be built.</summary>
+    /// <exception cref="NotSupportedException"><see cref="AiClientShape.Responses"/> for a key
+    /// that isn't OpenAI's.</exception>
+    public IChatClient For(UserAiKey key, string model, Func<string> secret, AiClientShape shape = AiClientShape.Chat)
+    {
+        if (shape == AiClientShape.Responses && key.Provider != AiProvider.OpenAi)
+        {
+            throw new NotSupportedException($"Only an OpenAI key is given a Responses client, not {key.Provider}.");
+        }
+
+        return _cache.GetOrCreate((key.Id, key.UpdatedAt, model, shape), entry =>
         {
             entry.Size = 1;
             entry.SlidingExpiration = Idle;
-            return Build(key, model, secret());
+            return shape == AiClientShape.Responses ? BuildResponses(model, secret()) : Build(key, model, secret());
         })!;
+    }
 
     /// <summary>
     /// The image client for <paramref name="key"/> on <paramref name="model"/> (feature 38), cached
@@ -121,7 +137,7 @@ public sealed class UserKeyChatClients : IDisposable
             return new GeminiBilledUsage(gemini.AsIChatClient(model));
         }
 
-        var options = new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) };
+        var options = OpenAiOptions();
         switch (key.Provider)
         {
             case AiProvider.OpenAi:
@@ -144,11 +160,36 @@ public sealed class UserKeyChatClients : IDisposable
         return new AzureOpenAiChatClient(new OpenAIClient(new ApiKeyCredential(secret), options).GetChatClient(model));
     }
 
+    /// <summary>
+    /// OpenAI's Responses API, for a call that searches (feature 40). The MEAI adapter reads its
+    /// stream: <see cref="AzureOpenAiChatClient"/>'s reader is for Chat Completions streams. The
+    /// SDK marks the client as for evaluation (OPENAI001); it is the only API OpenAI offers search
+    /// on, so the warning is accepted here and nowhere else.
+    /// </summary>
+    private IChatClient BuildResponses(string model, string secret)
+    {
+#pragma warning disable OPENAI001
+        return new OpenAIClient(new ApiKeyCredential(secret), OpenAiOptions()).GetResponsesClient().AsIChatClient(model);
+#pragma warning restore OPENAI001
+    }
+
+    private OpenAIClientOptions OpenAiOptions()
+    {
+        var options = new OpenAIClientOptions { RetryPolicy = new ClientRetryPolicy(_maxRetries) };
+        if (_openAiHttp is not null)
+        {
+            options.Transport = new HttpClientPipelineTransport(_openAiHttp);
+        }
+
+        return options;
+    }
+
     public void Dispose()
     {
         _cache.Dispose();
         _compatibleHttp.Dispose();
         _anthropicHttp.Dispose();
         _geminiHttp.Dispose();
+        _openAiHttp?.Dispose();
     }
 }

@@ -293,6 +293,39 @@ public class PrepBoundaryTests
     }
 
     /// <summary>
+    /// Feature 40, Requirement 6.1: an Adventure records that it drew on the web only where a
+    /// research answer's text goes in, which is Put in section, Put in draft and Apply, and the
+    /// record is read off the answer itself, never chosen by a caller.
+    /// </summary>
+    [Test]
+    public void OnlyAResearchAnswersText_RecordsResearchedOnWeb()
+    {
+        var deciders = SourceFiles()
+            .SelectMany(f => CodeLines(f)
+                .Where(l => l.Text.Contains("researchedOnWeb:", StringComparison.Ordinal))
+                .Select(l => (f.Relative, Decided: Decided(l.Text))))
+            .OrderBy(d => d.Relative, StringComparer.Ordinal).ThenBy(d => d.Decided, StringComparer.Ordinal)
+            .ToList();
+
+        (string, string)[] expected =
+        [
+            ("src/Nornis.Application/Prep/AdventurePrintDetails.cs", "the record"),
+            ("src/Nornis.Application/Services/AdventureConversationService.cs", "the answer"),
+            ("src/Nornis.Application/Services/AdventureDesignService.cs", "the answer"),
+            ("src/Nornis.Application/Services/AdventureDesignService.cs", "the answer"),
+            ("src/Nornis.Application/Services/AdventureDraftingService.cs", "never"),
+        ];
+        Assert.That(deciders, Is.EqualTo(expected),
+            "Put in section, Put in draft and Apply read it off the answer; a draft is never research; the print only reads the record");
+
+        static string Decided(string line) =>
+            line.Contains("WebResearch is not null", StringComparison.Ordinal) ? "the answer"
+            : line.Contains("researchedOnWeb: false", StringComparison.Ordinal) ? "never"
+            : line.Contains("AiUse.ResearchedOnWeb", StringComparison.Ordinal) ? "the record"
+            : line.Trim();
+    }
+
+    /// <summary>
     /// Feature 38, Requirement 1: AI use is recorded, never chosen. Only the repository sets the
     /// recorded flags, inside the writes that put the Loremaster's words into an Adventure, so
     /// the flag and the text commit together. Those writes have a known list of callers: a new
@@ -302,7 +335,7 @@ public class PrepBoundaryTests
     public void OnlyTheRepository_RecordsAiUse_FromAKnownListOfAiWriters()
     {
         var recorders = SourceFiles()
-            .Where(f => CodeLines(f).Any(l => Regex.IsMatch(l.Text, @"\b(WroteText|MadeArt)\s*=\s*true\b")))
+            .Where(f => CodeLines(f).Any(l => Regex.IsMatch(l.Text, @"\b(WroteText|MadeArt|ResearchedOnWeb)\s*=\s*true\b")))
             .Select(f => f.Relative)
             .ToList();
         var accepters = SourceFiles()

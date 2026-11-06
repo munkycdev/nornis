@@ -97,7 +97,7 @@ public sealed record EvalModel(string Name, AiProvider Provider, string Model, A
 /// no key lookup. Failures are the run's to count, so nothing is reported anywhere.</summary>
 public sealed class EvalBinder(AiBinding binding) : IAiCallBinder
 {
-    public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct) =>
+    public Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct) =>
         Task.FromResult(binding);
 
     public Task ReportAsync(AiBinding binding, Exception? failure, CancellationToken ct) => Task.CompletedTask;

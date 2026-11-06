@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Persistence.Repositories;
 using NUnit.Framework;
 
@@ -169,6 +170,40 @@ public class ConversationRepositoryTests : IntegrationTestBase
         var loaded = await _sut.GetByAdventureAsync(adventure.Id);
         Assert.That(loaded!.Messages.Select(m => m.Content), Is.EqualTo(["first", "an answer"]));
         Assert.That(loaded.UpdatedAt, Is.EqualTo(at));
+    }
+
+    [Test]
+    public async Task AResearchAnswer_KeepsItsWebPages_AndOtherMessagesKeepNone()
+    {
+        var adventure = await CreateAdventureAsync();
+        var conversation = NewConversation(adventure, (ConversationRole.User, "a question", 1));
+        await _sut.CreateAsync(conversation);
+        var research = WebResearchResult.Create(
+            [new WebPage("Waterdeep, City of Splendors", "https://example.org/waterdeep"), new WebPage("", "https://example.com/wards")],
+            searches: 2,
+            suggestionsHtml: "<div>waterdeep wards</div>");
+        await _sut.AddMessageAsync(new ConversationMessage
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversation.Id,
+            Role = ConversationRole.Assistant,
+            Content = "Waterdeep is divided into wards.",
+            Model = "gpt-test",
+            WebResearch = research,
+            CreatedAt = _now.AddSeconds(2),
+        });
+        Context.ChangeTracker.Clear();
+
+        var loaded = (await _sut.GetByAdventureAsync(adventure.Id))!.Messages.ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded[0].WebResearch, Is.Null, "null: not a research turn");
+            Assert.That(loaded[1].WebResearch!.Pages, Is.EqualTo(research.Pages));
+            Assert.That(loaded[1].WebResearch!.Pages[1].Title, Is.EqualTo("example.com"));
+            Assert.That(loaded[1].WebResearch!.Searches, Is.EqualTo(2));
+            Assert.That(loaded[1].WebResearch!.SuggestionsHtml, Is.EqualTo("<div>waterdeep wards</div>"));
+        });
     }
 
     [Test]

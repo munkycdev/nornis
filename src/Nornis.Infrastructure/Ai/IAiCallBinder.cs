@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Configuration;
 using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
@@ -13,8 +15,12 @@ namespace Nornis.Infrastructure.Ai;
 public interface IAiCallBinder
 {
     /// <param name="needsImages">The call sends images, so only a model that reads them will do.</param>
+    /// <param name="needsWebSearch">The call searches the web (feature 40): bound only where
+    /// <see cref="WebResearchAvailability"/> allows it, and for OpenAI to a Responses client.</param>
     /// <exception cref="AiRefusalException">Nothing can pay, or the paying key can't be used.</exception>
-    Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct);
+    /// <exception cref="InvalidOperationException">A search call on funding that can't search: a
+    /// caller skipped the availability check.</exception>
+    Task<AiBinding> BindAsync(AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct);
 
     /// <summary>
     /// How a bound call ended: <paramref name="failure"/> is null on success, otherwise the failure
@@ -50,6 +56,7 @@ public sealed class AiCallBinder : IAiCallBinder, IAiImageBinder
     private readonly IAiKeyRepository _keys;
     private readonly IAiKeyProtector _protector;
     private readonly IAiOutcomeMonitor _outcomes;
+    private readonly AiModelsOptions _models;
     private readonly TimeProvider _time;
 
     public AiCallBinder(
@@ -59,9 +66,11 @@ public sealed class AiCallBinder : IAiCallBinder, IAiImageBinder
         IAiKeyRepository keys,
         IAiKeyProtector protector,
         IAiOutcomeMonitor outcomes,
+        IOptions<AiModelsOptions> models,
         TimeProvider time)
     {
         _outcomes = outcomes;
+        _models = models.Value;
         _funding = funding;
         _nornis = nornis;
         _userKeys = userKeys;
@@ -71,9 +80,18 @@ public sealed class AiCallBinder : IAiCallBinder, IAiImageBinder
     }
 
     public async Task<AiBinding> BindAsync(
-        AiCallScope scope, AiTask task, string nornisModel, bool needsImages, CancellationToken ct)
+        AiCallScope scope, AiTask task, string nornisModel, bool needsImages, bool needsWebSearch, CancellationToken ct)
     {
         var funding = await _funding.ResolveAsync(scope, task, nornisModel, needsImages, ct);
+
+        // The service checks first and tells the GM why; this is the backstop, so a caller that
+        // skips it still can't search on Nornis's money or on an endpoint that can't.
+        if (needsWebSearch && WebResearchAvailability.For(funding, _models) is var availability
+            && availability != WebResearchAvailabilityKind.Available)
+        {
+            throw new InvalidOperationException(
+                $"A web search call was bound to {funding.Provider} funded by {funding.FundedBy}, which can't search ({availability}).");
+        }
 
         if (funding.FundedBy != AiFundedBy.Key)
         {
@@ -82,7 +100,8 @@ public sealed class AiCallBinder : IAiCallBinder, IAiImageBinder
                 : throw new InvalidOperationException($"Nornis pays only on its own Azure deployments, not {funding.Provider}.");
         }
 
-        var (key, client) = await KeyClientAsync(funding, (k, secret) => _userKeys.For(k, funding.Model, secret), ct);
+        var shape = needsWebSearch && funding.Provider == AiProvider.OpenAi ? AiClientShape.Responses : AiClientShape.Chat;
+        var (key, client) = await KeyClientAsync(funding, (k, secret) => _userKeys.For(k, funding.Model, secret, shape), ct);
         return new AiBinding(client, TraitsFor(key.Provider), funding, key.UpdatedAt);
     }
 
