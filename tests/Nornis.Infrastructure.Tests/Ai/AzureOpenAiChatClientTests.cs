@@ -57,18 +57,24 @@ public class AzureOpenAiChatClientTests
     }
 
     [Test]
-    public void Streaming_ThroughTheStockAdapter_StillThrowsOnAzuresContentFilterChunk()
+    public async Task Streaming_ThroughTheStockAdapter_NowReadsAzuresWholeStream()
     {
-        // Why AzureOpenAiChatClient overrides streaming at all. When this starts failing, the
-        // adapter handles the chunk and the override can be deleted in favour of AsIChatClient().
+        // This used to pin the bug that AzureOpenAiChatClient's streaming override exists for: the
+        // adapter threw on Azure's content-filter chunk. Microsoft.Extensions.AI.OpenAI 10.11.0
+        // fixed it, so the test now pins the fix. While it passes, the override can be deleted
+        // in favour of AsIChatClient(); if it ever fails, the bug is back and the override stays.
         var adapter = SdkClient().AsIChatClient();
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var text = new StringBuilder();
+        UsageDetails? usage = null;
+        await foreach (var update in adapter.GetStreamingResponseAsync([new(ChatRole.User, "Describe a harbor town.")]))
         {
-            await foreach (var _ in adapter.GetStreamingResponseAsync([new(ChatRole.User, "Describe a harbor town.")]))
-            {
-            }
-        });
+            text.Append(update.Text);
+            usage = update.Contents.OfType<UsageContent>().SingleOrDefault()?.Details ?? usage;
+        }
+
+        Assert.That(text.ToString(), Is.EqualTo("The harbor"));
+        Assert.That(usage?.TotalTokenCount, Is.EqualTo(107), "the usage-only chunk after the content-filter chunk arrives");
     }
 
     [Test]
