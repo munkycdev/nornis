@@ -33,12 +33,31 @@ public static class AzureOpenAiClientFactory
 
     /// <param name="resourceEndpoint">The resource root as configured, e.g.
     /// <c>https://name.openai.azure.com/</c>. The v1 path is appended here, once.</param>
-    public static OpenAIClient Create(Uri resourceEndpoint, ApiKeyCredential credential, int maxRetries) =>
-        new(credential, new OpenAIClientOptions
-        {
-            Endpoint = V1Endpoint(resourceEndpoint),
-            RetryPolicy = new ClientRetryPolicy(maxRetries),
-        });
+    public static OpenAIClient Create(Uri resourceEndpoint, ApiKeyCredential credential, int maxRetries)
+    {
+        var options = Options(maxRetries);
+        options.Endpoint = V1Endpoint(resourceEndpoint);
+        return new(credential, options);
+    }
+
+    /// <summary>
+    /// The options every OpenAI-protocol client here starts from — Nornis's own Azure resource and
+    /// a user's OpenAI key alike (<see cref="UserKeyChatClients"/>).
+    ///
+    /// <para><b>The network timeout is switched off</b> because <see cref="AiCallExecutor"/> owns
+    /// each call's timeout, per operation and from configuration. Left at System.ClientModel's
+    /// 100-second default, the SDK cancels any call that runs longer, below the executor's sight
+    /// line: extraction then fails with a bare "AI call timed out." at 101 seconds while its
+    /// configured limit is 180, and the source goes back to the queue to try again. On 2026-11-06
+    /// cost two sources on an OpenAI key two and three paid attempts. It is the same cap
+    /// HttpClient's default would put on the Anthropic and Gemini clients, which is why those are
+    /// given infinite timeouts too.</para>
+    /// </summary>
+    internal static OpenAIClientOptions Options(int maxRetries) => new()
+    {
+        RetryPolicy = new ClientRetryPolicy(maxRetries),
+        NetworkTimeout = System.Threading.Timeout.InfiniteTimeSpan,
+    };
 
     internal static Uri V1Endpoint(Uri resourceEndpoint) =>
         new(new Uri(resourceEndpoint.GetLeftPart(UriPartial.Authority) + "/"), "openai/v1/");
