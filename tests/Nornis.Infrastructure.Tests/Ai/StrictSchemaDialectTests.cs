@@ -8,12 +8,15 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// Every structured-output schema a client sends, held to the one dialect OpenAI, Anthropic and
 /// Gemini all accept in their strictest mode (feature 39): every object closed and every property
 /// required, with optional values written as a <c>null</c> union. A schema that breaks it works
-/// today on OpenAI and fails the day a user's key is a Claude or Gemini one.
+/// today on OpenAI and fails the day a user's key is a Claude or Gemini one. Passing here is not
+/// enough for Claude: Anthropic also counts union and optional properties, which
+/// <see cref="AnthropicSchemaLimitsTests"/> checks on the same list.
 /// </summary>
 [TestFixture]
 public class StrictSchemaDialectTests
 {
-    private static IEnumerable<TestCaseData> Schemas()
+    /// <summary>Every structured-output schema a client sends; <see cref="AnthropicSchemaLimitsTests"/> holds the same list to Anthropic's counts.</summary>
+    internal static IEnumerable<TestCaseData> Schemas()
     {
         yield return new TestCaseData(ArtifactSummaryAiClient.StructuredOutputSchema).SetName("artifact_summary");
         yield return new TestCaseData(AuditAiClient.GetStructuredOutputSchema()).SetName("continuity_findings");

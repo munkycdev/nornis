@@ -103,6 +103,38 @@ public class ExtractionAiClientTests
     }
 
     [Test]
+    public async Task ExtractAsync_FieldsLeftOutInsteadOfNull_ParseAsTheNullsWould()
+    {
+        // On a Claude key the schema's nullable fields arrive as optional ones
+        // (AnthropicSchemaLimits), so the model leaves a field out where it would send null.
+        // Both shapes must give the same proposal.
+        const string withNulls = """
+            {"proposals":[{"changeType":"CreateArtifact","targetType":"Artifact","targetId":null,
+              "proposedValue":{"name":"Voss","type":"Character","summary":null,"confidence":null},
+              "rationale":"Named in the session.","confidence":0.8,"quote":null}]}
+            """;
+        const string leftOut = """
+            {"proposals":[{"changeType":"CreateArtifact","targetType":"Artifact",
+              "proposedValue":{"name":"Voss","type":"Character"},
+              "rationale":"Named in the session.","confidence":0.8}]}
+            """;
+
+        SetupMockToReturn(withNulls);
+        var fromNulls = (await _client.ExtractAsync(DefaultRequest, CancellationToken.None)).Proposals.Single();
+        SetupMockToReturn(leftOut);
+        var fromLeftOut = (await _client.ExtractAsync(DefaultRequest, CancellationToken.None)).Proposals.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromLeftOut.TargetId, Is.Null);
+            Assert.That(fromLeftOut.Quote, Is.Null);
+            Assert.That(JsonSerializer.Serialize(fromLeftOut.ProposedValue), Is.EqualTo(JsonSerializer.Serialize(fromNulls.ProposedValue)));
+            Assert.That(fromNulls.TargetId, Is.Null);
+            Assert.That(fromNulls.Quote, Is.Null);
+        });
+    }
+
+    [Test]
     public void WithoutNulls_KeepsFalseZeroAndEmpty_DropsOnlyNull()
     {
         var payload = JsonNode.Parse("""{"a":null,"b":0,"c":false,"d":"","e":{"f":null}}""")!;
