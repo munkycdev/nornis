@@ -21,6 +21,11 @@ public class ConversationMirrorTests
             Is.EqualTo(EnumMembers("src/Nornis.Domain/Enums/ConversationRole.cs", "ConversationRole")));
 
     [Test]
+    public void TheEditOutcomes_AreTheDomainsDraftEditOutcomes() =>
+        Assert.That(new[] { ConversationMessageDto.AppliedOutcome, ConversationMessageDto.DidNotFitOutcome, ConversationMessageDto.NotAppliedOutcome },
+            Is.EqualTo(EnumMembers("src/Nornis.Domain/Enums/DraftEditOutcome.cs", "DraftEditOutcome")));
+
+    [Test]
     public void TheModes_AreTheApplicationsPutInSectionModes() =>
         Assert.That(new[] { PutInSectionRequest.Replace, PutInSectionRequest.Append },
             Is.EqualTo(EnumMembers("src/Nornis.Application/Models/PrepModels.cs", "PutInSectionMode")));

@@ -945,6 +945,10 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("DraftEditOutcomes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("DraftEditOutcomes");
+
                     b.Property<string>("Model")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");

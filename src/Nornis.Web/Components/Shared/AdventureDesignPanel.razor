@@ -36,7 +36,7 @@
     }
 
     <NotesEditor @key="@($"draft:{Adventure.Id}:{_editorVersion}")" @ref="_editor"
-                 InitialMarkdown="@(Adventure.Draft?.Markdown ?? string.Empty)" ReadOnly="ReadOnly"
+                 InitialMarkdown="@(Adventure.Draft?.Markdown ?? string.Empty)" ReadOnly="ReadOnly" Locked="Locked"
                  Placeholder="The whole adventure, as one document. Use # for chapters and ## for scenes; Split uses them."
                  PrepTools="true" AllowMaximize="true"
                  BackupKey="@BackupKey(Adventure.Id)" PreferBackup="true"
@@ -89,6 +89,12 @@
     /// <summary>Nothing may be typed, because something is about to change the draft.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
+    /// <summary>
+    /// The Loremaster is writing into the draft (feature 41): the editor keeps its text but takes
+    /// no typing, and nothing here starts, until the turn ends and the new draft is shown.
+    /// </summary>
+    [Parameter] public bool Locked { get; set; }
+
     /// <summary>Raised with the draft as the API returned it, after a save, an undo or a gather.</summary>
     [Parameter] public EventCallback<AdventureDraftDto> OnDraftChanged { get; set; }
 
@@ -106,7 +112,7 @@
     private Guid? _shownFor;
     private DateTimeOffset? _knownStamp;
 
-    private bool IsDisabled => Disabled || _saving;
+    private bool IsDisabled => Disabled || Locked || _saving;
 
     private int RevisionCount => Adventure.Draft?.RevisionCount ?? 0;
 

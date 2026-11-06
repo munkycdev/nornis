@@ -75,6 +75,22 @@ public class PrepOptions
     public int WebResearchTimeoutSeconds { get; set; } = 180;
 
     /// <summary>
+    /// A Design turn's output ceiling in tokens (feature 41): enough for a whole draft at
+    /// <c>Adventure.MaxDraftChars</c>, since the Loremaster may write or rewrite it in one answer.
+    /// Kept under 16,384, the output limit some chat models have.
+    /// </summary>
+    public int DesignOutputCeilingTokens { get; set; } = 16_000;
+
+    /// <summary>
+    /// How long a Design turn may take, in seconds (feature 41). Under Azure Container Apps'
+    /// 240-second request limit on the Web to API hop, with room for the write after it.
+    /// </summary>
+    public int DesignTimeoutSeconds { get; set; } = 220;
+
+    /// <summary>The longest any one Prep AI call may run, in seconds: what a turn's or a draft's lease must outlive.</summary>
+    public int LongestCallSeconds => new[] { DraftTimeoutSeconds, WebResearchTimeoutSeconds, DesignTimeoutSeconds }.Max();
+
+    /// <summary>
     /// The first bound that is zero or less, by name, or null when every bound is positive. No
     /// bound has an "unbounded" value, so the API refuses to start on one (Program.cs).
     /// </summary>
@@ -98,5 +114,7 @@ public class PrepOptions
             (nameof(MaxWebSearchesPerTurn), MaxWebSearchesPerTurn),
             (nameof(WebResearchOutputCeilingTokens), WebResearchOutputCeilingTokens),
             (nameof(WebResearchTimeoutSeconds), WebResearchTimeoutSeconds),
+            (nameof(DesignOutputCeilingTokens), DesignOutputCeilingTokens),
+            (nameof(DesignTimeoutSeconds), DesignTimeoutSeconds),
         }.FirstOrDefault(b => b.Value <= 0).Name;
 }

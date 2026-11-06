@@ -24,6 +24,14 @@ public interface IAdventureDesignService
     /// </summary>
     Task<AppResult<AdventureDraftState>> ApplyEditAsync(ApplyDraftEditCommand command, CancellationToken ct);
 
+    /// <summary>
+    /// A Design turn's edits, applied in order as one change with one revision (feature 41). An
+    /// edit that doesn't fit is skipped and the rest applied; when the draft moved on twice while
+    /// this ran, or the result would be too long, nothing is applied. Fails only for a non-GM or a
+    /// missing Adventure.
+    /// </summary>
+    Task<AppResult<AnswerEditsResult>> ApplyAnswerEditsAsync(ApplyAnswerEditsCommand command, CancellationToken ct);
+
     /// <summary>Puts a whole saved answer into the draft (Replace or Append), keeping a revision.</summary>
     Task<AppResult<AdventureDraftState>> PutInDraftAsync(PutInDraftCommand command, CancellationToken ct);
 

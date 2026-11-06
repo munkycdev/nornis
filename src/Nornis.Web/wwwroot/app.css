@@ -4551,6 +4551,21 @@ a.nornis-cite:hover {
     margin-top: 4px;
 }
 
+/* Feature 41: what a Design answer did to the draft, in a line, with its edits behind Show changes. */
+.nornis-prep-talk-wrote {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin-top: 6px;
+}
+
+.nornis-prep-talk-writing {
+    display: block;
+    margin-top: 4px;
+    font-style: italic;
+}
+
 /* ---------------------------------------------------------- Prep booklet --- */
 
 /* The booklet (/prep/{key}/print, feature 34): a PDF the API lays out, shown in the browser's

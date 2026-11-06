@@ -23,6 +23,9 @@ internal static class DraftStreamEventNames
     public const string Delta = "delta";
     public const string Done = "done";
     public const string Error = "error";
+
+    /// <summary>Side conversation only: a Design turn's answer began an edit (feature 41).</summary>
+    public const string Writing = "writing";
 }
 
 /// <summary>
@@ -35,6 +38,9 @@ public abstract record ConversationStreamEvent
     private ConversationStreamEvent() { }
 
     public sealed record Delta(string Text) : ConversationStreamEvent;
+
+    /// <summary>A Design turn's answer began an edit, which goes into the draft, not the chat (feature 41).</summary>
+    public sealed record WritingDraft : ConversationStreamEvent;
 
     public sealed record Done(ConversationMessageDto Answer) : ConversationStreamEvent;
 

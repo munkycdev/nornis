@@ -27,6 +27,7 @@ public class AdventureConversationService : IAdventureConversationService
 
     private readonly IAdventureRepository _adventures;
     private readonly IConversationRepository _conversations;
+    private readonly IAdventureDesignService _design;
     private readonly PrepPromptContextBuilder _prompts;
     private readonly IAdventureDraftingAiClient _ai;
     private readonly IAiBudgetGuard _budget;
@@ -41,6 +42,7 @@ public class AdventureConversationService : IAdventureConversationService
     public AdventureConversationService(
         IAdventureRepository adventures,
         IConversationRepository conversations,
+        IAdventureDesignService design,
         PrepPromptContextBuilder prompts,
         IAdventureDraftingAiClient ai,
         IAiBudgetGuard budget,
@@ -56,6 +58,7 @@ public class AdventureConversationService : IAdventureConversationService
         _models = models.Value;
         _adventures = adventures;
         _conversations = conversations;
+        _design = design;
         _prompts = prompts;
         _ai = ai;
         _budget = budget;
@@ -200,14 +203,19 @@ public class AdventureConversationService : IAdventureConversationService
                     _options.ConversationSectionChars,
                     onDraft)),
                 Model = Model,
-                TimeoutSeconds = command.WebResearch ? _options.WebResearchTimeoutSeconds : _options.DraftTimeoutSeconds,
+                TimeoutSeconds = TimeoutFor(onDraft, command.WebResearch),
                 WebSearch = command.WebResearch
                     ? new AiWebSearchRequest(_options.MaxWebSearchesPerTurn, _options.WebResearchOutputCeilingTokens)
+                    : null,
+
+                // A Design turn may write the whole draft (feature 41), so it has room to.
+                OutputCeilingTokens = onDraft
+                    ? Math.Max(_options.DesignOutputCeilingTokens, command.WebResearch ? _options.WebResearchOutputCeilingTokens : 0)
                     : null,
             };
 
             return AppResult<IAsyncEnumerable<ConversationEvent>>.Success(
-                StreamAsync(command, conversation.Id, request, lease, ct));
+                StreamAsync(command, conversation.Id, request, onDraft, lease, ct));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -315,6 +323,12 @@ public class AdventureConversationService : IAdventureConversationService
         return AppResult<PutInSectionResult>.Success(new PutInSectionResult(section, counts.GetValueOrDefault(section.Id)));
     }
 
+    /// <summary>A turn's timeout: a Design turn's (feature 41) or a research turn's, whichever is longer, else drafting's.</summary>
+    private int TimeoutFor(bool onDraft, bool webResearch) =>
+        Math.Max(
+            onDraft ? _options.DesignTimeoutSeconds : 0,
+            webResearch ? _options.WebResearchTimeoutSeconds : _options.DraftTimeoutSeconds);
+
     /// <summary>A turn adds two messages, the GM's and the answer, so it needs room for both.</summary>
     private bool IsFull(int messageCount) => messageCount + 2 > _options.MaxConversationMessages;
 
@@ -326,10 +340,14 @@ public class AdventureConversationService : IAdventureConversationService
         SendConversationMessageCommand command,
         Guid conversationId,
         AiPromptRequest request,
+        bool onDraft,
         IDisposable lease,
         [EnumeratorCancellation] CancellationToken ct)
     {
         using var _ = lease;
+
+        // A Design turn's edits go into the draft, so only its prose streams to the chat (feature 41).
+        var shown = onDraft ? new DraftEditStream() : null;
         var stopwatch = Stopwatch.StartNew();
         var text = new StringBuilder();
         AiUsage? usage = null;
@@ -371,8 +389,29 @@ public class AdventureConversationService : IAdventureConversationService
                 if (chunk.Text.Length > 0)
                 {
                     text.Append(chunk.Text);
-                    yield return new ConversationEvent.Delta(chunk.Text);
+                    if (shown is null)
+                    {
+                        yield return new ConversationEvent.Delta(chunk.Text);
+                    }
+                    else
+                    {
+                        var (prose, editsOpened) = shown.Push(chunk.Text);
+                        if (prose.Length > 0)
+                        {
+                            yield return new ConversationEvent.Delta(prose);
+                        }
+
+                        if (editsOpened > 0)
+                        {
+                            yield return new ConversationEvent.WritingDraft();
+                        }
+                    }
                 }
+            }
+
+            if (shown?.Flush() is { Prose.Length: > 0 } rest)
+            {
+                yield return new ConversationEvent.Delta(rest.Prose);
             }
 
             finished = true;
@@ -403,7 +442,11 @@ public class AdventureConversationService : IAdventureConversationService
         // A research turn's answer always carries its result, even when the provider reported
         // nothing: null on a message means it wasn't a research turn.
         var webResearch = request.WebSearch is null ? null : research ?? WebResearchResult.Create([], null, null);
-        var (answer, refusal) = await SaveAnswerAsync(conversationId, text.ToString(), cutOff, webResearch);
+
+        // An edit left open means the answer stopped partway through writing it, however the
+        // provider ended the stream (feature 41).
+        cutOff |= onDraft && DraftEdits.HasUnclosedFence(text.ToString());
+        var (answer, refusal) = await SaveAnswerAsync(command, conversationId, text.ToString(), cutOff, webResearch, onDraft);
         await RecordAsync(command, request, text, usage, stopwatch.Elapsed, finished: true, refusal is null ? null : "Refused");
 
         yield return refusal is null
@@ -413,10 +456,12 @@ public class AdventureConversationService : IAdventureConversationService
 
     /// <summary>
     /// Saves an answer that ended cleanly. A cut-off one is refused rather than saved half-said,
-    /// and an empty one has nothing to save. Runs to completion even if the GM leaves now.
+    /// and an empty one has nothing to save. A Design turn's edits are applied to the draft first
+    /// and saved with their outcomes (feature 41). Runs to completion even if the GM leaves now.
     /// </summary>
     private async Task<(ConversationMessage? Answer, AppError? Refusal)> SaveAnswerAsync(
-        Guid conversationId, string text, bool cutOff, WebResearchResult? webResearch)
+        SendConversationMessageCommand command, Guid conversationId, string text, bool cutOff, WebResearchResult? webResearch,
+        bool onDraft)
     {
         if (cutOff)
         {
@@ -444,10 +489,45 @@ public class AdventureConversationService : IAdventureConversationService
             Content = content,
             Model = Model,
             WebResearch = webResearch,
+            DraftEditOutcomes = onDraft ? await ApplyEditsAsync(command, content, webResearch is not null) : null,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         await _conversations.AddMessageAsync(answer, CancellationToken.None);
         return (answer, null);
+    }
+
+    /// <summary>
+    /// A Design answer's edits applied to the draft, as one change (feature 41); null when it has
+    /// none. Never fails the turn: an answer whose edits couldn't be applied is still saved, with
+    /// every edit Not applied, so the GM can apply them by hand.
+    /// </summary>
+    private async Task<IReadOnlyList<DraftEditOutcome>?> ApplyEditsAsync(
+        SendConversationMessageCommand command, string content, bool researchedOnWeb)
+    {
+        var edits = DraftEdits.Parse(content);
+        if (edits.Count == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var applied = await _design.ApplyAnswerEditsAsync(new ApplyAnswerEditsCommand(
+                command.WorldId, command.AdventureId, command.ActingUserRole, edits, researchedOnWeb), CancellationToken.None);
+            if (applied.IsSuccess)
+            {
+                return applied.Value!.Outcomes;
+            }
+
+            _logger.LogWarning("A Design turn's edits weren't applied: {Code}. AdventureId={AdventureId}",
+                applied.Error!.Code, command.AdventureId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Applying a Design turn's edits failed. AdventureId={AdventureId}", command.AdventureId);
+        }
+
+        return edits.Select(_ => DraftEditOutcome.NotApplied).ToList();
     }
 
     private static AdventureSection WithBody(AdventureSection s, string body) => new()

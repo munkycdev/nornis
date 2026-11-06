@@ -32,6 +32,16 @@ public record UndoDraftCommand(Guid WorldId, Guid AdventureId, WorldRole ActingU
 public record ApplyDraftEditCommand(
     Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, Guid MessageId, int Index, DateTimeOffset? BasedOnUpdatedAt);
 
+/// <summary>
+/// A Design turn's edits, applied to the draft as its answer ends (feature 41). The GM's role
+/// was checked by the turn; it is checked again here, as every draft write does.
+/// </summary>
+public record ApplyAnswerEditsCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, IReadOnlyList<DraftEdit> Edits, bool ResearchedOnWeb);
+
+/// <summary>What became of each edit, in order, and the draft when any was applied (null when none was).</summary>
+public record AnswerEditsResult(IReadOnlyList<DraftEditOutcome> Outcomes, AdventureDraftState? Draft);
+
 /// <summary>How a split meets the sections already there.</summary>
 public enum DraftSplitMode
 {
@@ -191,6 +201,12 @@ public abstract record ConversationEvent
     }
 
     public sealed record Delta(string Text) : ConversationEvent;
+
+    /// <summary>
+    /// A Design turn's answer began an edit (feature 41): its text goes into the draft, not the
+    /// chat, so none of it streams as a <see cref="Delta"/>.
+    /// </summary>
+    public sealed record WritingDraft : ConversationEvent;
 
     /// <summary>The answer ended cleanly and was saved.</summary>
     public sealed record Completed(ConversationMessage Answer) : ConversationEvent;

@@ -66,6 +66,50 @@ public class AdventureDraftingAiClientTests
     }
 
     [Test]
+    public void ADesignTurn_CarriesItsOwnCeiling_OnItsOwnOrWithResearch()
+    {
+        var design = new AiPromptRequest
+        {
+            Scope = Request.Scope,
+            SystemPrompt = Request.SystemPrompt,
+            UserMessage = Request.UserMessage,
+            Model = Request.Model,
+            TimeoutSeconds = 220,
+            OutputCeilingTokens = 16_000,
+        };
+        var researching = new AiPromptRequest
+        {
+            Scope = Request.Scope,
+            SystemPrompt = Request.SystemPrompt,
+            UserMessage = Request.UserMessage,
+            Model = Request.Model,
+            TimeoutSeconds = 220,
+            OutputCeilingTokens = 16_000,
+            WebSearch = new AiWebSearchRequest(MaxSearches: 5, OutputCeilingTokens: 6_000),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(AdventureDraftingAiClient.OptionsFor(design), Is.EqualTo(new AiCallOptions(MaxOutputTokens: 16_000)));
+            Assert.That(AdventureDraftingAiClient.OptionsFor(researching),
+                Is.EqualTo(new AiCallOptions(MaxOutputTokens: 16_000, WebSearch: new AiWebSearch(5))));
+        });
+    }
+
+    [Test]
+    public async Task StreamAsync_SpentTheWholeCeiling_WithoutSayingWhy_IsCutOff()
+    {
+        // Feature 41: a provider path that loses the finish reason still reports the tokens.
+        _chatClient.Streams(
+            ["> Gulls wheel over the"],
+            new UsageDetails { InputTokenCount = 4_000, OutputTokenCount = AdventureDraftingAiClient.OutputCeilingTokens, TotalTokenCount = 6_500 });
+
+        var chunks = await DrainAsync();
+
+        Assert.That(chunks[^1].CutOff, Is.True);
+    }
+
+    [Test]
     public async Task StreamAsync_SendsThePromptWithTheCeiling()
     {
         _chatClient.Streams(["> Gulls wheel over the docks."], finishReason: ChatFinishReason.Stop);

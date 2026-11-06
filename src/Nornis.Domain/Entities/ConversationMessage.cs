@@ -28,6 +28,14 @@ public class ConversationMessage
     /// </summary>
     public WebResearchResult? WebResearch { get; set; }
 
+    /// <summary>
+    /// What became of each of a Design turn's edits, in the answer's order (feature 41): the
+    /// server applies them to the draft as the answer ends. Null on everything else: a GM's
+    /// message, a Section turn's answer, an answer with no edits, and every answer from before
+    /// 3.12, whose edits are applied only by hand. Never empty.
+    /// </summary>
+    public IReadOnlyList<DraftEditOutcome>? DraftEditOutcomes { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Conversation Conversation { get; set; } = null!;

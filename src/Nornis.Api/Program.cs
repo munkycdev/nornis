@@ -319,11 +319,11 @@ builder.Services.AddScoped<PrepPromptContextBuilder>();
 builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();
 builder.Services.AddScoped<IAdventureConversationService, AdventureConversationService>();
-// One draft per section across requests, so a singleton. A lease outlives the longest draft
-// (the AI timeout plus retrieval and the write) and then lapses, so an abandoned one can't hold
-// a section until restart.
+// One draft per section across requests, so a singleton. A lease outlives the longest Prep call
+// (the longest AI timeout, a Design turn's, plus retrieval and the write) and then lapses, so an
+// abandoned one can't hold a section until restart.
 builder.Services.AddSingleton<ISectionDraftGate>(sp => new SectionDraftGate(TimeSpan.FromSeconds(
-    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PrepOptions>>().Value.DraftTimeoutSeconds + 60)));
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PrepOptions>>().Value.LongestCallSeconds + 60)));
 builder.Services.AddScoped<IJumpService, JumpService>();
 builder.Services.AddScoped<ICharacterService, CharacterService>();
 builder.Services.AddScoped<IPlayerService, PlayerService>();

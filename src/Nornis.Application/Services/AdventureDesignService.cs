@@ -125,8 +125,63 @@ public class AdventureDesignService : IAdventureDesignService
                 "The passage this edit changes isn't in the draft exactly once any more, so it can't be applied. Ask the Loremaster again."));
         }
 
-        return await WriteWithRevisionAsync(adventure, changed, AdventureDraftChange.Edit, command.BasedOnUpdatedAt, ct,
+        var written = await WriteWithRevisionAsync(adventure, changed, AdventureDraftChange.Edit, command.BasedOnUpdatedAt, ct,
             researchedOnWeb: answer.WebResearch is not null);
+
+        // A Design turn's answer keeps what became of each edit (feature 41), so a reload doesn't
+        // offer Apply on text that has now landed.
+        if (written.IsSuccess && answer.DraftEditOutcomes is { } outcomes && command.Index < outcomes.Count
+            && outcomes[command.Index] != DraftEditOutcome.Applied)
+        {
+            var updated = outcomes.ToArray();
+            updated[command.Index] = DraftEditOutcome.Applied;
+            await _conversations.SetDraftEditOutcomesAsync(answer.Id, updated, ct);
+        }
+
+        return written;
+    }
+
+    public async Task<AppResult<AnswerEditsResult>> ApplyAnswerEditsAsync(ApplyAnswerEditsCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AnswerEditsResult>.Fail(GmOnly());
+        }
+
+        var notApplied = command.Edits.Select(_ => DraftEditOutcome.NotApplied).ToList();
+
+        // Read fresh each time: the GM may have saved the draft while the answer was written. Two
+        // tries, so one save landing between the read and the write doesn't lose the answer's edits.
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+            if (adventure is null)
+            {
+                return AppResult<AnswerEditsResult>.Fail(NotFound());
+            }
+
+            var (changed, outcomes) = DraftEdits.ApplyAll(adventure.DraftMarkdown ?? "", command.Edits);
+            if (!outcomes.Contains(DraftEditOutcome.Applied))
+            {
+                return AppResult<AnswerEditsResult>.Success(new(outcomes, null));
+            }
+
+            if (changed.Length > Adventure.MaxDraftChars)
+            {
+                return AppResult<AnswerEditsResult>.Success(new(notApplied, null));
+            }
+
+            var written = await WriteWithRevisionAsync(
+                adventure, changed, AdventureDraftChange.Edit, adventure.DraftUpdatedAt, ct, command.ResearchedOnWeb);
+            if (written.IsSuccess)
+            {
+                return AppResult<AnswerEditsResult>.Success(new(outcomes, written.Value));
+            }
+        }
+
+        _logger.LogWarning("A Design turn's edits weren't applied: the draft kept changing. AdventureId={AdventureId}",
+            command.AdventureId);
+        return AppResult<AnswerEditsResult>.Success(new(notApplied, null));
     }
 
     public async Task<AppResult<AdventureDraftState>> PutInDraftAsync(PutInDraftCommand command, CancellationToken ct)

@@ -1,4 +1,5 @@
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Application.Tests.Fakes;
@@ -65,6 +66,13 @@ public class InMemoryConversationRepository : IConversationRepository
         return Task.FromResult<ConversationMessage?>(copy);
     }
 
+    public Task SetDraftEditOutcomesAsync(
+        Guid messageId, IReadOnlyList<DraftEditOutcome> outcomes, CancellationToken cancellationToken = default)
+    {
+        _messages.Single(m => m.Id == messageId).DraftEditOutcomes = outcomes.ToList();
+        return Task.CompletedTask;
+    }
+
     public Task DeleteByAdventureAsync(Guid adventureId, CancellationToken cancellationToken = default)
     {
         var ids = _conversations.Where(c => c.AdventureId == adventureId).Select(c => c.Id).ToHashSet();
@@ -93,6 +101,7 @@ public class InMemoryConversationRepository : IConversationRepository
         Content = m.Content,
         Model = m.Model,
         WebResearch = m.WebResearch,
+        DraftEditOutcomes = m.DraftEditOutcomes?.ToList(),
         CreatedAt = m.CreatedAt,
     };
 }

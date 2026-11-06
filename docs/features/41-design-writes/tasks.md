@@ -13,16 +13,16 @@ longer answers. He approved spec, build and ship in one go.**
 
 ## Phase B — Build
 
-- [ ] B1. Cut-off: the finish reason through `AzureOpenAiChatClient`; the executor's token check;
+- [x] B1. Cut-off: the finish reason through `AzureOpenAiChatClient`; the executor's token check;
       the open-fence check. Tests, each shown failing first.
-- [ ] B2. Ceilings: `AiPromptRequest.OutputCeilingTokens`, the Design bounds, the gate's lease.
-- [ ] B3. `DraftEditOutcome`, the column and migration, `DraftEdits.ApplyAll`, whole-draft
+- [x] B2. Ceilings: `AiPromptRequest.OutputCeilingTokens`, the Design bounds, the gate's lease.
+- [x] B3. `DraftEditOutcome`, the column and migration, `DraftEdits.ApplyAll`, whole-draft
       passages, `ApplyAnswerEditsAsync`, outcomes on hand Apply. Tests.
-- [ ] B4. The conversation service: apply before save, `DraftEditStream`, the `writing` event;
+- [x] B4. The conversation service: apply before save, `DraftEditStream`, the `writing` event;
       the prompt; `HistoryText`. Tests.
-- [ ] B5. Web: outcomes on the DTO, the panel's summary and Show changes, writing status, the
+- [x] B5. Web: outcomes on the DTO, the panel's summary and Show changes, writing status, the
       page's save/read-only/reload, scroll to the GM's message. bUnit tests.
-- [ ] B6. Ship: `MinorVersion` 12; change log, Features page, README; validate (clean build,
+- [x] B6. Ship: `MinorVersion` 12; change log, Features page, README; validate (clean build,
       full test run, `dotnet format`).
 
 ## Phase C — Live
