@@ -97,13 +97,13 @@ public class AiCallBinderTests
     }
 
     [Test]
-    public void KeyFunding_UnreadableCiphertext_IsARejectedKey_AndMarksIt()
+    public async Task KeyFunding_UnreadableCiphertext_IsARejectedKey_AndMarksIt()
     {
         // What a lost Data Protection ring looks like: the ciphertext no longer opens.
         var key = SavedKey();
         key.ProtectedKey = AiKeyProtector.Create(null).Protect("sk-from-another-ring");
 
-        var ex = Assert.ThrowsAsync<AiKeyRejectedException>(() => Bind(Binder(() => KeyFunding(key))));
+        var ex = await Assert.ThrowsAsync<AiKeyRejectedException>(() => Bind(Binder(() => KeyFunding(key))));
 
         Assert.Multiple(() =>
         {
@@ -113,20 +113,20 @@ public class AiCallBinderTests
     }
 
     [Test]
-    public void KeyFunding_KeyRemovedSinceTheDecision_IsARejectedKey()
+    public async Task KeyFunding_KeyRemovedSinceTheDecision_IsARejectedKey()
     {
         var key = SavedKey();
         _keys.Keys.Clear();
 
-        Assert.ThrowsAsync<AiKeyRejectedException>(() => Bind(Binder(() => KeyFunding(key))));
+        await Assert.ThrowsAsync<AiKeyRejectedException>(() => Bind(Binder(() => KeyFunding(key))));
     }
 
     [TestCase(AiProvider.AzureOpenAi)]
-    public void KeyFunding_ProvidersWithoutAClient_AreNotSupported(AiProvider provider)
+    public async Task KeyFunding_ProvidersWithoutAClient_AreNotSupported(AiProvider provider)
     {
         var key = SavedKey(provider);
 
-        Assert.ThrowsAsync<NotSupportedException>(() => Bind(Binder(() => KeyFunding(key))));
+        await Assert.ThrowsAsync<NotSupportedException>(() => Bind(Binder(() => KeyFunding(key))));
     }
 
     [Test]

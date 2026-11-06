@@ -45,7 +45,7 @@ public class BibliotaphOutboxRepositoryTests : IntegrationTestBase
         Assert.That(queued, Is.EqualTo(2));
         Assert.That(events.Select(e => e.WorldName), Is.EquivalentTo(["Gribbits Detective Agency", "Black Harbor"]));
         Assert.That(events, Has.All.Matches<BibliotaphWorldEvent>(e =>
-            e.Kind == BibliotaphWorldEventKind.Created && e.UserId == _dave.Id && e.NextAttemptAt == Now));
+            e is not null && e.Kind == BibliotaphWorldEventKind.Created && e.UserId == _dave.Id && e.NextAttemptAt == Now));
     }
 
     [Test]

@@ -87,7 +87,7 @@ public class RepeatedUpdateTrackingTests : IntegrationTestBase
 
         var second = (await repository.GetByIdAsync(seeded.Id))!;
         second.Summary = "Second edit";
-        Assert.DoesNotThrowAsync(() => repository.UpdateAsync(second));
+        await Assert.DoesNotThrowAsync(() => repository.UpdateAsync(second));
 
         var reread = (await repository.GetByIdAsync(seeded.Id))!;
         Assert.That(reread.Summary, Is.EqualTo("Second edit"), "the later write must win");
@@ -121,7 +121,7 @@ public class RepeatedUpdateTrackingTests : IntegrationTestBase
 
         var correction = (await repository.GetByIdAsync(fact.Id))!;
         correction.TruthState = TruthState.False;
-        Assert.DoesNotThrowAsync(() => repository.UpdateAsync(correction));
+        await Assert.DoesNotThrowAsync(() => repository.UpdateAsync(correction));
 
         var reread = (await repository.GetByIdAsync(fact.Id))!;
         Assert.Multiple(() =>

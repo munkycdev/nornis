@@ -188,7 +188,7 @@ public class ReviewProposalQueueStatusTests : IntegrationTestBase
         var reloaded = (await _repository.GetByIdAsync(proposal.Id))!;
         reloaded.Accept(_gmUserId, DateTimeOffset.UtcNow);
 
-        Assert.DoesNotThrowAsync(async () => await _repository.UpdateAsync(reloaded));
+        await Assert.DoesNotThrowAsync(async () => await _repository.UpdateAsync(reloaded));
         Assert.That((await _repository.GetByIdAsync(proposal.Id))!.Status,
             Is.EqualTo(ReviewProposalStatus.Accepted));
     }

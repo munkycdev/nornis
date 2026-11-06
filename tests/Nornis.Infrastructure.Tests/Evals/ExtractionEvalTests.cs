@@ -47,7 +47,7 @@ public class ExtractionEvalTests
             Assert.That(loaded.Cases[^1].Id, Is.EqualTo("session-6"));
             Assert.That(loaded.Cases.Where(c => c.Type == "SessionNote").Select(c => c.Campaign), Has.All.EqualTo("The Vesper Bell"));
             Assert.That(loaded.Cases.Select(c => c.Title), Has.None.StartsWith("Artifact merge"));
-            Assert.That(loaded.Cases, Has.All.Matches<EvalCase>(c => c.Body.Length > 100));
+            Assert.That(loaded.Cases, Has.All.Matches<EvalCase>(c => c is { Body.Length: > 100 }));
         });
     }
 

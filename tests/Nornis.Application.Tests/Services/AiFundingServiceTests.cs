@@ -220,11 +220,11 @@ public class AiFundingServiceTests
     }
 
     [Test]
-    public void ARejectedKey_IsRefused_NotHandedToTheTrial()
+    public async Task ARejectedKey_IsRefused_NotHandedToTheTrial()
     {
         _keys.Add(_creator, AiProvider.OpenAi, checkFailed: true);
 
-        var ex = Assert.ThrowsAsync<AiKeyRejectedException>(() => Resolve());
+        var ex = await Assert.ThrowsAsync<AiKeyRejectedException>(() => Resolve());
 
         Assert.Multiple(() =>
         {
@@ -259,7 +259,7 @@ public class AiFundingServiceTests
     {
         await SpendTrial(_creator, 2.07m);
 
-        var ex = Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve());
+        var ex = await Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve());
 
         Assert.That(ex!.Code, Is.EqualTo("ai_key_required"));
     }
@@ -268,16 +268,16 @@ public class AiFundingServiceTests
     public async Task TheMonthsCeiling_PausesEveryTrial_LastMonthsSpendDoesNot()
     {
         await SpendTrial(Guid.NewGuid(), 30m, at: Now.AddMonths(-1));
-        Assert.DoesNotThrowAsync(() => Resolve());
+        await Assert.DoesNotThrowAsync(() => Resolve());
 
         await SpendTrial(Guid.NewGuid(), 25m);
-        Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve());
+        await Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve());
     }
 
     [Test]
-    public void APublicVisitor_NeverSpendsTheTrial()
+    public async Task APublicVisitor_NeverSpendsTheTrial()
     {
-        Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve(AiCallScope.ForPublicVisitor(_worldId)));
+        await Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve(AiCallScope.ForPublicVisitor(_worldId)));
     }
 
     [Test]
@@ -291,11 +291,11 @@ public class AiFundingServiceTests
     }
 
     [Test]
-    public void AZeroAllowance_TurnsTheTrialOff()
+    public async Task AZeroAllowance_TurnsTheTrialOff()
     {
         _options.TrialAllowanceUsd = 0m;
 
-        Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve());
+        await Assert.ThrowsAsync<AiKeyRequiredException>(() => Resolve());
     }
 
     [Test]
@@ -329,23 +329,23 @@ public class AiFundingServiceTests
 
     [TestCase(AiFallback.Nornis)]
     [TestCase(AiFallback.Trial)]
-    public void CoverArt_WithNoKey_IsRefused_UnderEitherFallback(AiFallback fallback)
+    public async Task CoverArt_WithNoKey_IsRefused_UnderEitherFallback(AiFallback fallback)
     {
         _options.Fallback = fallback;
         _options.Catalog.Add(Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt));
 
-        var ex = Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
+        var ex = await Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
 
         Assert.That(ex!.Task, Is.EqualTo(AiTask.CoverArt));
     }
 
     [Test]
-    public void CoverArt_IsNeverServedByAnOpenAiCompatibleLine()
+    public async Task CoverArt_IsNeverServedByAnOpenAiCompatibleLine()
     {
         var line = new UserAiCompatibleModel { Id = Guid.NewGuid(), Task = AiTask.CoverArt, ModelName = "m" };
         _keys.Add(_creator, AiProvider.OpenAiCompatible, false, line);
 
-        Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
+        await Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
     }
 
     [Test]

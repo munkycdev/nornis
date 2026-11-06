@@ -142,7 +142,7 @@ public class LiveGeminiConformanceTests
         var checker = new AiKeyChecker(new HttpClient(), NullLogger<AiKeyChecker>.Instance);
 
         var outcome = await checker.CheckAsync(AiProvider.Gemini, bad, null, CancellationToken.None);
-        var thrown = Assert.CatchAsync(() => Client(_catalog[0].Model, bad).GetResponseAsync("Hello"));
+        var thrown = await Assert.CatchAsync(() => Client(_catalog[0].Model, bad).GetResponseAsync("Hello"));
         var translated = GeminiProviderTraits.Instance.TranslateFailure(
             thrown!, new AiFunding(AiProvider.Gemini, _catalog[0].Model, AiFundedBy.Key, AiKeyId: Key.Id), "Live", NullLogger.Instance);
 

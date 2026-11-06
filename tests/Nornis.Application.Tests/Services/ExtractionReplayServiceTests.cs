@@ -326,14 +326,14 @@ public class ExtractionReplayServiceTests
     }
 
     [Test]
-    public void TryAdvance_ReprocessThrows_NeverPropagates()
+    public async Task TryAdvance_ReprocessThrows_NeverPropagates()
     {
         var cursor = SeedSource("Session 1", Day5);
         SeedSource("Session 2", Day10);
         ActiveReplay(cursor.Id);
         _reprocess.ThrowOnReprocess = new InvalidOperationException("boom");
 
-        Assert.DoesNotThrowAsync(() => _sut.TryAdvanceAsync(WorldId, cursor.Id, CancellationToken.None));
+        await Assert.DoesNotThrowAsync(() => _sut.TryAdvanceAsync(WorldId, cursor.Id, CancellationToken.None));
     }
 
     // ------------------------------------------------------------ Status/Cancel --

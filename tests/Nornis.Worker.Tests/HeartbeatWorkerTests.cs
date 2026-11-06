@@ -64,14 +64,14 @@ public class HeartbeatWorkerTests
     }
 
     [Test]
-    public void Beat_WhenTheWriteFails_DoesNotThrow()
+    public async Task Beat_WhenTheWriteFails_DoesNotThrow()
     {
         _repository.BeatAsync(Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("database unreachable"));
 
         // A database outage must not take extraction down with it — the sql check on the
         // same status page is what reports that failure.
-        Assert.DoesNotThrowAsync(() => CreateWorker().BeatOnceAsync(CancellationToken.None));
+        await Assert.DoesNotThrowAsync(() => CreateWorker().BeatOnceAsync(CancellationToken.None));
     }
 
     [Test]

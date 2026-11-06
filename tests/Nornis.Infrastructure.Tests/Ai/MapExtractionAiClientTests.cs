@@ -146,11 +146,11 @@ public class MapExtractionAiClientTests
     }
 
     [Test]
-    public void Extract_FirstPassMalformed_ThrowsParseException()
+    public async Task Extract_FirstPassMalformed_ThrowsParseException()
     {
         SetupResponses("not json");
 
-        Assert.ThrowsAsync<AiParseException>(
+        await Assert.ThrowsAsync<AiParseException>(
             () => _client.ExtractAsync(Request(refine: true), CancellationToken.None));
     }
 }

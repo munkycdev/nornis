@@ -96,7 +96,7 @@ public class ReviewBatchRepositoryTests : IntegrationTestBase
         // A failed SaveChanges leaves the rejected entity Added in the change tracker, so the
         // next save in the same scoped context would retry it and throw again — the poisoned
         // context this repository clears on the way out.
-        Assert.DoesNotThrowAsync(() => repo.CreateAsync(MakeBatch(world.Id, source.Id, kind: "Reveal")));
+        await Assert.DoesNotThrowAsync(() => repo.CreateAsync(MakeBatch(world.Id, source.Id, kind: "Reveal")));
     }
 
     [Test]

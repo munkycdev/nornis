@@ -196,7 +196,7 @@ public class AnthropicProviderTraitsTests
             """));
         using var clients = new UserKeyChatClients(maxRetries: 0, anthropicHandler: handler);
 
-        var thrown = Assert.CatchAsync(async () =>
+        var thrown = await Assert.CatchAsync(async () =>
         {
             await foreach (var _ in clients.For(Key, Model, () => Secret).GetStreamingResponseAsync("Who sank the Gull?"))
             {

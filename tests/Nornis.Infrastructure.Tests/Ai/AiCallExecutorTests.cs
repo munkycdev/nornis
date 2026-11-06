@@ -115,12 +115,12 @@ public class AiCallExecutorTests
 
     [TestCase(429)]
     [TestCase(503)]
-    public void StreamAsync_ClientResultExceptionMidStream_BecomesAiHttpExceptionWithItsStatus(int status)
+    public async Task StreamAsync_ClientResultExceptionMidStream_BecomesAiHttpExceptionWithItsStatus(int status)
     {
         _chatClient.Streams(["Captain Voss "], thenThrow: FakeChatClient.HttpFailure(status));
 
         var received = new List<string>();
-        var ex = Assert.ThrowsAsync<AiHttpException>(async () =>
+        var ex = await Assert.ThrowsAsync<AiHttpException>(async () =>
         {
             await foreach (var chunk in Stream(Request()))
             {
@@ -133,14 +133,14 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void StreamAsync_StallPastTheTimeout_BecomesAiTimeoutException()
+    public async Task StreamAsync_StallPastTheTimeout_BecomesAiTimeoutException()
     {
         // The timeout covers the whole answer, not the first token: this stream starts fine and
         // then stops talking.
         _chatClient.Streams(["Captain Voss "], thenHang: true);
 
         var received = new List<string>();
-        var ex = Assert.ThrowsAsync<AiTimeoutException>(async () =>
+        var ex = await Assert.ThrowsAsync<AiTimeoutException>(async () =>
         {
             await foreach (var chunk in Stream(Request(timeoutSeconds: 1)))
             {
@@ -153,14 +153,14 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void StreamAsync_CallerCancelsMidStream_PropagatesAsOperationCanceled()
+    public async Task StreamAsync_CallerCancelsMidStream_PropagatesAsOperationCanceled()
     {
         // A reader leaving is not a provider failure; it must not be dressed up as a timeout
         // or an HTTP error, both of which the Loremaster records as failed calls.
         _chatClient.Streams(["Captain Voss "], thenHang: true);
         using var cts = new CancellationTokenSource();
 
-        var ex = Assert.CatchAsync(async () =>
+        var ex = await Assert.CatchAsync(async () =>
         {
             await foreach (var _ in Stream(Request(), cts.Token))
             {
@@ -188,11 +188,11 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void ExecuteAsync_EmptyCompletion_IsAnUnexpectedFailureNotAnEmptyString()
+    public async Task ExecuteAsync_EmptyCompletion_IsAnUnexpectedFailureNotAnEmptyString()
     {
         _chatClient.Returns(string.Empty);
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
+        var ex = await Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
             _binder, AiTask.Extraction, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
 
         Assert.That(ex!.StatusCode, Is.Null);
@@ -245,12 +245,12 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void ExecuteAsync_BindingRefused_PropagatesWithoutCallingTheModel()
+    public async Task ExecuteAsync_BindingRefused_PropagatesWithoutCallingTheModel()
     {
         // A refusal (no key, trial spent) is decided before any token is spent.
         var binder = new ThrowingBinder(new AiKeyRequiredException(AiTask.Ask, "the trial is used up."));
 
-        var ex = Assert.ThrowsAsync<AiKeyRequiredException>(() => AiCallExecutor.ExecuteAsync(
+        var ex = await Assert.ThrowsAsync<AiKeyRequiredException>(() => AiCallExecutor.ExecuteAsync(
             binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -261,12 +261,12 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void KeyFunded401_IsARejectedKey_AndTheKeyIsReported()
+    public async Task KeyFunded401_IsARejectedKey_AndTheKeyIsReported()
     {
         var binder = new FakeAiCallBinder(_chatClient, KeyFunded);
         _chatClient.Throws(FakeChatClient.HttpFailure(401));
 
-        var ex = Assert.ThrowsAsync<AiKeyRejectedException>(() => AiCallExecutor.ExecuteAsync(
+        var ex = await Assert.ThrowsAsync<AiKeyRejectedException>(() => AiCallExecutor.ExecuteAsync(
             binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -277,12 +277,12 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void NornisFunded401_StaysAnHttpFailure_ForNornisToFix()
+    public async Task NornisFunded401_StaysAnHttpFailure_ForNornisToFix()
     {
         // Nornis's own key being refused is a deployment problem, not something a GM can act on.
         _chatClient.Throws(FakeChatClient.HttpFailure(401));
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
+        var ex = await Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
             _binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -293,29 +293,29 @@ public class AiCallExecutorTests
     }
 
     [Test]
-    public void KeyFundedInsufficientQuota_IsCreditExhausted_OtherThrottlesStayRetryable()
+    public async Task KeyFundedInsufficientQuota_IsCreditExhausted_OtherThrottlesStayRetryable()
     {
         var binder = new FakeAiCallBinder(_chatClient, KeyFunded);
         _chatClient.Throws(FakeChatClient.HttpFailure(429, """{"error":{"code":"insufficient_quota"}}"""));
-        Assert.ThrowsAsync<AiCreditExhaustedException>(() => AiCallExecutor.ExecuteAsync(
+        await Assert.ThrowsAsync<AiCreditExhaustedException>(() => AiCallExecutor.ExecuteAsync(
             binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
 
         // A fresh client: a scripted behaviour repeats, so the quota failure would answer again.
         var throttled = new FakeChatClient().Throws(FakeChatClient.HttpFailure(429, """{"error":{"code":"rate_limit_exceeded"}}"""));
         binder = new FakeAiCallBinder(throttled, KeyFunded);
-        var throttle = Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
+        var throttle = await Assert.ThrowsAsync<AiHttpException>(() => AiCallExecutor.ExecuteAsync(
             binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None));
         Assert.That(TransientFailureClassifier.IsTransient(throttle!), Is.True);
         Assert.That(binder.Rejections, Is.Empty);
     }
 
     [Test]
-    public void StreamAsync_KeyFunded401_IsARejectedKey_AndTheKeyIsReported()
+    public async Task StreamAsync_KeyFunded401_IsARejectedKey_AndTheKeyIsReported()
     {
         var binder = new FakeAiCallBinder(_chatClient, KeyFunded);
         _chatClient.Streams([], thenThrow: FakeChatClient.HttpFailure(401));
 
-        Assert.ThrowsAsync<AiKeyRejectedException>(async () =>
+        await Assert.ThrowsAsync<AiKeyRejectedException>(async () =>
         {
             await foreach (var _ in AiCallExecutor.StreamAsync(
                 binder, AiTask.Ask, Request(), options: null, "Test", NullLogger.Instance, CancellationToken.None))

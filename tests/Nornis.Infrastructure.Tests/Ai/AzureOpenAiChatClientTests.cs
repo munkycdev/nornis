@@ -78,11 +78,11 @@ public class AzureOpenAiChatClientTests
     }
 
     [Test]
-    public void Streaming_OptionsOtherThanTheRawFactory_AreRefusedNotDropped()
+    public async Task Streaming_OptionsOtherThanTheRawFactory_AreRefusedNotDropped()
     {
         var client = new AzureOpenAiChatClient(SdkClient());
 
-        Assert.ThrowsAsync<NotSupportedException>(async () =>
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
         {
             await foreach (var _ in client.GetStreamingResponseAsync(
                 [new(ChatRole.User, "Q")], new ChatOptions { MaxOutputTokens = 10 }))

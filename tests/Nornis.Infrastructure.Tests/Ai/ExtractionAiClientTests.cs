@@ -248,11 +248,11 @@ public class ExtractionAiClientTests
     [TestCase("rationale")]
     [TestCase("confidence")]
     [TestCase("proposedValue")]
-    public void ExtractAsync_ProposalMissingARequiredField_ThrowsParseExceptionNamingIt(string field)
+    public async Task ExtractAsync_ProposalMissingARequiredField_ThrowsParseExceptionNamingIt(string field)
     {
         SetupMockToReturn(ResponseWithout(field));
 
-        var ex = Assert.ThrowsAsync<AiParseException>(
+        var ex = await Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
         // The message reaches the retry loop's log, and that log line is all anyone has
@@ -265,25 +265,25 @@ public class ExtractionAiClientTests
     [TestCase("confidence", "1.5", Description = "above the 0.0-1.0 range")]
     [TestCase("confidence", "-0.1", Description = "below the 0.0-1.0 range")]
     [TestCase("rationale", "\"\"", Description = "present but empty")]
-    public void ExtractAsync_ProposalFieldOutOfRange_ThrowsParseExceptionNamingIt(
+    public async Task ExtractAsync_ProposalFieldOutOfRange_ThrowsParseExceptionNamingIt(
         string field, string rawJson)
     {
         SetupMockToReturn(ResponseWith(field, rawJson));
 
-        var ex = Assert.ThrowsAsync<AiParseException>(
+        var ex = await Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
         Assert.That(ex!.Message, Does.Contain(field));
     }
 
     [Test]
-    public void ExtractAsync_RationaleExceeding500Chars_ThrowsParseExceptionNamingIt()
+    public async Task ExtractAsync_RationaleExceeding500Chars_ThrowsParseExceptionNamingIt()
     {
         // Separate from the range cases above only because a 501-character literal is not
         // a compile-time constant and so cannot ride in a [TestCase].
         SetupMockToReturn(ResponseWith("rationale", $"\"{new string('x', 501)}\""));
 
-        var ex = Assert.ThrowsAsync<AiParseException>(
+        var ex = await Assert.ThrowsAsync<AiParseException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
         Assert.That(ex!.Message, Does.Contain("rationale"));
@@ -326,7 +326,7 @@ public class ExtractionAiClientTests
     #region Error Handling Tests
 
     [Test]
-    public void ExtractAsync_Timeout_ThrowsAiTimeoutException()
+    public async Task ExtractAsync_Timeout_ThrowsAiTimeoutException()
     {
         // The timeout rides on the request now, not on options.
         var shortTimeoutRequest = new AiPromptRequest
@@ -340,38 +340,38 @@ public class ExtractionAiClientTests
 
         _chatClient.Hangs();
 
-        Assert.ThrowsAsync<AiTimeoutException>(
+        await Assert.ThrowsAsync<AiTimeoutException>(
             async () => await _client.ExtractAsync(shortTimeoutRequest, CancellationToken.None));
     }
 
     [Test]
-    public void ExtractAsync_429Response_ThrowsAiHttpException()
+    public async Task ExtractAsync_429Response_ThrowsAiHttpException()
     {
         _chatClient.Throws(FakeChatClient.HttpFailure(429));
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(
+        var ex = await Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
         Assert.That(ex!.StatusCode, Is.EqualTo(429));
     }
 
     [Test]
-    public void ExtractAsync_503Response_ThrowsAiHttpException()
+    public async Task ExtractAsync_503Response_ThrowsAiHttpException()
     {
         _chatClient.Throws(FakeChatClient.HttpFailure(503));
 
-        var ex = Assert.ThrowsAsync<AiHttpException>(
+        var ex = await Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
 
         Assert.That(ex!.StatusCode, Is.EqualTo(503));
     }
 
     [Test]
-    public void ExtractAsync_NetworkException_ThrowsAiHttpException()
+    public async Task ExtractAsync_NetworkException_ThrowsAiHttpException()
     {
         _chatClient.Throws(new HttpRequestException("Network error"));
 
-        Assert.ThrowsAsync<AiHttpException>(
+        await Assert.ThrowsAsync<AiHttpException>(
             async () => await _client.ExtractAsync(DefaultRequest, CancellationToken.None));
     }
 

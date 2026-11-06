@@ -280,22 +280,22 @@ public class SyntheticBatchWriterTests
     #region Guards
 
     [Test]
-    public void EveryVerb_RejectsAMissingKind_BecauseNullKindMeansExtraction()
+    public async Task EveryVerb_RejectsAMissingKind_BecauseNullKindMeansExtraction()
     {
-        Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteAcceptedAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteAcceptedAsync(
             SourceSpec(), " ", [ProposalSpec()], CancellationToken.None));
-        Assert.ThrowsAsync<ArgumentException>(() => _writer.WritePendingAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => _writer.WritePendingAsync(
             SourceSpec(), "", [ProposalSpec()], CancellationToken.None));
-        Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteSweepAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteSweepAsync(
             RealSource(), " ", [], CancellationToken.None));
     }
 
     [Test]
-    public void SyntheticShapes_RejectEmptyProposals_ASourceRecordingNothingIsABug()
+    public async Task SyntheticShapes_RejectEmptyProposals_ASourceRecordingNothingIsABug()
     {
-        Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteAcceptedAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteAcceptedAsync(
             SourceSpec(), ReviewBatchKinds.ArtifactMerge, [], CancellationToken.None));
-        Assert.ThrowsAsync<ArgumentException>(() => _writer.WritePendingAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => _writer.WritePendingAsync(
             SourceSpec(), ReviewBatchKinds.ContinuityFix, [], CancellationToken.None));
     }
 
