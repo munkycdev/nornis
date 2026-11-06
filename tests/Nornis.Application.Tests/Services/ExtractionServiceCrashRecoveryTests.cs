@@ -264,4 +264,84 @@ public class ExtractionServiceCrashRecoveryTests
         Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued),
             "existing-batch skip must not touch the status of a non-Processing source");
     }
+
+    // GiveUpAsync: the worker's last delivery has failed and the queue is about to dead-letter
+    // the message. On 2026-11-06 a note timed out on all five deliveries and sat Queued for
+    // seventeen hours, looking mid-extraction, with no button until an hour had passed.
+
+    [Test]
+    public async Task TimedOutOnTheLastDelivery_FailsVisiblyWithTheReason()
+    {
+        var source = SeedSource(SourceProcessingStatus.Queued);
+        _aiClient.SetupTransientFailure(new AiTimeoutException("Extraction AI call timed out after 180 seconds."));
+
+        var outcome = await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+        Assume.That(outcome.Type, Is.EqualTo(OutcomeType.TransientFailure));
+        Assume.That((await _sourceRepository.GetByIdAsync(source.Id))!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Queued),
+            "a transient failure puts the source back for the next delivery; this is the state that wedged");
+
+        var gaveUp = await _sut.GiveUpAsync(source.Id, outcome.ErrorCategory, CancellationToken.None);
+
+        var updated = await _sourceRepository.GetByIdAsync(source.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(gaveUp, Is.True);
+            Assert.That(updated!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed), "Failed has Resubmit; Queued had nothing");
+            Assert.That(updated.FailureCategory, Is.EqualTo(ErrorCategories.Timeout));
+        });
+    }
+
+    [Test]
+    public async Task ProcessingWithNoBatch_OnTheLastDelivery_Fails()
+    {
+        // An unexpected exception after the claim leaves the source Processing; on the last
+        // delivery there is no redelivery to resume it.
+        var source = SeedSource(SourceProcessingStatus.Processing);
+
+        var gaveUp = await _sut.GiveUpAsync(source.Id, ErrorCategories.TransientError, CancellationToken.None);
+
+        Assert.That(gaveUp, Is.True);
+        Assert.That((await _sourceRepository.GetByIdAsync(source.Id))!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Failed));
+    }
+
+    [Test]
+    public async Task ProcessingWithABatch_IsNotFailed()
+    {
+        // The extraction committed; the GM's proposals are waiting. Failing it would offer a
+        // Resubmit that pays for the same extraction twice.
+        var source = SeedSource(SourceProcessingStatus.Processing);
+        await _reviewBatchRepository.CreateAsync(new ReviewBatch
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            SourceId = source.Id,
+            Status = ReviewBatchStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        var gaveUp = await _sut.GiveUpAsync(source.Id, ErrorCategories.Timeout, CancellationToken.None);
+
+        Assert.That(gaveUp, Is.False);
+        Assert.That((await _sourceRepository.GetByIdAsync(source.Id))!.ProcessingStatus, Is.EqualTo(SourceProcessingStatus.Processing));
+    }
+
+    [TestCase(SourceProcessingStatus.Processed)]
+    [TestCase(SourceProcessingStatus.Failed)]
+    [TestCase(SourceProcessingStatus.Ready)]
+    [TestCase(SourceProcessingStatus.Draft)]
+    public async Task ASourceThatMovedOn_IsLeftAlone(SourceProcessingStatus status)
+    {
+        var source = SeedSource(status);
+
+        var gaveUp = await _sut.GiveUpAsync(source.Id, ErrorCategories.Timeout, CancellationToken.None);
+
+        Assert.That(gaveUp, Is.False);
+        Assert.That((await _sourceRepository.GetByIdAsync(source.Id))!.ProcessingStatus, Is.EqualTo(status));
+    }
+
+    [Test]
+    public async Task AMissingSource_IsLeftAlone()
+    {
+        Assert.That(await _sut.GiveUpAsync(Guid.NewGuid(), ErrorCategories.Timeout, CancellationToken.None), Is.False);
+    }
 }

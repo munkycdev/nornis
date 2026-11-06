@@ -212,6 +212,40 @@ public class ExtractionService : IExtractionService
     }
 
     /// <summary>
+    /// The way out of the Queued wedge that does not wait an hour. A transient failure puts the
+    /// source back to Queued for the next delivery — right on every delivery but the last, where
+    /// the queue dead-letters the message instead and the source sits Queued with nothing coming,
+    /// showing "extracting" until a GM thinks to retry it an hour later. Observed 2026-11-06: a
+    /// Ruins of Symbaroum note timed out five times and sat Queued for seventeen hours.
+    ///
+    /// Processing counts too: an unexpected exception after the claim leaves the source there,
+    /// and on the last delivery no redelivery will come to resume it. A batch, though, means the
+    /// extraction committed — that source is the crash-repair path's, not a failure.
+    ///
+    /// Called by the worker, which alone knows the delivery count; the transition is decided here
+    /// so the state machine stays in the service.
+    /// </summary>
+    public async Task<bool> GiveUpAsync(Guid sourceId, string? failureCategory, CancellationToken ct)
+    {
+        var source = await _sourceRepository.GetByIdAsync(sourceId, ct);
+        if (source?.ProcessingStatus is not (SourceProcessingStatus.Queued or SourceProcessingStatus.Processing))
+        {
+            return false;
+        }
+
+        if (await _reviewBatchRepository.GetBySourceIdAsync(sourceId, ct) is not null)
+        {
+            return false;
+        }
+
+        await _sourceRepository.MarkFailedAsync(sourceId, failureCategory ?? ErrorCategories.TransientError, ct);
+        _logger.LogWarning(
+            "Extraction gave up after the last delivery; source marked Failed. SourceId={SourceId}, ErrorCategory={ErrorCategory}",
+            sourceId, failureCategory);
+        return true;
+    }
+
+    /// <summary>
     /// The claimed source's route through the four pipelines: transcription and attachment
     /// derivation (owned by <see cref="SourceTextDerivation"/>), the map path (owned by
     /// <see cref="MapExtractionPipeline"/>), and the text extraction this class keeps.

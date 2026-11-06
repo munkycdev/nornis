@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using Nornis.Application.Ai;
 using Nornis.Application.Messaging;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -184,6 +185,7 @@ public sealed class ExtractionWorker : BackgroundService
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
                         outcome.ErrorMessage);
+                    await GiveUpIfLastAsync(args, message, outcome.ErrorCategory);
                     await RedeliveryBackoff.DelayThenAbandonAsync(args, (delay, attempt) =>
                         _logger.LogInformation(
                             "Backing off {DelaySeconds}s before redelivery (attempt {Attempt}). CorrelationId={CorrelationId}, SourceId={SourceId}",
@@ -207,11 +209,29 @@ public sealed class ExtractionWorker : BackgroundService
             // same backoff. If the issue persists, Service Bus dead-letters the message once max
             // delivery count is exceeded; the backoff makes that take minutes rather than
             // milliseconds, which is the difference between riding out an outage and amplifying it.
+            await GiveUpIfLastAsync(args, message, ErrorCategories.TransientError);
             await RedeliveryBackoff.DelayThenAbandonAsync(args, (delay, attempt) =>
                 _logger.LogInformation(
                     "Backing off {DelaySeconds}s before redelivery (attempt {Attempt}). CorrelationId={CorrelationId}, SourceId={SourceId}",
                     delay.TotalSeconds, attempt, correlationId, message.SourceId));
         }
+    }
+
+    /// <summary>
+    /// Its own scope: the message's scope is already disposed when an unexpected exception lands
+    /// in the catch.
+    /// </summary>
+    private async Task GiveUpIfLastAsync(ProcessMessageEventArgs args, ExtractionMessage message, string? failureCategory)
+    {
+        if (!LastDelivery.IsLast(args.Message.DeliveryCount))
+        {
+            return;
+        }
+
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        await LastDelivery.GiveUpIfLastAsync(
+            scope.ServiceProvider.GetRequiredService<IExtractionService>(),
+            message, args.Message.DeliveryCount, failureCategory, _logger);
     }
 
     private Task ProcessErrorAsync(ProcessErrorEventArgs args)
