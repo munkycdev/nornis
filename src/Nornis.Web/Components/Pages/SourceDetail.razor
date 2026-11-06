@@ -61,7 +61,17 @@
             @if (!_editing)
             {
                 <div class="nornis-detail-actions">
-                    @if (_source.ProcessingStatus is "Draft" or "Ready" or "Failed")
+                    @if (_source.StuckInQueue)
+                    {
+                        @* The server says when a Queued source has waited long enough that nothing
+                           is still coming for it; the Web does not keep its own copy of that clock. *@
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.Replay"
+                                   OnClick="ProcessAsync" Disabled="_processing">
+                            Retry
+                        </MudButton>
+                    }
+                    else if (_source.ProcessingStatus is "Draft" or "Ready" or "Failed")
                     {
                         <MudButton Variant="Variant.Filled" Color="Color.Secondary"
                                    StartIcon="@(_source.ExtractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
@@ -107,6 +117,14 @@
         </div>
         </Header>
         <Body>
+
+        @if (_source.StuckInQueue)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-3" Dense="true">
+                This source has been queued for over an hour, so extraction has stopped trying.
+                Retry sends it again.
+            </MudAlert>
+        }
 
         @if (_replay is not null && _replay.Status == "Active")
         {

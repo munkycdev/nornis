@@ -105,7 +105,8 @@ public class SourceRepository : ISourceRepository
                 s.CampaignId,
                 s.Campaign != null ? s.Campaign.Name : null,
                 s.Slug,
-                s.Campaign != null ? s.Campaign.Slug : null))
+                s.Campaign != null ? s.Campaign.Slug : null,
+                s.StatusChangedAt))
             .ToListAsync(cancellationToken);
     }
 

@@ -4,10 +4,11 @@
 @inject ISnackbar Snackbar
 
 @* Extraction pipeline status: every source that is not yet Processed, with one-click
-   resubmission for Failed items (Failed → Ready → Queued on the server). *@
+   resubmission for Failed items (Failed → Ready → Queued on the server) and for items the
+   server reports stuck at Queued past the dead-letter window. *@
 
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Sources moving through extraction. Failed items can be resubmitted.
+    Sources moving through extraction. Failed items, and items queued for over an hour, can be resubmitted.
 </MudText>
 
 @if (Worlds.Current is null)
@@ -70,7 +71,7 @@ else
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(s.ProcessingStatus)">
                         @s.ProcessingStatus
                     </MudChip>
-                    @if (s.ProcessingStatus == "Failed")
+                    @if (s.ProcessingStatus == "Failed" || s.StuckInQueue)
                     {
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Replay"

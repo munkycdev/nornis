@@ -98,7 +98,8 @@ public record SourceListItem(
     string ProcessingStatus,
     Guid? CampaignId = null,
     string? CampaignName = null,
-    string? Slug = null, string? CampaignSlug = null);
+    string? Slug = null, string? CampaignSlug = null,
+    bool StuckInQueue = false);
 
 public record SourceAttachmentDto(
     Guid Id,
@@ -144,7 +145,8 @@ public record SourceDetailDto(
     int? LibraryPageFrom = null,
     int? LibraryPageTo = null,
     string? Slug = null, string? CampaignSlug = null, string? LibraryDocumentSlug = null,
-    Guid? AdventureId = null);
+    Guid? AdventureId = null,
+    bool StuckInQueue = false);
 
 // Mirrors Nornis.Api LinkedLocationResponse: one Location a session is linked to.
 public record LinkedLocationDto(Guid ArtifactId, string Name, string? Summary, string? Slug = null);

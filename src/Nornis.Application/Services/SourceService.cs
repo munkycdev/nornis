@@ -473,7 +473,7 @@ public class SourceService : ISourceService
         // bug — a second extraction alongside a live one, paying twice — so it waits until the
         // queue can no longer be holding the message.
         if (source.ProcessingStatus == SourceProcessingStatus.Queued
-            && !IsStaleQueued(source, DateTimeOffset.UtcNow))
+            && !IsStuckInQueue(source.ProcessingStatus, source.StatusChangedAt, DateTimeOffset.UtcNow))
         {
             return AppResult<Source>.Fail(new AppError(409, "still_queued",
                 "This source is queued for extraction. If it is still queued in an hour, "
@@ -570,12 +570,16 @@ public class SourceService : ISourceService
         CanSeePredicate(userId, role)(source);
 
     /// <summary>
-    /// A source is safely re-readyable once it has been Queued longer than
-    /// <see cref="StaleQueuedThreshold"/>. A null stamp means the row predates the column and
-    /// has not moved since — which is itself older than any threshold, so it qualifies.
+    /// Whether a source is wedged at Queued long enough that marking it ready again will retry
+    /// it — the one statement of that rule, so the button the Web shows and the transition this
+    /// service allows cannot drift apart. Any other status is false: Failed and Ready have their
+    /// own way back, and Processing is a live run. A null stamp means the row predates the
+    /// column and has not moved since — which is itself older than any threshold, so it counts.
     /// </summary>
-    private static bool IsStaleQueued(Source source, DateTimeOffset now) =>
-        source.StatusChangedAt is not { } changedAt || now - changedAt >= StaleQueuedThreshold;
+    public static bool IsStuckInQueue(
+        SourceProcessingStatus status, DateTimeOffset? statusChangedAt, DateTimeOffset now) =>
+        status == SourceProcessingStatus.Queued
+        && (statusChangedAt is not { } changedAt || now - changedAt >= StaleQueuedThreshold);
 
     private static bool IsValidTransition(SourceProcessingStatus current, SourceProcessingStatus target)
     {
