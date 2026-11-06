@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Nornis.Application.Ai;
 using Nornis.Application.Messaging;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
@@ -134,6 +135,7 @@ public sealed class TestableExtractionWorker
                         stopwatch.ElapsedMilliseconds,
                         outcome.ErrorCategory,
                         outcome.ErrorMessage);
+                    await LastDelivery.GiveUpIfLastAsync(_extractionService, message, context.DeliveryCount, outcome.ErrorCategory, _logger);
                     await RedeliveryBackoff.WaitAsync(context.DeliveryCount, cancellationToken, (delay, _) => context.RecordBackoff(delay));
                     await context.AbandonMessageAsync(cancellationToken);
                     break;
@@ -151,6 +153,7 @@ public sealed class TestableExtractionWorker
                 message.WorldId,
                 stopwatch.ElapsedMilliseconds);
 
+            await LastDelivery.GiveUpIfLastAsync(_extractionService, message, context.DeliveryCount, ErrorCategories.TransientError, _logger);
             await RedeliveryBackoff.WaitAsync(context.DeliveryCount, cancellationToken, (delay, _) => context.RecordBackoff(delay));
             await context.AbandonMessageAsync(cancellationToken);
         }
