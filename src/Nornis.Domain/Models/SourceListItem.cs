@@ -24,4 +24,5 @@ public record SourceListItem(
     Guid? CampaignId,
     string? CampaignName,
     string? Slug = null,
-    string? CampaignSlug = null);
+    string? CampaignSlug = null,
+    DateTimeOffset? StatusChangedAt = null);

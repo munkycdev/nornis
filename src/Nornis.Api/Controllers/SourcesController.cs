@@ -662,7 +662,9 @@ public class SourcesController : ControllerBase
             Slug: source.Slug,
             CampaignSlug: source.Campaign?.Slug,
             LibraryDocumentSlug: source.LibraryDocument?.Slug,
-            AdventureId: source.AdventureId);
+            AdventureId: source.AdventureId,
+            StuckInQueue: SourceService.IsStuckInQueue(
+                source.ProcessingStatus, source.StatusChangedAt, DateTimeOffset.UtcNow));
     }
 
     internal static SourceListItemResponse ToSourceListItemResponse(SourceListItem source)
@@ -680,6 +682,8 @@ public class SourcesController : ControllerBase
             CampaignId: source.CampaignId,
             CampaignName: source.CampaignName,
             Slug: source.Slug,
-            CampaignSlug: source.CampaignSlug);
+            CampaignSlug: source.CampaignSlug,
+            StuckInQueue: SourceService.IsStuckInQueue(
+                source.ProcessingStatus, source.StatusChangedAt, DateTimeOffset.UtcNow));
     }
 }

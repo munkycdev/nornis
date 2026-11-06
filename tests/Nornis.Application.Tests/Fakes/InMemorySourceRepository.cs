@@ -75,7 +75,8 @@ public class InMemorySourceRepository : ISourceRepository
             .ThenByDescending(s => s.Id)
             .Select(s => new SourceListItem(
                 s.Id, s.WorldId, s.Type, s.Title, s.OccurredAt, s.CreatedAt,
-                s.CreatedByUserId, s.Visibility, s.ProcessingStatus, s.CampaignId, s.Campaign?.Name))
+                s.CreatedByUserId, s.Visibility, s.ProcessingStatus, s.CampaignId, s.Campaign?.Name,
+                StatusChangedAt: s.StatusChangedAt))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<SourceListItem>>(result.AsReadOnly());

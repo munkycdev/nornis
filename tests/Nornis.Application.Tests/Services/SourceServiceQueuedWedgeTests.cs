@@ -130,4 +130,44 @@ public class SourceServiceQueuedWedgeTests
             Assert.That(result.Error!.Code, Is.EqualTo("invalid_transition"));
         });
     }
+
+    // The Retry button the Web shows for a Queued source is driven by IsStuckInQueue, and the
+    // only thing Retry does is mark the source ready. If the two disagree the GM either gets a
+    // button that answers "still queued", or a wedged source with no button at all — the second
+    // is how the August exit shipped unreachable, with Process and Resubmit offered only for
+    // Draft, Ready and Failed.
+    [TestCase(5)]
+    [TestCase(59)]
+    [TestCase(60)]
+    [TestCase(61)]
+    [TestCase(60 * 24 * 3)]
+    public async Task StuckInQueue_IsExactlyWhenMarkReadyRetries(int minutesQueued)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var source = SeedQueuedSource(now.AddMinutes(-minutesQueued));
+
+        var stuck = SourceService.IsStuckInQueue(source.ProcessingStatus, source.StatusChangedAt, now);
+        var result = await MarkReadyAsync(source);
+
+        Assert.That(stuck, Is.EqualTo(result.IsSuccess),
+            $"queued {minutesQueued} min: the Web was told stuck={stuck}, mark-ready said {(result.IsSuccess ? "retried" : result.Error!.Code)}");
+    }
+
+    [TestCase(SourceProcessingStatus.Draft)]
+    [TestCase(SourceProcessingStatus.Ready)]
+    [TestCase(SourceProcessingStatus.Processing)]
+    [TestCase(SourceProcessingStatus.Processed)]
+    [TestCase(SourceProcessingStatus.Failed)]
+    public void OnlyQueuedCanBeStuckInQueue(SourceProcessingStatus status)
+    {
+        // A week-old Processing source is a run the worker may still own, and Failed has its own
+        // Resubmit; neither may grow a second button.
+        Assert.That(SourceService.IsStuckInQueue(status, DateTimeOffset.UtcNow.AddDays(-7), DateTimeOffset.UtcNow), Is.False);
+    }
+
+    [Test]
+    public void QueuedWithNoTimestamp_IsStuckInQueue()
+    {
+        Assert.That(SourceService.IsStuckInQueue(SourceProcessingStatus.Queued, null, DateTimeOffset.UtcNow), Is.True);
+    }
 }

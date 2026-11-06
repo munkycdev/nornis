@@ -23,4 +23,5 @@ public record SourceResponse(
     string? Slug = null,
     string? CampaignSlug = null,
     string? LibraryDocumentSlug = null,
-    Guid? AdventureId = null);
+    Guid? AdventureId = null,
+    bool StuckInQueue = false);

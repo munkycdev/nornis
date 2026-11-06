@@ -13,4 +13,5 @@ public record SourceListItemResponse(
     Guid? CampaignId = null,
     string? CampaignName = null,
     string? Slug = null,
-    string? CampaignSlug = null);
+    string? CampaignSlug = null,
+    bool StuckInQueue = false);
