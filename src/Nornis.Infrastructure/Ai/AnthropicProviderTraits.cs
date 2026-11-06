@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Anthropic.Exceptions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -25,15 +26,17 @@ public sealed class AnthropicProviderTraits : IAiProviderTraits
     /// <c>output_config.format</c> and <see cref="ChatOptions.MaxOutputTokens"/> into
     /// <c>max_tokens</c>, which Anthropic requires on every call: a call that names no ceiling gets
     /// the client's default (<see cref="UserKeyChatClients.AnthropicDefaultMaxTokens"/>). Our
-    /// schemas are already in the strict dialect (<see cref="AiJsonSchema"/>), which is the subset
-    /// Anthropic's structured outputs accept.
+    /// schemas are already in the strict dialect (<see cref="AiJsonSchema"/>), but Anthropic also
+    /// caps how many union and optional properties a schema may have, so each one passes through
+    /// <see cref="AnthropicSchemaLimits.Fit"/>, which leaves a schema under the caps as written.
     /// </summary>
-    public ChatOptions? ChatOptions(AiCallOptions? options) => AdapterChatOptions(options);
+    public ChatOptions? ChatOptions(AiCallOptions? options) => AdapterChatOptions(options, AnthropicSchemaLimits.Fit);
 
     /// <summary>The options for an SDK whose own <see cref="IChatClient"/> adapter reads
     /// <see cref="ChatOptions.ResponseFormat"/> and <see cref="ChatOptions.MaxOutputTokens"/>
-    /// itself (Anthropic's and Google's); shared with <see cref="GeminiProviderTraits"/>.</summary>
-    internal static ChatOptions? AdapterChatOptions(AiCallOptions? options)
+    /// itself (Anthropic's and Google's); shared with <see cref="GeminiProviderTraits"/>.
+    /// <paramref name="adaptSchema"/> is the provider's own change to a schema, if it needs one.</summary>
+    internal static ChatOptions? AdapterChatOptions(AiCallOptions? options, Func<JsonNode, JsonNode>? adaptSchema = null)
     {
         if (options is null || (options.Schema is null && options.MaxOutputTokens is null))
         {
@@ -43,8 +46,14 @@ public sealed class AnthropicProviderTraits : IAiProviderTraits
         var chatOptions = new ChatOptions { MaxOutputTokens = options.MaxOutputTokens };
         if (options.Schema is { } schema)
         {
-            using var document = JsonDocument.Parse(schema.Schema);
-            chatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema(document.RootElement.Clone(), schema.Name);
+            var node = JsonNode.Parse(schema.Schema)
+                ?? throw new InvalidOperationException($"Structured-output schema '{schema.Name}' is empty.");
+            if (adaptSchema is not null)
+            {
+                node = adaptSchema(node);
+            }
+
+            chatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema(JsonSerializer.SerializeToElement(node), schema.Name);
         }
 
         return chatOptions;

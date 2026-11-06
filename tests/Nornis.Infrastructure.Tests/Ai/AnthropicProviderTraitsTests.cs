@@ -68,6 +68,23 @@ public class AnthropicProviderTraitsTests
     }
 
     [Test]
+    public async Task The_extraction_schema_reaches_the_wire_within_Anthropics_limits()
+    {
+        // Production 2026-11-03 to 11-06: every extraction on a Claude key was refused with
+        // "Schemas contains too many parameters with union types (18 ...) limit: 16". Checked
+        // here on the body the real SDK adapter sends, not on what the traits hand it.
+        var handler = new RecordingHandler(_ => Message("""{"proposals":[]}"""));
+        using var clients = new UserKeyChatClients(maxRetries: 0, anthropicHandler: handler);
+
+        await clients.For(Key, Model, () => Secret).GetResponseAsync(
+            "We questioned Captain Voss.", Traits.ChatOptions(ExtractionAiClient.CallOptions));
+
+        var sent = handler.Bodies.Single()["output_config"]?["format"]?["schema"];
+        Assert.That(sent, Is.Not.Null, handler.Bodies.Single().ToJsonString());
+        Assert.That(AnthropicSchemaLimits.Count(sent!).WithinLimits, Is.True, sent!.ToJsonString());
+    }
+
+    [Test]
     public async Task A_call_that_names_no_ceiling_gets_the_clients_default()
     {
         var handler = new RecordingHandler(_ => Message("Voss"));

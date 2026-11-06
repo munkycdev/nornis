@@ -181,6 +181,10 @@ var builder = Host.CreateDefaultBuilder(args)
         // writer stays whole instead of being carved along host lines.
         services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
         services.AddScoped<IProposalApplicator, ProposalApplicator>();
+        // The writer's accepted verb asks for summary refreshes, so it cannot be built without
+        // the queue; the worker went without it until 2026-11-06 and every message that needed
+        // the writer died at activation and dead-lettered. Same real queue as the API's.
+        services.AddScoped<IArtifactSummaryRefreshQueue, ArtifactSummaryRefreshQueue>();
         services.AddScoped<SyntheticBatchWriter>();
         services.AddScoped<IRelationshipBackfillAiClient, RelationshipBackfillAiClient>();
         services.AddScoped<IRelationshipBackfillService, RelationshipBackfillService>();
