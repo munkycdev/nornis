@@ -1,5 +1,11 @@
 # Design Document
 
+> **Amendment (2026-11-06, feature 41):** a Design turn's edits are now applied to the draft by the
+> server as the answer ends, as one change with one revision, and saved with their outcomes
+> (`ConversationMessage.DraftEditOutcomes`); Apply by hand stays for edits that didn't land and for
+> answers from before 3.12. An empty passage now replaces the whole draft, empty or not. See
+> `docs/features/41-design-writes/design.md`. The text below is left as written.
+>
 > **Amendment (2026-11-03, Phases B and C):** what building it changed. The text below is left
 > as written.
 >

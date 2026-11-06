@@ -1,5 +1,6 @@
 @inject NornisApiClient Api
 @inject IDialogService DialogService
+@inject IJSRuntime JS
 
 @* Talk it through: the Adventure's side conversation with the Loremaster (feature 30). GM-only
    like the page it sits on. The GM's message is saved before the answer starts, and an answer is
@@ -28,8 +29,8 @@
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1 nornis-prep-talk-empty">
             @if (DraftMode)
             {
-                @:Talk the draft through with the Loremaster. It sees the whole draft and suggests
-                @:changes as edits you can apply one at a time. Nothing changes until you apply one.
+                @:Talk the draft through with the Loremaster. It sees the whole draft, and when you ask it
+                @:to write or change something it does so in the draft. Undo on the draft takes a change back.
             }
             else
             {
@@ -39,10 +40,11 @@
         </MudText>
     }
 
-    <div class="nornis-prep-talk-messages" aria-live="polite">
+    <div class="nornis-prep-talk-messages" aria-live="polite" @ref="_list">
         @foreach (var (message, index) in _messages.Select((m, i) => (m, i)))
         {
-            <div class="nornis-prep-talk-message @(message.IsAnswer ? "nornis-prep-talk-answer" : "nornis-prep-talk-question")">
+            <div class="nornis-prep-talk-message @(message.IsAnswer ? "nornis-prep-talk-answer" : "nornis-prep-talk-question")"
+                 data-talk-index="@index">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">@(message.IsAnswer ? "Loremaster" : "You")</MudText>
                 <div class="nornis-prep-talk-text">@(message.Prose ?? message.Content)</div>
                 @if (message.IsAnswer && message.WebResearch is { } research)
@@ -74,12 +76,29 @@
                         }
                     </div>
                 }
+                @if (message.IsAnswer && message.EditsWereApplied && message.Edits is { Count: > 0 } written)
+                {
+                    @* Feature 41: the server put this answer's edits into the draft as it ended. *@
+                    <div class="nornis-prep-talk-wrote">
+                        <MudText Typo="Typo.caption" Color="@(AppliedCount(message) > 0 ? Color.Success : Color.Warning)" Class="nornis-prep-talk-wrote-summary">
+                            @WroteSummary(message)
+                        </MudText>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Class="nornis-prep-talk-show-changes"
+                                   OnClick="() => ToggleChanges(message.Id)">
+                            @(_showingChanges.Contains(message.Id) ? "Hide changes" : "Show changes")
+                        </MudButton>
+                    </div>
+                }
                 @if (message.IsAnswer && message.Edits is { Count: > 0 } edits)
                 {
                     @foreach (var (edit, editIndex) in edits.Select((e, i) => (e, i)))
                     {
                         var at = editIndex;
-                        var applied = _applied.Contains((message.Id, at));
+                        var applied = _applied.Contains((message.Id, at)) || message.IsApplied(at);
+                        if (message.EditsWereApplied && applied && !_showingChanges.Contains(message.Id))
+                        {
+                            continue;
+                        }
                         <div class="nornis-prep-edit">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Suggested edit @(edits.Count > 1 ? $"{at + 1} of {edits.Count}" : "")</MudText>
                             <div class="nornis-prep-edit-before">@(edit.Find.Length == 0 ? "(the empty draft)" : edit.Find)</div>
@@ -103,7 +122,7 @@
                         </div>
                     }
                 }
-                @if (message.IsAnswer && DraftMode)
+                @if (message.IsAnswer && DraftMode && !message.EditsWereApplied)
                 {
                     <MudMenu Label="Put in draft" StartIcon="@Icons.Material.Outlined.PostAdd" Variant="Variant.Text" Size="Size.Small"
                              Color="Color.Primary" Dense="true" Class="nornis-prep-talk-put-draft" Disabled="@(_streaming || PutInDraft is null)">
@@ -132,7 +151,11 @@
         {
             <div class="nornis-prep-talk-message nornis-prep-talk-answer nornis-prep-talk-streaming">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Loremaster</MudText>
-                <div class="nornis-prep-talk-text">@(_answer is { Length: > 0 } ? _answer : _researching ? "Searching the web…" : "Thinking…")</div>
+                <div class="nornis-prep-talk-text">@(_answer is { Length: > 0 } ? _answer : _writingDraft ? "" : _researching ? "Searching the web…" : "Thinking…")</div>
+                @if (_writingDraft)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nornis-prep-talk-writing">Writing into the draft…</MudText>
+                }
             </div>
         }
     </div>
@@ -211,6 +234,23 @@
     /// <summary>Puts the whole answer into the draft, Replace or Append.</summary>
     [Parameter] public Func<ConversationMessageDto, string, Task>? PutInDraft { get; set; }
 
+    /// <summary>
+    /// Runs before a Design turn is sent (feature 41): the page saves what was typed in the draft,
+    /// so the turn sees it and its edits land on it. False keeps the message unsent.
+    /// </summary>
+    [Parameter] public Func<Task<bool>>? BeforeSend { get; set; }
+
+    /// <summary>True as a turn starts and false as it ends, so the page can hold the draft still meanwhile.</summary>
+    [Parameter] public EventCallback<bool> OnTurnRunning { get; set; }
+
+    /// <summary>A Design turn's edits landed in the draft (feature 41): the page shows the new draft.</summary>
+    [Parameter] public EventCallback OnDraftEdited { get; set; }
+
+    /// <summary>Answers whose applied edits are shown, from Show changes.</summary>
+    private readonly HashSet<Guid> _showingChanges = [];
+    private ElementReference _list;
+    private bool _writingDraft;
+
     private readonly HashSet<(Guid MessageId, int Index)> _applied = [];
     private bool _applying;
 
@@ -279,6 +319,12 @@
             return;
         }
 
+        var onDraft = DraftMode;
+        if (onDraft && BeforeSend is not null && !await BeforeSend())
+        {
+            return;
+        }
+
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
         _streaming = true;
@@ -286,14 +332,19 @@
         _error = null;
         _researching = _webResearch && _researchUnavailable is null;
         _webResearch = false;
+        _writingDraft = false;
+        var draftEdited = false;
         // Shown at once; the reload after the turn replaces it with the saved copy.
         _messages.Add(new ConversationMessageDto(Guid.Empty, ConversationMessageDto.UserRole, text, null, DateTimeOffset.UtcNow));
+        var asked = _messages.Count - 1;
         _text = string.Empty;
+        await OnTurnRunning.InvokeAsync(true);
         StateHasChanged();
+        await ScrollToAsync(asked);
         try
         {
             await foreach (var e in Api.StreamAdventureConversationAsync(WorldId, AdventureId,
-                               DraftMode
+                               onDraft
                                    ? new SendConversationMessageRequest(text, null, SendConversationMessageRequest.DraftScope, _researching)
                                    : new SendConversationMessageRequest(text, SelectedSectionId, WebResearch: _researching), _cts.Token))
             {
@@ -302,6 +353,13 @@
                     case ConversationStreamEvent.Delta delta:
                         _answer += delta.Text;
                         StateHasChanged();
+                        break;
+                    case ConversationStreamEvent.WritingDraft:
+                        _writingDraft = true;
+                        StateHasChanged();
+                        break;
+                    case ConversationStreamEvent.Done done:
+                        draftEdited = done.Answer.DraftEditOutcomes?.Contains(ConversationMessageDto.AppliedOutcome) == true;
                         break;
                     case ConversationStreamEvent.Failed failed:
                         _error = failed.Error;
@@ -317,10 +375,67 @@
         {
             _streaming = false;
             _researching = false;
+            _writingDraft = false;
             _answer = null;
             await ReloadAsync();
+            if (draftEdited)
+            {
+                await OnDraftEdited.InvokeAsync();
+            }
+
+            await OnTurnRunning.InvokeAsync(false);
             StateHasChanged();
+            await ScrollToAsync(asked);
         }
+    }
+
+    /// <summary>
+    /// Puts the GM's message at the top of the list, so a long answer reads down from the
+    /// question rather than leaving the GM at its end (feature 41). Nothing follows the answer
+    /// as it grows. A browser that can't (a prerender, a test) keeps its scroll.
+    /// </summary>
+    private async Task ScrollToAsync(int index)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("nornisCompose.scrollToMessage", _list, index);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or JSDisconnectedException or TaskCanceledException)
+        {
+        }
+    }
+
+    private void ToggleChanges(Guid messageId)
+    {
+        if (!_showingChanges.Remove(messageId))
+        {
+            _showingChanges.Add(messageId);
+        }
+    }
+
+    private int AppliedCount(ConversationMessageDto message) =>
+        Enumerable.Range(0, message.Edits?.Count ?? 0).Count(i => message.IsApplied(i) || _applied.Contains((message.Id, i)));
+
+    /// <summary>What the answer did to the draft, in a line: the edits' text is behind Show changes.</summary>
+    private string WroteSummary(ConversationMessageDto message)
+    {
+        var total = message.Edits?.Count ?? 0;
+        var applied = AppliedCount(message);
+        if (applied == total)
+        {
+            return total == 1
+                ? "Changed the draft. Undo on the draft takes it back."
+                : $"Changed the draft ({total} edits). Undo on the draft takes it back.";
+        }
+
+        if (applied > 0)
+        {
+            return $"Changed the draft ({applied} of {total} edits). The rest didn't fit the draft; apply them below if you still want them.";
+        }
+
+        return message.DraftEditOutcomes?.Contains(ConversationMessageDto.NotAppliedOutcome) == true
+            ? "The draft changed while this was written, so nothing was applied. Apply the edits below if you still want them."
+            : "None of these edits fit the draft as it is now, so nothing changed.";
     }
 
     private void Stop() => _cts?.Cancel();

@@ -131,14 +131,15 @@ else if (_adventure is not null)
         <div class="nornis-prep-editor">
             @* Design (feature 37) works on the one draft; Sections on the outline's sections. *@
             <MudToggleGroup T="string" Value="_mode" ValueChanged="SwitchModeAsync" SelectionMode="SelectionMode.SingleSelection"
-                            Color="Color.Primary" Size="Size.Small" Class="nornis-prep-mode mb-3" Disabled="_busy">
+                            Color="Color.Primary" Size="Size.Small" Class="nornis-prep-mode mb-3" Disabled="@(_busy || _talkRunning)">
                 <MudToggleItem Value="@DesignMode">Design</MudToggleItem>
                 <MudToggleItem Value="@SectionsMode">Sections</MudToggleItem>
             </MudToggleGroup>
 
             @if (_mode == DesignMode)
             {
-                <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy"
+                @* Read-only while a Design turn runs: its edits land in the draft as it ends (feature 41). *@
+                <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy" Locked="_talkRunning"
                                       OnDraftChanged="OnDraftChanged" OnSplit="OnSplit" />
             }
             else if (Selected is { } selected)
@@ -264,7 +265,9 @@ else if (_adventure is not null)
             <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
                                         Sections="_adventure.Sections" SelectedSectionId="_selectedId"
                                         PutInSection="PutAnswerAsync" DraftMode="@(_mode == DesignMode)"
-                                        ApplyEdit="ApplyEditAsync" PutInDraft="PutAnswerInDraftAsync" />
+                                        ApplyEdit="ApplyEditAsync" PutInDraft="PutAnswerInDraftAsync"
+                                        BeforeSend="SaveDraftBeforeTurnAsync" OnTurnRunning="OnTalkRunning"
+                                        OnDraftEdited="ReloadDraftAsync" />
         </div>
     </div>
 }
@@ -454,6 +457,37 @@ else if (_adventure is not null)
                 _editorVersion++;
             }
         }
+    }
+
+    /// <summary>A Design turn is running, so the draft editor is read-only until its edits land (feature 41).</summary>
+    private bool _talkRunning;
+
+    /// <summary>Before a Design turn: what was typed in the draft is saved, so the turn sees it and its edits land on it.</summary>
+    private async Task<bool> SaveDraftBeforeTurnAsync() =>
+        _mode != DesignMode || _designPanel is null || await _designPanel.SaveIfDirtyAsync();
+
+    private void OnTalkRunning(bool running) => _talkRunning = running;
+
+    /// <summary>
+    /// A Design turn's edits landed in the draft (feature 41): show the server's draft, its Undo
+    /// count and the AI-use box, which the write may have ticked.
+    /// </summary>
+    private async Task ReloadDraftAsync()
+    {
+        if (Worlds.Current is null || _adventure is null)
+        {
+            return;
+        }
+
+        var fresh = await Api.GetAdventureAsync(Worlds.Current.Id, _adventure.Id.ToString());
+        if (!fresh.IsSuccess)
+        {
+            Snackbar.Add("The Loremaster changed the draft. Reload the page to see it.", Severity.Warning);
+            return;
+        }
+
+        _adventure = _adventure with { Draft = fresh.Value!.Draft, AiUse = fresh.Value.AiUse, UpdatedAt = fresh.Value.UpdatedAt };
+        StateHasChanged();
     }
 
     private void OnDraftChanged(AdventureDraftDto draft)

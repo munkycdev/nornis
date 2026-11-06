@@ -1569,6 +1569,7 @@ public class NornisApiClient
     private static ConversationStreamEvent? ToConversationStreamEvent(SseItem<string> item) => item.EventType switch
     {
         DraftStreamEventNames.Delta => Deserialize<ConversationStreamEvent.Delta>(item.Data),
+        DraftStreamEventNames.Writing => new ConversationStreamEvent.WritingDraft(),
         DraftStreamEventNames.Done => new ConversationStreamEvent.Done(Deserialize<ConversationMessageDto>(item.Data)),
         DraftStreamEventNames.Error => new ConversationStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
         _ => null,

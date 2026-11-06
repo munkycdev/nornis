@@ -402,6 +402,15 @@
 
         // Puts the caret back where it was. Toggling the editor's maximised state re-renders
         // the wrapper, and a click on the toolbar button had already taken focus anyway.
+        // Holds an editable editor still, or lets it go again, without remounting it: what is
+        // in it stays. Prep locks the design draft while the Loremaster writes into it (feature 41).
+        setEditable(elementId, editable) {
+            const editor = editors.get(elementId);
+            if (editor) {
+                editor.setEditable(editable);
+            }
+        },
+
         focus(elementId) {
             const editor = editors.get(elementId);
             if (editor) {

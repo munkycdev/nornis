@@ -1,5 +1,12 @@
 # Domain Model
 
+> **Amendment (2026-11-06): a Design answer records what it did to the draft.** Feature 41
+> (Nornis 3.12) applies a Design-mode answer's edits to the `AdventureDraft` as it is saved, as
+> one draft revision. `ConversationMessage` gains `DraftEditOutcomes`: one `DraftEditOutcome`
+> (Applied, DidNotFit, NotApplied) per edit, in the order written; null on answers that were never
+> applied (section turns, and answers from before 3.12), never empty. The edits themselves are
+> still parsed from the stored answer, never stored apart from it.
+
 > **Amendment (2026-11-03): a user can hold AI keys, and a world spends its creator's.**
 > Feature 39 adds three user-owned entities. `UserAiKey`: one per provider (OpenAI, Anthropic,
 > Gemini, OpenAI-compatible) per user, the key stored only as Data Protection ciphertext with

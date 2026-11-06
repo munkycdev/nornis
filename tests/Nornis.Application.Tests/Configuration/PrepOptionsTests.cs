@@ -66,11 +66,32 @@ public class PrepOptionsTests
     [TestCase(nameof(PrepOptions.ConversationHistoryChars))]
     [TestCase(nameof(PrepOptions.ConversationSectionChars))]
     [TestCase(nameof(PrepOptions.MaxSectionChars))]
+    [TestCase(nameof(PrepOptions.DesignOutputCeilingTokens))]
+    [TestCase(nameof(PrepOptions.DesignTimeoutSeconds))]
     public void AZeroBound_IsNamed_SoTheApiRefusesToStart(string bound)
     {
         var options = new PrepOptions();
         typeof(PrepOptions).GetProperty(bound)!.SetValue(options, 0);
 
         Assert.That(options.FirstNonPositiveBound(), Is.EqualTo(bound));
+    }
+
+    [Test]
+    public void TheLongestCall_IsTheLargestTimeout_SoNoLeaseLapsesUnderARunningTurn()
+    {
+        // Feature 41: the lease was the draft timeout plus 60 (150 s), under a 180 s research turn.
+        var options = new PrepOptions { DraftTimeoutSeconds = 90, WebResearchTimeoutSeconds = 180, DesignTimeoutSeconds = 220 };
+
+        Assert.That(options.LongestCallSeconds, Is.EqualTo(220));
+
+        options.WebResearchTimeoutSeconds = 300;
+        Assert.That(options.LongestCallSeconds, Is.EqualTo(300));
+    }
+
+    [Test]
+    public void ADesignTurn_HasRoomForAWholeDraft()
+    {
+        // About four characters a token: the whole draft at its cap fits one answer's ceiling.
+        Assert.That(new PrepOptions().DesignOutputCeilingTokens * 4, Is.GreaterThanOrEqualTo(Nornis.Domain.Entities.Adventure.MaxDraftChars));
     }
 }

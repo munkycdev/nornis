@@ -62,6 +62,7 @@ public class AdventureDesignServiceTests
             ("SetSourceBooks", async (s, a, r) => (await s.SetSourceBooksAsync(new(WorldId, a, r, []), default)).Error),
             ("SetHandouts", async (s, a, r) => (await s.SetHandoutsAsync(new(WorldId, a, r, []), default)).Error),
             ("ApplyEdit", async (s, a, r) => (await s.ApplyEditAsync(new(WorldId, a, r, Guid.NewGuid(), 0, null), default)).Error),
+            ("ApplyAnswerEdits", async (s, a, r) => (await s.ApplyAnswerEditsAsync(new(WorldId, a, r, [new DraftEdit("", "# Draft")], false), default)).Error),
             ("Split", async (s, a, r) => (await s.SplitAsync(new(WorldId, a, r, [], DraftSplitMode.Replace, null), default)).Error),
             ("Gather", async (s, a, r) => (await s.GatherAsync(new(WorldId, a, r, null), default)).Error),
             ("PutInDraft", async (s, a, r) => (await s.PutInDraftAsync(new(WorldId, a, r, Guid.NewGuid(), PutInSectionMode.Replace, null), default)).Error),
@@ -371,7 +372,8 @@ public class AdventureDesignServiceTests
         (await _sut.SaveDraftAsync(new(WorldId, _adventureId, WorldRole.GM, markdown, _adventures.Adventures.Single().DraftUpdatedAt), default))
         .Value!.UpdatedAt!.Value;
 
-    private async Task<Guid> AnswerAsync(string content, Guid? adventureId = null, WebResearchResult? webResearch = null)
+    private async Task<Guid> AnswerAsync(
+        string content, Guid? adventureId = null, WebResearchResult? webResearch = null, IReadOnlyList<DraftEditOutcome>? outcomes = null)
     {
         var conversationId = Guid.NewGuid();
         var answer = new ConversationMessage
@@ -381,6 +383,7 @@ public class AdventureDesignServiceTests
             Role = ConversationRole.Assistant,
             Content = content,
             WebResearch = webResearch,
+            DraftEditOutcomes = outcomes,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         await _conversations.CreateAsync(new Conversation
@@ -499,6 +502,52 @@ public class AdventureDesignServiceTests
         await _sut.PutInDraftAsync(new(WorldId, _adventureId, WorldRole.GM, ordinary, PutInSectionMode.Append, stamp), default);
 
         Assert.That((AiUse.WroteText, AiUse.ResearchedOnWeb), Is.EqualTo((true, false)));
+    }
+
+    [Test]
+    public async Task ApplyingByHand_AnEditThatDidNotLand_MarksItApplied()
+    {
+        // Feature 41: so a reload doesn't offer Apply again on text that is now in the draft.
+        var stamp = await DraftAsync("# The Spa\n\nThe spa is quiet.\n\nThe end.");
+        var answer = await AnswerAsync(TwoEdits, outcomes: [DraftEditOutcome.NotApplied, DraftEditOutcome.NotApplied]);
+
+        var applied = await _sut.ApplyEditAsync(new(WorldId, _adventureId, WorldRole.GM, answer, 1, stamp), default);
+
+        Assert.That(applied.IsSuccess, Is.True, applied.Error?.Message);
+        Assert.That(_conversations.Messages.Single(m => m.Id == answer).DraftEditOutcomes,
+            Is.EqualTo([DraftEditOutcome.NotApplied, DraftEditOutcome.Applied]));
+    }
+
+    [Test]
+    public async Task AnswerEdits_ThatWouldMakeTheDraftTooLong_AreNotApplied()
+    {
+        await DraftAsync("# The Spa");
+
+        var result = await _sut.ApplyAnswerEditsAsync(new(WorldId, _adventureId, WorldRole.GM,
+            [new DraftEdit("", new string('x', Adventure.MaxDraftChars + 1))], false), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Outcomes, Is.EqualTo([DraftEditOutcome.NotApplied]));
+            Assert.That(result.Value.Draft, Is.Null);
+            Assert.That(_adventures.Adventures.Single().DraftMarkdown, Is.EqualTo("# The Spa"));
+        });
+    }
+
+    [Test]
+    public async Task AnswerEdits_AreOneChange_WithOneRevision_AndRecordTheWeb()
+    {
+        await DraftAsync("# The Spa\n\nThe spa is quiet.\n\nThe end.");
+
+        var result = await _sut.ApplyAnswerEditsAsync(new(WorldId, _adventureId, WorldRole.GM, DraftEdits.Parse(TwoEdits), true), default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Outcomes, Is.EqualTo([DraftEditOutcome.Applied, DraftEditOutcome.Applied]));
+            Assert.That(result.Value.Draft!.RevisionCount, Is.EqualTo(1));
+            Assert.That(AiUse.WroteText, Is.True);
+            Assert.That(AiUse.ResearchedOnWeb, Is.True);
+        });
     }
 
     [Test]

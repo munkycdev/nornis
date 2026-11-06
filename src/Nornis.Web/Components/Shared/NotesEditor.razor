@@ -155,6 +155,12 @@
     [Parameter] public bool ReadOnly { get; set; }
 
     /// <summary>
+    /// An editable editor held still for now, keeping its text and toolbar; false lets it go
+    /// again. Unlike <see cref="ReadOnly"/> it can change after the editor is up (feature 41).
+    /// </summary>
+    [Parameter] public bool Locked { get; set; }
+
+    /// <summary>
     /// Offers a toolbar toggle that grows the editor to the whole viewport. Off by default:
     /// a sheet on a character page or a body being corrected in place fits where it is; the
     /// capture page, where a session's notes are typed from scratch, turns it on.
@@ -252,12 +258,35 @@
                 ReadOnly ? null : Placeholder, !ReadOnly,
                 ReadOnly ? null : BackupKey, PreferBackup);
             _initialized = true;
+            await ApplyLockAsync();
 
             if (DateTimeOffset.TryParse(restoredAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var keptAt))
             {
                 await Restored.InvokeAsync(keptAt);
             }
         }
+    }
+
+    private bool _lockedInBrowser;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_initialized)
+        {
+            await ApplyLockAsync();
+        }
+    }
+
+    /// <summary>Puts <see cref="Locked"/> into the browser's editor when it differs from what is there.</summary>
+    private async Task ApplyLockAsync()
+    {
+        if (ReadOnly || Locked == _lockedInBrowser)
+        {
+            return;
+        }
+
+        _lockedInBrowser = Locked;
+        await JS.InvokeVoidAsync("nornisEditor.setEditable", _elementId, !Locked);
     }
 
     /// <summary>

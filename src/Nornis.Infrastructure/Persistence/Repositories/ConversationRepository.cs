@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Repositories;
 
 namespace Nornis.Infrastructure.Persistence.Repositories;
@@ -56,6 +57,15 @@ public class ConversationRepository : IConversationRepository
             .AsNoTracking()
             .Include(m => m.Conversation)
             .FirstOrDefaultAsync(m => m.Id == messageId, cancellationToken);
+
+    public async Task SetDraftEditOutcomesAsync(
+        Guid messageId, IReadOnlyList<DraftEditOutcome> outcomes, CancellationToken cancellationToken = default)
+    {
+        var message = await _context.LoadForUpdateAsync<ConversationMessage>(messageId, cancellationToken);
+        message.DraftEditOutcomes = outcomes.ToList();
+        await _context.SaveChangesAsync(cancellationToken);
+        _context.ChangeTracker.Clear();
+    }
 
     public async Task DeleteByAdventureAsync(Guid adventureId, CancellationToken cancellationToken = default)
     {

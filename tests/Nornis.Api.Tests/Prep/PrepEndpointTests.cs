@@ -833,7 +833,7 @@ public class PrepEndpointTests
     }
 
     [Test]
-    public async Task InDesignMode_AnAnswersEdits_AreShownApart_AndApplyChangesTheDraft_Once()
+    public async Task InDesignMode_AnAnswersEdits_GoIntoTheDraft_AsOneUndo_AndNeverStreamIntoTheChat()
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
         var worldId = scenario.World.Id;
@@ -841,33 +841,35 @@ public class PrepEndpointTests
         var started = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft",
             new SaveAdventureDraftRequest("# The Spa\n\nThe spa is quiet.", null));
         var draft = (await started.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
-        _factory.FakeDrafting.Text = "Louder.\n\n```edit\n<<<\nThe spa is quiet.\n===\nThe spa hums with slime.\n>>>\n```";
+        _factory.FakeDrafting.Text = "Louder.\n\n````edit\n<<<\nThe spa is quiet.\n===\nThe spa hums with slime.\n>>>\n````";
 
         var sent = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/conversation/messages",
             new SendConversationMessageRequest("Make it louder.", null, "Draft"));
         var events = await ReadEventsAsync(sent);
         var answer = JsonSerializer.Deserialize<ConversationMessageResponse>(events[^1].Data, JsonSerializerOptions.Web)!;
+        var streamed = string.Concat(events.Where(e => e.EventType == DraftStreamEventNames.Delta)
+            .Select(e => JsonSerializer.Deserialize<DraftStreamDeltaResponse>(e.Data, JsonSerializerOptions.Web)!.Text));
+        var after = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!.Draft!;
 
         Assert.Multiple(() =>
         {
             Assert.That(_factory.FakeDrafting.Requests.Single().UserMessage, Does.Contain("The spa is quiet."), "the turn saw the draft");
+            Assert.That(streamed, Does.Not.Contain("hums"), "the edit's text goes into the draft, not the chat");
+            Assert.That(events.Select(e => e.EventType), Does.Contain(DraftStreamEventNames.Writing));
             Assert.That(answer.Edits, Is.EqualTo([new DraftEditResponse("The spa is quiet.", "The spa hums with slime.")]));
             Assert.That(answer.Prose, Is.EqualTo("Louder."));
-        });
-
-        var applied = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/edits",
-            new ApplyDraftEditRequest(answer.Id, 0, draft.UpdatedAt));
-        var after = (await applied.Content.ReadFromJsonAsync<AdventureDraftResponse>())!;
-        var again = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/edits",
-            new ApplyDraftEditRequest(answer.Id, 0, after.UpdatedAt));
-
-        Assert.Multiple(() =>
-        {
+            Assert.That(answer.DraftEditOutcomes, Is.EqualTo(["Applied"]));
             Assert.That(after.Markdown, Is.EqualTo("# The Spa\n\nThe spa hums with slime."));
             Assert.That(after.RevisionCount, Is.EqualTo(1));
-            Assert.That(again.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), "the passage is gone, so the edit no longer fits");
         });
+
+        var again = await scenario.GmClient.PostAsJsonAsync($"{Base(worldId)}/{adventure.Id}/draft/edits",
+            new ApplyDraftEditRequest(answer.Id, 0, after.UpdatedAt));
+        Assert.That(again.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), "the passage is gone, so the edit no longer fits");
         Assert.That((await again.Content.ReadFromJsonAsync<ErrorResponse>())!.Code, Is.EqualTo("edit_no_longer_fits"));
+
+        var undone = await scenario.GmClient.PostAsync($"{Base(worldId)}/{adventure.Id}/draft/undo", null);
+        Assert.That((await undone.Content.ReadFromJsonAsync<AdventureDraftResponse>())!.Markdown, Is.EqualTo(draft.Markdown));
     }
 
     [Test]

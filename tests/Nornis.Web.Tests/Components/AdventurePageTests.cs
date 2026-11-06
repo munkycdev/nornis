@@ -751,6 +751,66 @@ public class AdventurePageTests : BunitContext
         cut.WaitForAssertion(() => Assert.That(cut.Find("button.nornis-prep-design-undo").TextContent, Does.Contain("Undo (1)")));
     }
 
+    private const string WroteAnswerJson = """
+        {"messages":[
+          {"id":"11111111-1111-1111-1111-111111111111","role":"User","content":"Louder.","model":null,"createdAt":"2026-11-03T09:00:00+00:00"},
+          {"id":"22222222-2222-2222-2222-222222222222","role":"Assistant","content":"Made it louder.\n\n````edit\n...","model":"nornis-ask",
+           "createdAt":"2026-11-03T09:00:05+00:00","edits":[{"find":"The spa is quiet.","replace":"The spa hums with slime."}],"prose":"Made it louder.",
+           "draftEditOutcomes":["Applied"]}],
+         "isFull":false}
+        """;
+
+    [Test]
+    public async Task AnAnswerThatWroteIntoTheDraft_SaysSoInALine_AndShowsItsChangesOnlyWhenAsked()
+    {
+        _handler.ConversationJson = WroteAnswerJson;
+        var cut = await RenderOnDesignAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-wrote-summary"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-talk-wrote-summary").TextContent.Trim(), Is.EqualTo("Changed the draft. Undo on the draft takes it back."));
+            Assert.That(cut.FindAll(".nornis-prep-edit"), Is.Empty, "an applied edit's text stays out of the chat");
+            Assert.That(cut.FindAll(".nornis-prep-talk-put-draft"), Is.Empty, "an answer that wrote into the draft isn't put in again");
+        });
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-show-changes").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-edit"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-edit-after").TextContent, Is.EqualTo("The spa hums with slime."));
+            Assert.That(cut.FindAll(".nornis-prep-edit-applied"), Has.Count.EqualTo(1), "it shows as applied, with nothing to press");
+            Assert.That(cut.Find("button.nornis-prep-talk-show-changes").TextContent.Trim(), Is.EqualTo("Hide changes"));
+        });
+    }
+
+    [Test]
+    public async Task ADesignTurn_SavesWhatWasTyped_ThenShowsTheDraftItWrote()
+    {
+        _handler.DraftJson = $$"""{"markdown":"The spa is quiet.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
+        _handler.NoneWritten = true;
+        JSInterop.Setup<string>("nornisEditor.getHtml", _ => true).SetResult("<p>The spa is quiet tonight.</p>");
+        _handler.SendWritesDraft = true;
+        _handler.ConversationAfterSendJson = WroteAnswerJson;
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Make it louder."));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.Find("button.nornis-prep-design-undo").TextContent, Does.Contain("Undo (1)")));
+        var saveAt = _handler.Requests.FindIndex(r => r.StartsWith("PUT", StringComparison.Ordinal) && r.EndsWith("/draft", StringComparison.Ordinal));
+        var sendAt = _handler.Requests.FindIndex(r => r.EndsWith("/conversation/messages", StringComparison.Ordinal));
+        Assert.Multiple(() =>
+        {
+            Assert.That(saveAt, Is.GreaterThanOrEqualTo(0).And.LessThan(sendAt), "what was typed is saved before the turn, so its edits land on it");
+            Assert.That(JsonDocument.Parse(_handler.LastDraftSaveBody!).RootElement.GetProperty("markdown").GetString(),
+                Is.EqualTo("The spa is quiet tonight."));
+            Assert.That(cut.FindAll(".nornis-prep-talk-wrote-summary"), Has.Count.EqualTo(1));
+        });
+    }
+
     [Test]
     public async Task OnTheSectionsTab_AnEditCantBeApplied()
     {
@@ -881,6 +941,9 @@ public class AdventurePageTests : BunitContext
         public string[] SplitTitles { get; set; } = ["Arrival", "The Baths"];
 
         public bool SendFails { get; set; }
+
+        /// <summary>The send stream is a Design turn that wrote into the draft (feature 41).</summary>
+        public bool SendWritesDraft { get; set; }
         public string? LastSendBody { get; private set; }
         public string? LastPutBody { get; private set; }
         public string? LastPutPath { get; private set; }
@@ -976,10 +1039,16 @@ public class AdventurePageTests : BunitContext
             {
                 LastSendBody = await request.Content!.ReadAsStringAsync(ct);
                 ConversationJson = ConversationAfterSendJson ?? ConversationJson;
+                var outcomes = SendWritesDraft ? ",\"draftEditOutcomes\":[\"Applied\"]" : "";
                 var end = SendFails
                     ? "event: error\ndata: {\"code\":\"answer_cut_off\",\"message\":\"The answer ran past the length one answer can be and was cut off, so it wasn't saved.\"}\n\n"
-                    : $"event: done\ndata: {{\"id\":\"{AnswerId}\",\"role\":\"Assistant\",\"content\":\"Three cultists.\",\"model\":\"nornis-ask\",\"createdAt\":\"2026-11-02T10:30:05+00:00\"}}\n\n";
-                var stream = "event: delta\ndata: {\"text\":\"Three \"}\n\n" + end;
+                    : $"event: done\ndata: {{\"id\":\"{AnswerId}\",\"role\":\"Assistant\",\"content\":\"Three cultists.\",\"model\":\"nornis-ask\",\"createdAt\":\"2026-11-02T10:30:05+00:00\"{outcomes}}}\n\n";
+                var stream = "event: delta\ndata: {\"text\":\"Three \"}\n\n" + (SendWritesDraft ? "event: writing\ndata: {}\n\n" : "") + end;
+                if (SendWritesDraft)
+                {
+                    DraftJson = """{"markdown":"The spa hums with slime.","updatedAt":"2026-11-03T09:20:00+00:00","revisionCount":1}""";
+                }
+
                 var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(stream, Encoding.UTF8) };
                 response.Content.Headers.ContentType = new("text/event-stream");
                 return response;

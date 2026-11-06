@@ -1,4 +1,5 @@
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 
 namespace Nornis.Domain.Repositories;
 
@@ -23,6 +24,12 @@ public interface IConversationRepository
 
     /// <summary>One message with its conversation, untracked. Null when it doesn't exist.</summary>
     Task<ConversationMessage?> GetMessageAsync(Guid messageId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replaces one answer's draft-edit outcomes (feature 41), as an edit that didn't land is
+    /// applied by hand. Throws when the message isn't there: callers have just loaded it.
+    /// </summary>
+    Task SetDraftEditOutcomesAsync(Guid messageId, IReadOnlyList<DraftEditOutcome> outcomes, CancellationToken cancellationToken = default);
 
     /// <summary>Deletes the Adventure's conversation and every message in it. Nothing else.</summary>
     Task DeleteByAdventureAsync(Guid adventureId, CancellationToken cancellationToken = default);

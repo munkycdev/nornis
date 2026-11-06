@@ -38,6 +38,7 @@ public class AdventureConversationServiceTests
     private SectionDraftGate _gate = null!;
     private PrepOptions _options = null!;
     private AdventureService _adventureService = null!;
+    private AdventureDesignService _design = null!;
     private AdventureConversationService _sut = null!;
 
     private FakeReferencePassageRetriever _references = null!;
@@ -80,8 +81,10 @@ public class AdventureConversationServiceTests
 
         _adventureService = new AdventureService(_adventures, new InMemoryCampaignRepository(),
             new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options), new FakeBlobStorageService());
+        _design = new AdventureDesignService(_adventures, new InMemoryLibraryDocumentRepository(), _adventureService, _conversations,
+            Options.Create(_options), NullLogger<AdventureDesignService>.Instance);
         _sut = new AdventureConversationService(
-            _adventures, _conversations, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
+            _adventures, _conversations, _design, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
             _funding, Options.Create(new AiModelsOptions()), Options.Create(_options), Options.Create(loremaster),
             NullLogger<AdventureConversationService>.Instance);
     }
@@ -744,6 +747,185 @@ public class AdventureConversationServiceTests
             Assert.That(_references.LastDocumentIds, Is.EqualTo([chosen.Id]));
             Assert.That(message, Does.Contain("Slimes dissolve copper on contact."));
             Assert.That(message, Does.Not.Contain("Dragons hoard gold."));
+        });
+    }
+
+    // ------------------------------------------------- design writes (feature 41) --
+
+    private async Task<Adventure> WithDraftAsync(string? draft)
+    {
+        var adventure = await CreateAdventureAsync();
+        var row = _adventures.Adventures.Single(a => a.Id == adventure.Id);
+        row.DraftMarkdown = draft;
+        row.DraftUpdatedAt = draft is null ? null : DateTimeOffset.UtcNow.AddMinutes(-5);
+        return adventure;
+    }
+
+    private SendConversationMessageCommand Design(Adventure adventure, string text = "Make the plumber grumpier.") =>
+        Send(adventure, text) with { Scope = ConversationScope.Draft };
+
+    private string? DraftOf(Adventure adventure) => _adventures.Adventures.Single(a => a.Id == adventure.Id).DraftMarkdown;
+
+    private static string Edit(string find, string replace) => $"````edit\n<<<\n{find}\n===\n{replace}\n>>>\n````";
+
+    [Test]
+    public async Task ADesignTurn_AppliesItsEdits_ToTheDraft_AsOneUndoStep()
+    {
+        var adventure = await WithDraftAsync("# The Heist\n\nPell is a plumber.\n\nTilda lost a locket.");
+        _ai.Script("I made Pell grumpier and gave Tilda a reason.\n\n",
+            Edit("Pell is a plumber.", "Pell is a plumber who hates unlicensed plungers."), "\n\n",
+            Edit("Tilda lost a locket.", "Tilda lost her mother's locket."));
+
+        var events = await TurnAsync(Design(adventure));
+
+        var answer = ((ConversationEvent.Completed)events[^1]).Answer;
+        var streamed = string.Concat(events.OfType<ConversationEvent.Delta>().Select(d => d.Text));
+        Assert.Multiple(() =>
+        {
+            Assert.That(DraftOf(adventure), Is.EqualTo("# The Heist\n\nPell is a plumber who hates unlicensed plungers.\n\nTilda lost her mother's locket."));
+            Assert.That(answer.DraftEditOutcomes, Is.EqualTo([DraftEditOutcome.Applied, DraftEditOutcome.Applied]));
+            Assert.That(_conversations.Messages.Single(m => m.Id == answer.Id).DraftEditOutcomes,
+                Is.EqualTo([DraftEditOutcome.Applied, DraftEditOutcome.Applied]), "saved with the answer");
+            Assert.That(_adventures.DraftRevisions.Count(r => r.AdventureId == adventure.Id), Is.EqualTo(1), "one Undo step for the turn");
+            Assert.That(_adventures.Adventures.Single(a => a.Id == adventure.Id).AiUse.WroteText, Is.True);
+            Assert.That(streamed, Does.Contain("I made Pell grumpier"));
+            Assert.That(streamed, Does.Not.Contain("unlicensed plungers"), "edit text goes to the draft, not the chat");
+            Assert.That(events.OfType<ConversationEvent.WritingDraft>().Count(), Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task ADesignTurn_OnAnEmptyDraft_WritesTheWholeAdventure_StatBlocksAndAll()
+    {
+        // The 2026-11-06 answer: four backticks around an adventure with a stat block inside.
+        var adventure = await WithDraftAsync(null);
+        var heist = "# The Great Toilet Heist\n\n```statblock\n# Muck Scavenger\n*Medium monstrosity*\n\nArmor Class: 13\n```\n\nThe end.";
+        _ai.Script("Here is a first draft.\n\n", Edit("", heist));
+
+        var events = await TurnAsync(Design(adventure, "Build out the adventure."));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(events[^1], Is.TypeOf<ConversationEvent.Completed>());
+            Assert.That(DraftOf(adventure), Is.EqualTo(heist));
+        });
+    }
+
+    [Test]
+    public async Task AWholeDraftEdit_ReplacesADraftThatHasText()
+    {
+        var adventure = await WithDraftAsync("# Old\n\nOld text.");
+        _ai.Script("Regenerated with the footpads.\n\n", "````edit\n<<<\n===\n# New\n\nThe footpads argue.\n>>>\n````");
+
+        await TurnAsync(Design(adventure, "Regenerate the whole adventure with the footpad scene."));
+
+        Assert.That(DraftOf(adventure), Is.EqualTo("# New\n\nThe footpads argue."));
+    }
+
+    [Test]
+    public async Task AnEditThatDoesNotFit_IsLeftOut_AndTheRestStillApply()
+    {
+        var adventure = await WithDraftAsync("# The Heist\n\nPell is a plumber.");
+        _ai.Script(Edit("Nobody wrote this.", "Gone."), "\n", Edit("Pell is a plumber.", "Pell is a grumpy plumber."));
+
+        var answer = ((ConversationEvent.Completed)(await TurnAsync(Design(adventure)))[^1]).Answer;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(answer.DraftEditOutcomes, Is.EqualTo([DraftEditOutcome.DidNotFit, DraftEditOutcome.Applied]));
+            Assert.That(DraftOf(adventure), Is.EqualTo("# The Heist\n\nPell is a grumpy plumber."));
+        });
+    }
+
+    [Test]
+    public async Task ADesignTurnWhoseEditsAllDoNotFit_ChangesNothing_AndKeepsNoRevision()
+    {
+        var adventure = await WithDraftAsync("# The Heist");
+        _ai.Script(Edit("Nobody wrote this.", "Gone."));
+
+        var answer = ((ConversationEvent.Completed)(await TurnAsync(Design(adventure)))[^1]).Answer;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(answer.DraftEditOutcomes, Is.EqualTo([DraftEditOutcome.DidNotFit]));
+            Assert.That(DraftOf(adventure), Is.EqualTo("# The Heist"));
+            Assert.That(_adventures.DraftRevisions, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task AnEditLeftOpen_IsCutOff_SoNothingIsSavedOrApplied()
+    {
+        // The 21:38 answer stopped mid stat block and was saved as whole.
+        var adventure = await WithDraftAsync(null);
+        _ai.Script("This gives you a complete first draft.\n\n````edit\n<<<\n===\n# The Great Toilet Heist\n\n```statblock\n# Grand Flusher\nSpeed:");
+
+        var events = await TurnAsync(Design(adventure, "Build out the adventure."));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(((ConversationEvent.Failed)events[^1]).Error.Code, Is.EqualTo("answer_cut_off"));
+            Assert.That(DraftOf(adventure), Is.Null);
+            Assert.That(_conversations.Messages.Where(m => m.Role == ConversationRole.Assistant), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ASectionTurn_NeverWritesTheDraft()
+    {
+        var adventure = await WithDraftAsync("Pell is a plumber.");
+        _ai.Script(Edit("Pell is a plumber.", "Pell is grumpy."));
+
+        var answer = ((ConversationEvent.Completed)(await TurnAsync(Send(adventure)))[^1]).Answer;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(DraftOf(adventure), Is.EqualTo("Pell is a plumber."));
+            Assert.That(answer.DraftEditOutcomes, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ADesignTurn_HasRoomToWriteTheWholeDraft_AndEveryOtherTurnKeepsItsCeiling()
+    {
+        var adventure = await WithDraftAsync(null);
+        _ai.Script("Fine.");
+        await TurnAsync(Design(adventure));
+        _ai.Script("Fine.");
+        await TurnAsync(Send(adventure));
+        _ai.Script("Fine.");
+        await TurnAsync(Research(adventure) with { Scope = ConversationScope.Draft });
+
+        var (design, section, researching) = (_ai.Requests[0], _ai.Requests[1], _ai.Requests[2]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(design.OutputCeilingTokens, Is.EqualTo(_options.DesignOutputCeilingTokens));
+            Assert.That(design.TimeoutSeconds, Is.EqualTo(_options.DesignTimeoutSeconds));
+            Assert.That(section.OutputCeilingTokens, Is.Null, "the drafting client's own ceiling");
+            Assert.That(section.TimeoutSeconds, Is.EqualTo(_options.DraftTimeoutSeconds));
+            Assert.That(researching.OutputCeilingTokens, Is.EqualTo(_options.DesignOutputCeilingTokens));
+            Assert.That(researching.TimeoutSeconds, Is.EqualTo(Math.Max(_options.DesignTimeoutSeconds, _options.WebResearchTimeoutSeconds)));
+        });
+    }
+
+    [Test]
+    public async Task ALongWrite_StaysInTheHistoryAsANote_SoItDoesNotPushTheConversationOut()
+    {
+        // Four turns after an 8,176-character write, the 2026-11-06 conversation had lost it and
+        // everything before it.
+        var adventure = await WithDraftAsync(null);
+        await AnsweredAsync(adventure, "The sewers suit a goofy case.", "FIRST-QUESTION-MARKER");
+        _ai.Script("Here is the draft.\n\n", "````edit\n<<<\n===\n" + new string('x', 11_950) + "\n>>>\n````");
+        await TurnAsync(Design(adventure, "Build out the adventure."));
+        _ai.Script("Footpads, then.");
+        await TurnAsync(Send(adventure, "Add some footpads."));
+
+        var message = _ai.Requests[^1].UserMessage;
+        Assert.Multiple(() =>
+        {
+            Assert.That(message, Does.Contain("FIRST-QUESTION-MARKER"), "the oldest turn still fits");
+            Assert.That(message, Does.Contain("[Edit to the draft: wrote the whole draft, 11950 characters (applied)]"));
+            Assert.That(message, Does.Not.Contain(new string('x', 200)), "the history carries the note, not the text");
         });
     }
 

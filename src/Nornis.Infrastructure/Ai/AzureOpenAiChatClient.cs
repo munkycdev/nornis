@@ -2,7 +2,9 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using OpenAI.Chat;
 using AiChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using AiFinishReason = Microsoft.Extensions.AI.ChatFinishReason;
 using SdkChatMessage = OpenAI.Chat.ChatMessage;
+using SdkFinishReason = OpenAI.Chat.ChatFinishReason;
 
 namespace Nornis.Infrastructure.Ai;
 
@@ -73,12 +75,27 @@ public sealed class AzureOpenAiChatClient : DelegatingChatClient
                 }));
             }
 
-            if (contents.Count > 0)
+            // The finish reason rides on its own update when the chunk carries nothing else:
+            // without it a stream that stopped at the output ceiling read as one that ended, and
+            // a cut-off answer was saved as whole (feature 41).
+            var finish = ToFinishReason(update.FinishReason);
+            if (contents.Count > 0 || finish is not null)
             {
-                yield return new ChatResponseUpdate(ChatRole.Assistant, contents);
+                yield return new ChatResponseUpdate(ChatRole.Assistant, contents) { FinishReason = finish };
             }
         }
     }
+
+    /// <summary>The SDK's finish reason in Microsoft.Extensions.AI's terms; null while the stream is still going.</summary>
+    internal static AiFinishReason? ToFinishReason(SdkFinishReason? reason) => reason switch
+    {
+        null => null,
+        SdkFinishReason.Stop => AiFinishReason.Stop,
+        SdkFinishReason.Length => AiFinishReason.Length,
+        SdkFinishReason.ContentFilter => AiFinishReason.ContentFilter,
+        SdkFinishReason.ToolCalls or SdkFinishReason.FunctionCall => AiFinishReason.ToolCalls,
+        _ => new AiFinishReason(reason.Value.ToString()),
+    };
 
     private static List<SdkChatMessage> ToSdkMessages(IEnumerable<AiChatMessage> messages) =>
         messages.Select(m =>

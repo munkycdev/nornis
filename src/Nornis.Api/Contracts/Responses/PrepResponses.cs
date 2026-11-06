@@ -105,9 +105,18 @@ public static class DraftStreamEventNames
 
     /// <summary><see cref="ErrorResponse"/>: nothing was saved. The stream ends here.</summary>
     public const string Error = "error";
+
+    /// <summary>
+    /// <c>{}</c>: a Design turn's answer began an edit, whose text goes into the draft rather than
+    /// the chat (feature 41). Side conversation only; a client that doesn't know it ignores it.
+    /// </summary>
+    public const string Writing = "writing";
 }
 
 public record DraftStreamDeltaResponse(string Text);
+
+/// <summary>The payload of a <see cref="DraftStreamEventNames.Writing"/> event: nothing beyond its name.</summary>
+public record DraftStreamWritingResponse;
 
 public record PrepBudgetResponse(decimal SpentThisMonthUsd, decimal? MonthlyBudgetUsd, bool IsExceeded);
 
@@ -118,9 +127,13 @@ public record AdventureExportResponse(Guid SourceId, string Title, string? Slug)
 /// <param name="Edits">The suggested edits to the design draft an answer carries (feature 37), in order; null when none.</param>
 /// <param name="Prose">The answer with its edit fences taken out, to show around the edits; null when it has none.</param>
 /// <param name="WebResearch">What a research answer found on the web (feature 40); null when the turn wasn't one.</param>
+/// <param name="DraftEditOutcomes">What became of each of <see cref="Edits"/> (feature 41), as
+/// <c>DraftEditOutcome</c> names in the same order; null when the server didn't apply them (a
+/// Section turn, or an answer from before 3.12), so they are applied by hand.</param>
 public record ConversationMessageResponse(
     Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
-    IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null, WebResearchResponse? WebResearch = null);
+    IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null, WebResearchResponse? WebResearch = null,
+    IReadOnlyList<string>? DraftEditOutcomes = null);
 
 /// <summary>
 /// A research answer's web pages, in the order the provider gave them (feature 40).

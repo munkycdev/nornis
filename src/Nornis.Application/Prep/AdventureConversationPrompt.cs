@@ -69,19 +69,26 @@ public static class AdventureConversationPrompt
         {{PrepMarkup.ConventionsForPrompt}}
 
         ## When the GM is working on the design draft
-        The design draft is the whole adventure as one Markdown document, shown to you in full. When
-        the GM asks you to change it, never rewrite the whole draft. Write each change as a suggested
-        edit, which the GM applies or not:
+        The design draft is the whole adventure as one Markdown document, shown to you in full. It
+        is where the adventure is written: whenever the GM asks you to write, add, bring in, change,
+        replace or remove anything in the adventure, do it in the draft, never in the chat. Write
+        each change as an edit. Nornis applies your edits to the draft as soon as your answer ends,
+        and the GM can undo them:
         {{DraftEdits.ConventionForPrompt}}
+        - Open and close each edit with four backticks, as above, so a stat block's own fence can
+          sit inside it.
         - Copy the passage exactly as it stands in the draft, as whole lines, and include enough of
           it that it appears in the draft only once.
-        - One edit changes one place. Use several edits for several places, each with a sentence
-          before it saying what it does.
+        - One edit changes one place. Use several edits for several places.
         - To add new text, copy the line it goes after as the passage, and repeat that line at the
           top of the replacement.
-        - When the draft is empty, leave the passage empty and write the whole text as the
-          replacement.
-        - Nothing reaches the draft until the GM applies it, so don't say you have changed it.
+        - To write the whole draft at once, leave the passage empty: the replacement becomes the
+          whole draft. Do this only when the draft is empty, or when the GM asks you to write,
+          rewrite or regenerate the whole adventure. Keep a whole adventure under about 9,000 words
+          so it fits in one answer.
+        - Never put text meant for the adventure outside an edit. Around your edits, say in a
+          sentence or two what you changed, as done, and ask anything you need to.
+        - When the GM is only talking an idea through, answer briefly in the chat without an edit.
         """;
 
     /// <summary>
@@ -107,10 +114,10 @@ public static class AdventureConversationPrompt
         """;
 
     /// <summary>
-    /// The conversation so far that rides with a turn: the newest whole messages whose lengths
-    /// add up to at most <paramref name="maxChars"/>, returned oldest first. A message is never
-    /// cut; one that would cross the window ends it, so the window never skips a message to fit
-    /// an older one.
+    /// The conversation so far that rides with a turn: the newest whole messages whose lengths, as
+    /// <see cref="HistoryText"/> shows them, add up to at most <paramref name="maxChars"/>, returned
+    /// oldest first. A message is never cut; one that would cross the window ends it, so the window
+    /// never skips a message to fit an older one.
     /// </summary>
     public static IReadOnlyList<ConversationMessage> HistoryWindow(IReadOnlyList<ConversationMessage> earlier, int maxChars)
     {
@@ -118,7 +125,7 @@ public static class AdventureConversationPrompt
         var used = 0;
         for (var i = earlier.Count - 1; i >= 0; i--)
         {
-            var length = earlier[i].Content.Length;
+            var length = HistoryText(earlier[i]).Length;
             if (used + length > maxChars)
             {
                 break;
@@ -130,6 +137,35 @@ public static class AdventureConversationPrompt
 
         window.Reverse();
         return window;
+    }
+
+    /// <summary>
+    /// One message as the history shows it (feature 41): an answer's edits become one line each
+    /// saying what changed and whether it was applied, not the text, which the draft already holds.
+    /// So one long write can't push the rest of the conversation out of the window.
+    /// </summary>
+    public static string HistoryText(ConversationMessage message)
+    {
+        var content = message.Content.Trim();
+        var edits = message.Role == ConversationRole.Assistant ? DraftEdits.Parse(content) : [];
+        if (edits.Count == 0)
+        {
+            return content;
+        }
+
+        var sb = new StringBuilder(DraftEdits.ProseOf(content));
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var outcome = message.DraftEditOutcomes is { } outcomes && i < outcomes.Count ? outcomes[i] : (DraftEditOutcome?)null;
+            if (sb.Length > 0)
+            {
+                sb.Append('\n');
+            }
+
+            sb.Append(DraftEdits.Describe(edits[i], outcome));
+        }
+
+        return sb.ToString();
     }
 
     public static string BuildUserMessage(AdventureConversationInput input)
@@ -192,7 +228,7 @@ public static class AdventureConversationPrompt
         {
             foreach (var message in input.History)
             {
-                sb.AppendLine($"{Label(message.Role)}: {message.Content.Trim()}");
+                sb.AppendLine($"{Label(message.Role)}: {HistoryText(message)}");
                 sb.AppendLine();
             }
         }

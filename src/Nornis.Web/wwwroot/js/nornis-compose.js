@@ -11,6 +11,24 @@ window.nornisCompose = {
     sendsOnEnter(e) {
         return e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing;
     },
+
+    // Puts the message at the top of Talk it through's list (feature 41), so a long answer reads
+    // down from the question. The list scrolls on its own; the page is left where it is. Room is
+    // made below a short answer, or the question couldn't reach the top.
+    scrollToMessage(list, index) {
+        const message = list && list.querySelector(`[data-talk-index="${index}"]`);
+        if (!message) {
+            return;
+        }
+
+        list.style.paddingBottom = '';
+        const below = list.scrollHeight - (message.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop);
+        if (below < list.clientHeight) {
+            list.style.paddingBottom = `${list.clientHeight - below}px`;
+        }
+
+        list.scrollTop += message.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    },
 };
 
 document.addEventListener('keydown', e => {

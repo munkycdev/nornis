@@ -173,6 +173,13 @@ public static class AiCallExecutor
         stopwatch.Stop();
         await binder.ReportAsync(binding, null, CancellationToken.None);
 
+        // A provider that stops at the ceiling without saying why still reports what it spent:
+        // all of the ceiling means the answer was cut off (feature 41).
+        if (options?.MaxOutputTokens is { } ceiling && usage?.OutputTokenCount >= ceiling)
+        {
+            cutOff = true;
+        }
+
         // Null, not zeros, when the provider reported nothing: zeros would read as a free call,
         // and the caller could no longer tell "cost nothing" from "we were not told".
         yield return new AiStreamChunk

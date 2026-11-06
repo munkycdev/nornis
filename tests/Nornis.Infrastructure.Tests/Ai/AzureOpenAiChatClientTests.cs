@@ -77,6 +77,37 @@ public class AzureOpenAiChatClientTests
         Assert.That(usage?.TotalTokenCount, Is.EqualTo(107), "the usage-only chunk after the content-filter chunk arrives");
     }
 
+    [TestCase("length", "length")]
+    [TestCase("stop", "stop")]
+    public async Task Streaming_CarriesTheFinishReason(string wire, string expected)
+    {
+        // Feature 41: the override dropped finish_reason, so an answer stopped at the output
+        // ceiling read as one that ended, and a cut-off Design answer was saved as whole.
+        var stream = $$$"""
+            data: {"choices":[{"delta":{"content":"The harbor","role":"assistant"},"finish_reason":null,"index":0}],"created":1790624127,"id":"chatcmpl-1","model":"gpt-5.4","object":"chat.completion.chunk"}
+
+            data: {"choices":[{"delta":{},"finish_reason":"{{{wire}}}","index":0}],"created":1790624127,"id":"chatcmpl-1","model":"gpt-5.4","object":"chat.completion.chunk"}
+
+            data: {"choices":[],"created":1790624127,"id":"chatcmpl-1","model":"gpt-5.4","object":"chat.completion.chunk","usage":{"completion_tokens":2500,"prompt_tokens":14,"total_tokens":2514}}
+
+            data: [DONE]
+
+
+            """;
+        var client = new AzureOpenAiChatClient(SdkClient(stream));
+
+        Microsoft.Extensions.AI.ChatFinishReason? finish = null;
+        var text = new StringBuilder();
+        await foreach (var update in client.GetStreamingResponseAsync([new(ChatRole.User, "Describe a harbor town.")]))
+        {
+            text.Append(update.Text);
+            finish = update.FinishReason ?? finish;
+        }
+
+        Assert.That(text.ToString(), Is.EqualTo("The harbor"));
+        Assert.That(finish?.Value, Is.EqualTo(expected));
+    }
+
     [Test]
     public async Task Streaming_OptionsOtherThanTheRawFactory_AreRefusedNotDropped()
     {
@@ -91,21 +122,21 @@ public class AzureOpenAiChatClientTests
         });
     }
 
-    private static ChatClient SdkClient() =>
+    private static ChatClient SdkClient(string stream = AzureStream) =>
         new OpenAIClient(new ApiKeyCredential("test"), new OpenAIClientOptions
         {
             Endpoint = new Uri("https://example.openai.azure.com/openai/v1/"),
-            Transport = new HttpClientPipelineTransport(new HttpClient(new ReplayHandler())),
+            Transport = new HttpClientPipelineTransport(new HttpClient(new ReplayHandler(stream))),
             RetryPolicy = new ClientRetryPolicy(0),
         }).GetChatClient("nornis-ask");
 
-    private sealed class ReplayHandler : HttpMessageHandler
+    private sealed class ReplayHandler(string stream) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(AzureStream.ReplaceLineEndings("\n"), Encoding.UTF8),
+                Content = new StringContent(stream.ReplaceLineEndings("\n"), Encoding.UTF8),
             };
             response.Content.Headers.ContentType = new("text/event-stream");
             return Task.FromResult(response);

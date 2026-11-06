@@ -207,6 +207,37 @@ public class ConversationRepositoryTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task ADesignAnswer_KeepsItsEditOutcomes_AndAHandApplyReplacesThem()
+    {
+        var adventure = await CreateAdventureAsync();
+        var conversation = NewConversation(adventure, (ConversationRole.User, "a question", 1));
+        await _sut.CreateAsync(conversation);
+        var answerId = Guid.NewGuid();
+        await _sut.AddMessageAsync(new ConversationMessage
+        {
+            Id = answerId,
+            ConversationId = conversation.Id,
+            Role = ConversationRole.Assistant,
+            Content = "Two edits.",
+            DraftEditOutcomes = [DraftEditOutcome.Applied, DraftEditOutcome.DidNotFit],
+            CreatedAt = _now.AddSeconds(2),
+        });
+        Context.ChangeTracker.Clear();
+
+        var loaded = (await _sut.GetByAdventureAsync(adventure.Id))!.Messages.ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded[0].DraftEditOutcomes, Is.Null, "null: not a Design answer");
+            Assert.That(loaded[1].DraftEditOutcomes, Is.EqualTo([DraftEditOutcome.Applied, DraftEditOutcome.DidNotFit]));
+        });
+
+        await _sut.SetDraftEditOutcomesAsync(answerId, [DraftEditOutcome.Applied, DraftEditOutcome.Applied]);
+
+        Assert.That((await _sut.GetMessageAsync(answerId))!.DraftEditOutcomes,
+            Is.EqualTo([DraftEditOutcome.Applied, DraftEditOutcome.Applied]));
+    }
+
+    [Test]
     public async Task GetMessage_CarriesItsConversation()
     {
         var adventure = await CreateAdventureAsync();

@@ -332,6 +332,7 @@ public class PrepController : ControllerBase
             yield return e switch
             {
                 ConversationEvent.Delta delta => Event(DraftStreamEventNames.Delta, new DraftStreamDeltaResponse(delta.Text)),
+                ConversationEvent.WritingDraft => Event(DraftStreamEventNames.Writing, new DraftStreamWritingResponse()),
                 ConversationEvent.Completed done => Event(DraftStreamEventNames.Done, ToMessage(done.Answer)),
                 ConversationEvent.Failed failed => Event(DraftStreamEventNames.Error, failed.Error.ToErrorResponse()),
                 _ => throw new UnreachableException($"Unhandled conversation event {e.GetType().Name}."),
@@ -349,7 +350,8 @@ public class PrepController : ControllerBase
         return edits.Count == 0
             ? new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt, WebResearch: research)
             : new(m.Id, m.Role.ToString(), m.Content, m.Model, m.CreatedAt,
-                edits.Select(e => new DraftEditResponse(e.Find, e.Replace)).ToList(), DraftEdits.ProseOf(m.Content), research);
+                edits.Select(e => new DraftEditResponse(e.Find, e.Replace)).ToList(), DraftEdits.ProseOf(m.Content), research,
+                m.DraftEditOutcomes?.Select(o => o.ToString()).ToList());
     }
 
     private static async IAsyncEnumerable<SseItem<string>> ToServerSentEvents(

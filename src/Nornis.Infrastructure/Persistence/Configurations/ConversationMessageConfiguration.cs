@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Enums;
 using Nornis.Domain.Models;
 
 namespace Nornis.Infrastructure.Persistence.Configurations;
@@ -45,6 +46,20 @@ public class ConversationMessageConfiguration : IEntityTypeConfiguration<Convers
                     v => JsonSerializer.Serialize(v, WebResearchJson).GetHashCode(StringComparison.Ordinal),
                     v => v));
 
+        // Feature 41: one name per edit, comma-separated, read and written whole and never
+        // queried. Bounded by the answer, which the output ceiling bounds. EF keeps a null as null
+        // without calling the conversion.
+        builder.Property(m => m.DraftEditOutcomes)
+            .HasColumnName("DraftEditOutcomes")
+            .HasColumnType("nvarchar(max)")
+            .HasConversion(
+                v => string.Join(',', v!),
+                s => ParseOutcomes(s),
+                new ValueComparer<IReadOnlyList<DraftEditOutcome>?>(
+                    (a, b) => a == null ? b == null : b != null && a.SequenceEqual(b),
+                    v => v == null ? 0 : string.Join(',', v).GetHashCode(StringComparison.Ordinal),
+                    v => v == null ? null : v.ToList()));
+
         builder.Property(m => m.CreatedAt)
             .HasColumnType("datetimeoffset");
 
@@ -56,4 +71,7 @@ public class ConversationMessageConfiguration : IEntityTypeConfiguration<Convers
             .HasForeignKey(m => m.ConversationId)
             .OnDelete(DeleteBehavior.Cascade);
     }
+
+    private static IReadOnlyList<DraftEditOutcome> ParseOutcomes(string stored) =>
+        stored.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Enum.Parse<DraftEditOutcome>).ToList();
 }

@@ -25,6 +25,13 @@ public class AiPromptRequest
     /// research turn of Prep's side conversation, which is the only caller that sets it.
     /// </summary>
     public AiWebSearchRequest? WebSearch { get; init; }
+
+    /// <summary>
+    /// This call's own output ceiling in tokens, for a client that takes one. Null means the
+    /// client's usual ceiling; never zero. Only a Design turn of Prep's side conversation sets it
+    /// (feature 41), since it may write the whole draft.
+    /// </summary>
+    public int? OutputCeilingTokens { get; init; }
 }
 
 /// <summary>What a research turn asks of its call (feature 40).</summary>

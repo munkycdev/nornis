@@ -1292,15 +1292,29 @@ public record AdventureExportDto(Guid SourceId, string Title, string? Slug);
 /// <param name="Edits">The suggested edits to the design draft the answer carries (feature 37), read by the API; null when none.</param>
 /// <param name="Prose">The answer without its edit fences, to show around the edit cards; null when it has none.</param>
 /// <param name="WebResearch">What a research answer found on the web (feature 40); null when the turn wasn't one.</param>
+/// <param name="DraftEditOutcomes">What became of each edit (feature 41), the API's <c>DraftEditOutcome</c>
+/// names in the edits' order; null when the server didn't apply them, so each is applied by hand.</param>
 public record ConversationMessageDto(
     Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
-    IReadOnlyList<DraftEditDto>? Edits = null, string? Prose = null, WebResearchDto? WebResearch = null)
+    IReadOnlyList<DraftEditDto>? Edits = null, string? Prose = null, WebResearchDto? WebResearch = null,
+    IReadOnlyList<string>? DraftEditOutcomes = null)
 {
     /// <summary>The role names the API sends, the domain's <c>ConversationRole</c>; pinned by a test.</summary>
     public const string UserRole = "User";
     public const string AssistantRole = "Assistant";
 
+    /// <summary>The outcome names the API sends, the domain's <c>DraftEditOutcome</c>; pinned by a test.</summary>
+    public const string AppliedOutcome = "Applied";
+    public const string DidNotFitOutcome = "DidNotFit";
+    public const string NotAppliedOutcome = "NotApplied";
+
     public bool IsAnswer => Role == AssistantRole;
+
+    /// <summary>The server applied this answer's edits to the draft as it ended (feature 41).</summary>
+    public bool EditsWereApplied => DraftEditOutcomes is { Count: > 0 };
+
+    /// <summary>The edit at <paramref name="index"/> is in the draft, by the server or by hand.</summary>
+    public bool IsApplied(int index) => DraftEditOutcomes is { } outcomes && index < outcomes.Count && outcomes[index] == AppliedOutcome;
 }
 
 /// <summary>A research answer's web pages in the provider's order, and Gemini's search suggestions (feature 40). Mirrors <c>WebResearchResponse</c>.</summary>
