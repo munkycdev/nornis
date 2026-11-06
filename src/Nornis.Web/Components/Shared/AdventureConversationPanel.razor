@@ -122,9 +122,14 @@
     }
     else
     {
-        <MudTextField @bind-Value="_text" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2 nornis-prep-talk-input"
-                      Label="Ask, or ask it to write something" Lines="3" MaxLength="@MaxMessageChars" Immediate="true"
-                      Disabled="@_streaming" />
+        @* data-submit-on-enter: nornis-compose.js stops Enter typing a newline here, and
+           OnInputKeyDown sends instead. Shift+Enter still makes a new line. *@
+        <div data-submit-on-enter>
+            <MudTextField @bind-Value="_text" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2 nornis-prep-talk-input"
+                          Label="Ask, or ask it to write something" Lines="3" MaxLength="@MaxMessageChars" Immediate="true"
+                          HelperText="Enter to send, Shift+Enter for a new line"
+                          OnKeyDown="OnInputKeyDown" Disabled="@_streaming" />
+        </div>
         <div class="d-flex gap-2 mt-2 align-center">
             @if (_streaming)
             {
@@ -207,6 +212,16 @@
             _loadError = result.Error!.Message;
         }
     }
+
+    /// <summary>
+    /// Enter on its own sends; with Shift (or another modifier) it is the textarea's own newline.
+    /// Mirrors <c>nornisCompose.sendsOnEnter</c> in nornis-compose.js, which stops the newline in
+    /// the browser: no compiler spans the two, so <c>SubmitOnEnterMirrorTests</c> holds them together.
+    /// </summary>
+    internal static bool SendsOnEnter(KeyboardEventArgs e) =>
+        e.Key == "Enter" && !e.ShiftKey && !e.CtrlKey && !e.AltKey && !e.MetaKey && !e.IsComposing;
+
+    private Task OnInputKeyDown(KeyboardEventArgs e) => SendsOnEnter(e) ? SendAsync() : Task.CompletedTask;
 
     private async Task SendAsync()
     {

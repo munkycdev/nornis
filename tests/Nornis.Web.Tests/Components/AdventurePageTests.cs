@@ -4,6 +4,7 @@ using System.Text.Json;
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using MudBlazor;
@@ -280,6 +281,48 @@ public class AdventurePageTests : BunitContext
             Assert.That(cut.Find(".nornis-prep-talk-answer").TextContent, Does.Contain("Three cultists."));
             Assert.That(cut.FindAll(".nornis-prep-talk-error"), Is.Empty);
         });
+    }
+
+    [Test]
+    public async Task Enter_SendsTheMessage()
+    {
+        _handler.ConversationAfterSendJson = StubHandler.Answered("Who else?", "Three cultists.");
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Talk it through")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Who else?"));
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").KeyDown(new KeyboardEventArgs { Key = "Enter" }));
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-put"), Has.Count.EqualTo(1)));
+        Assert.That(JsonDocument.Parse(_handler.LastSendBody!).RootElement.GetProperty("text").GetString(), Is.EqualTo("Who else?"));
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task ShiftEnter_OrEnterWhileComposing_DoesNotSend(bool shift, bool composing)
+    {
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Talk it through")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Who else?"));
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea")
+            .KeyDown(new KeyboardEventArgs { Key = "Enter", ShiftKey = shift, IsComposing = composing }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.LastSendBody, Is.Null, "nothing was sent");
+            Assert.That(cut.Find("button.nornis-prep-talk-send").HasAttribute("disabled"), Is.False, "the message is still there to send");
+        });
+    }
+
+    [Test]
+    public async Task TheMessageBox_IsMarkedForEnterToSend()
+    {
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(
+            cut.Find(".nornis-prep-talk-input textarea").Closest("[data-submit-on-enter]"), Is.Not.Null,
+            "nornis-compose.js stops Enter's newline only inside a [data-submit-on-enter] box"));
     }
 
     [Test]
