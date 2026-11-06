@@ -7,9 +7,10 @@ phase merges.
 leaving it out, and renumbered: hardening is deferred until the feature work is done, so this is
 feature 40.**
 
-**Status (2026-11-06): Phase A merged (PR #110). Phase B (PR #111) waits for Dave to apply
-`AddWebResearch` before it merges. Phase C1 to C3 built on top of it; C4 is Dave's walk. A1 ran against the pinned SDKs with documented stream shapes, not live
-providers (no keys in the cloud container); see the design's amendments.**
+**Status (2026-11-06): done. Phase A merged (PR #110); Phases B and C merged together (PR #111)
+after Dave applied `AddWebResearch`, released as Nornis 3.11 (deployed 20:51Z). Dave's live walk
+worked. A1 ran against the pinned SDKs with documented stream shapes, not live providers (no keys
+in the cloud container); see the design's amendments.**
 
 ## Phase A — Spec and seam
 
@@ -43,5 +44,5 @@ providers (no keys in the cloud container); see the design's amendments.**
       PdfPig and bUnit tests.
 - [x] C3. `security-and-permissions.md` amendment (web content reaches a model holding Hidden
       truth; search only, never fetch; Prep only). Change log, Features page, README, version 3.11.
-- [ ] C4. Live walk (Dave): the Waterdeep question on his Prep model; pages shown; searches on
-      Admin, Costs; the rights line on a print.
+- [x] C4. Live walk (Dave): the Waterdeep question on his Prep model; pages shown; searches on
+      Admin, Costs; the rights line on a print. Dave reported it worked on 2026-11-06.

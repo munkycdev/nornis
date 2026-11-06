@@ -4369,6 +4369,29 @@ a.nornis-cite:hover {
     align-items: start;
 }
 
+/* Beside a long section, Talk it through stays in view as the page scrolls, as the
+   Loremaster rail does: sticky at top:16px and capped at the window, with the message list
+   taking the room left over and scrolling on its own, so the box and Send stay in reach. */
+.nornis-prep-talk-column {
+    position: sticky;
+    top: 16px;
+    min-width: 0;
+}
+
+.nornis-prep-talk-column .nornis-prep-talk {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    max-height: calc(100vh - 32px);
+}
+
+.nornis-prep-talk-column .nornis-prep-talk-messages {
+    flex: 1 1 auto;
+    min-height: 120px;
+    max-height: none;
+}
+
+/* Under the editor it comes after the section, so it scrolls with the page again. */
 @container page (max-width: 1300px) {
     .nornis-prep-layout {
         grid-template-columns: 300px minmax(0, 1fr);
@@ -4376,6 +4399,15 @@ a.nornis-cite:hover {
 
     .nornis-prep-talk-column {
         grid-column: 2;
+        position: static;
+    }
+
+    .nornis-prep-talk-column .nornis-prep-talk {
+        max-height: none;
+    }
+
+    .nornis-prep-talk-column .nornis-prep-talk-messages {
+        max-height: 60vh;
     }
 }
 
