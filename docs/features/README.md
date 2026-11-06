@@ -50,6 +50,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 37 | Prep design mode and source books (Nornis 3.8) | 2026-11-03 (Phases B and C; the live walk is Dave's) | Drafting all empty sections as a batch; live co-editing of the draft; page ranges within a source book |
 | 38 | Cover art, rights page and handouts (Nornis 3.9) | 2026-11-03 (Phases B to D; the live walk is Dave's) | Pregenerated character cards; interior illustrations; a per-world image style |
 | 39 | Bring your own AI keys, with a trial (Nornis 3.10) | 2026-11-04 (Phases A to C; the eval, the trial cutover and the live walk are still to do) | Keys per world; paying Nornis instead of bringing a key; tool use; embeddings after the cutover |
+| 40 | Web research in Prep (Nornis 3.11) | Specified 2026-11-06 | Search in Draft and Revise; search on the trial or OpenAI-compatible keys; fetching a page by URL; a Nornis-paid search vendor |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page
