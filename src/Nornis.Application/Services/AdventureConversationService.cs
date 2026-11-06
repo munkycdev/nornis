@@ -32,6 +32,8 @@ public class AdventureConversationService : IAdventureConversationService
     private readonly IAiBudgetGuard _budget;
     private readonly IAiUsageRecorder _usage;
     private readonly ISectionDraftGate _gate;
+    private readonly IAiFundingService _funding;
+    private readonly AiModelsOptions _models;
     private readonly PrepOptions _options;
     private readonly LoremasterOptions _loremaster;
     private readonly ILogger<AdventureConversationService> _logger;
@@ -44,10 +46,14 @@ public class AdventureConversationService : IAdventureConversationService
         IAiBudgetGuard budget,
         IAiUsageRecorder usage,
         ISectionDraftGate gate,
+        IAiFundingService funding,
+        IOptions<AiModelsOptions> models,
         IOptions<PrepOptions> options,
         IOptions<LoremasterOptions> loremaster,
         ILogger<AdventureConversationService> logger)
     {
+        _funding = funding;
+        _models = models.Value;
         _adventures = adventures;
         _conversations = conversations;
         _prompts = prompts;
@@ -77,7 +83,8 @@ public class AdventureConversationService : IAdventureConversationService
 
         var conversation = await _conversations.GetByAdventureAsync(adventureId, ct);
         var messages = conversation?.Messages.ToList() ?? [];
-        return AppResult<ConversationView>.Success(new ConversationView(messages, IsFull(messages.Count)));
+        return AppResult<ConversationView>.Success(new ConversationView(
+            messages, IsFull(messages.Count), await WebResearchAvailabilityAsync(worldId, ct)));
     }
 
     public async Task<AppResult<IAsyncEnumerable<ConversationEvent>>> SendAsync(
@@ -119,6 +126,15 @@ public class AdventureConversationService : IAdventureConversationService
         if (budgetError is not null)
         {
             return Fail(budgetError);
+        }
+
+        // Before the GM's message is saved, so a page that showed the switch on a key that has
+        // since gone can't send a search turn nothing can pay for.
+        if (command.WebResearch
+            && await WebResearchAvailabilityAsync(command.WorldId, ct) is var availability
+            && WebResearchAvailability.Reason(availability) is { } unavailable)
+        {
+            return Fail(new AppError(409, "web_research_unavailable", unavailable));
         }
 
         // Keyed on the Adventure, not a section: a turn and a draft can run side by side, two
@@ -172,7 +188,9 @@ public class AdventureConversationService : IAdventureConversationService
             var request = new AiPromptRequest
             {
                 Scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId),
-                SystemPrompt = AdventureConversationPrompt.SystemPrompt,
+                SystemPrompt = command.WebResearch
+                    ? AdventureConversationPrompt.ResearchSystemPrompt(_options.MaxWebSearchesPerTurn)
+                    : AdventureConversationPrompt.SystemPrompt,
                 UserMessage = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
                     context,
                     adventure,
@@ -182,7 +200,10 @@ public class AdventureConversationService : IAdventureConversationService
                     _options.ConversationSectionChars,
                     onDraft)),
                 Model = Model,
-                TimeoutSeconds = _options.DraftTimeoutSeconds,
+                TimeoutSeconds = command.WebResearch ? _options.WebResearchTimeoutSeconds : _options.DraftTimeoutSeconds,
+                WebSearch = command.WebResearch
+                    ? new AiWebSearchRequest(_options.MaxWebSearchesPerTurn, _options.WebResearchOutputCeilingTokens)
+                    : null,
             };
 
             return AppResult<IAsyncEnumerable<ConversationEvent>>.Success(
@@ -310,6 +331,7 @@ public class AdventureConversationService : IAdventureConversationService
         var stopwatch = Stopwatch.StartNew();
         var text = new StringBuilder();
         AiUsage? usage = null;
+        WebResearchResult? research = null;
         var cutOff = false;
         string? failureCode = null;
         AppError? failure = null;
@@ -342,6 +364,7 @@ public class AdventureConversationService : IAdventureConversationService
                 }
 
                 usage = chunk.Usage ?? usage;
+                research = chunk.WebResearch ?? research;
                 cutOff |= chunk.CutOff;
                 if (chunk.Text.Length > 0)
                 {
@@ -375,7 +398,10 @@ public class AdventureConversationService : IAdventureConversationService
             yield break;
         }
 
-        var (answer, refusal) = await SaveAnswerAsync(conversationId, text.ToString(), cutOff);
+        // A research turn's answer always carries its result, even when the provider reported
+        // nothing: null on a message means it wasn't a research turn.
+        var webResearch = request.WebSearch is null ? null : research ?? WebResearchResult.Create([], null, null);
+        var (answer, refusal) = await SaveAnswerAsync(conversationId, text.ToString(), cutOff, webResearch);
         await RecordAsync(command, request, text, usage, stopwatch.Elapsed, finished: true, refusal is null ? null : "Refused");
 
         yield return refusal is null
@@ -388,7 +414,7 @@ public class AdventureConversationService : IAdventureConversationService
     /// and an empty one has nothing to save. Runs to completion even if the GM leaves now.
     /// </summary>
     private async Task<(ConversationMessage? Answer, AppError? Refusal)> SaveAnswerAsync(
-        Guid conversationId, string text, bool cutOff)
+        Guid conversationId, string text, bool cutOff, WebResearchResult? webResearch)
     {
         if (cutOff)
         {
@@ -398,6 +424,11 @@ public class AdventureConversationService : IAdventureConversationService
         }
 
         var content = text.Trim();
+        if (webResearch is not null)
+        {
+            content = WebPageLinks.Strip(content, webResearch.Pages);
+        }
+
         if (content.Length == 0)
         {
             return (null, new AppError(502, "answer_empty", "The answer came back empty, so nothing was saved. Please try again."));
@@ -410,6 +441,7 @@ public class AdventureConversationService : IAdventureConversationService
             Role = ConversationRole.Assistant,
             Content = content,
             Model = Model,
+            WebResearch = webResearch,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         await _conversations.AddMessageAsync(answer, CancellationToken.None);
@@ -463,6 +495,8 @@ public class AdventureConversationService : IAdventureConversationService
 
     private static (string Code, AppError Error) Classify(Exception ex) => ex switch
     {
+        AiWebSearchUnsupportedException => ("WebSearchUnsupported", new AppError(422, "web_research_unsupported",
+            "This model can't search the web. Turn Web research off, or pick another Prep model under Profile, Models.")),
         AiRefusalException refusal => (refusal.Category, refusal.ToAppError()),
         AiHttpException { StatusCode: 429 } =>
             ("RateLimited", new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")),
@@ -473,6 +507,23 @@ public class AdventureConversationService : IAdventureConversationService
 
     private static readonly AppError Unavailable =
         new(503, "service_unavailable", "The Loremaster is temporarily unavailable, so no answer was saved. Please try again.");
+
+    /// <summary>
+    /// Whether a Prep turn in this world can search now: who would pay, asked of the funding rule
+    /// without spending anything. Nothing can pay at all reads as needing a key of one's own.
+    /// </summary>
+    private async Task<WebResearchAvailabilityKind> WebResearchAvailabilityAsync(Guid worldId, CancellationToken ct)
+    {
+        try
+        {
+            var funding = await _funding.ResolveAsync(AiCallScope.ForWorld(worldId), AiTask.Prep, Model, needsImages: false, ct);
+            return WebResearchAvailability.For(funding, _models);
+        }
+        catch (AiRefusalException)
+        {
+            return WebResearchAvailabilityKind.NeedsOwnKey;
+        }
+    }
 
     private async Task<Adventure?> LoadAdventureAsync(Guid worldId, Guid adventureId, CancellationToken ct)
     {

@@ -1,3 +1,4 @@
+using Nornis.Application.Ai;
 using Nornis.Application.Errors;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
@@ -159,15 +160,18 @@ public record ExportAdventureCommand(
 /// An Adventure's side conversation as the panel shows it, oldest first. Empty before the first
 /// message and after a Clear. <see cref="IsFull"/> means there is no room for another turn.
 /// </summary>
-public record ConversationView(IReadOnlyList<ConversationMessage> Messages, bool IsFull);
+/// <param name="WebResearch">Whether a turn can search the web now (feature 40), so the panel
+/// renders the switch and, when it can't, says why.</param>
+public record ConversationView(IReadOnlyList<ConversationMessage> Messages, bool IsFull, WebResearchAvailabilityKind WebResearch);
 
 /// <summary>
 /// One turn of the side conversation. <see cref="SectionId"/> is the section on screen when the GM
 /// sent it, or null when none was; it is context for the answer, never a target.
+/// <see cref="WebResearch"/> is the switch (feature 40): this turn, and only this one, may search the web.
 /// </summary>
 public record SendConversationMessageCommand(
     Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, string Text, Guid? SectionId,
-    ConversationScope Scope = ConversationScope.Section);
+    ConversationScope Scope = ConversationScope.Section, bool WebResearch = false);
 
 /// <summary>What the side conversation sees besides the outline (feature 37).</summary>
 public enum ConversationScope

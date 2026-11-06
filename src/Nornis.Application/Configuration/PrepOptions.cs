@@ -65,6 +65,15 @@ public class PrepOptions
     /// <summary>The largest cover a GM may upload, in bytes (feature 38).</summary>
     public int MaxCoverUploadBytes { get; set; } = 10 * 1024 * 1024;
 
+    /// <summary>The most web searches one research turn may run (feature 40), where the provider can cap them; the prompt asks for it everywhere.</summary>
+    public int MaxWebSearchesPerTurn { get; set; } = 5;
+
+    /// <summary>A research turn's output ceiling in tokens (feature 40): searching and the reasoning around it count against it on some models.</summary>
+    public int WebResearchOutputCeilingTokens { get; set; } = 6_000;
+
+    /// <summary>How long a research turn may take, in seconds (feature 40): searches take longer than an answer from the record.</summary>
+    public int WebResearchTimeoutSeconds { get; set; } = 180;
+
     /// <summary>
     /// The first bound that is zero or less, by name, or null when every bound is positive. No
     /// bound has an "unbounded" value, so the API refuses to start on one (Program.cs).
@@ -86,5 +95,8 @@ public class PrepOptions
             (nameof(MaxConversationMessages), MaxConversationMessages),
             (nameof(ConversationHistoryChars), ConversationHistoryChars),
             (nameof(ConversationSectionChars), ConversationSectionChars),
+            (nameof(MaxWebSearchesPerTurn), MaxWebSearchesPerTurn),
+            (nameof(WebResearchOutputCeilingTokens), WebResearchOutputCeilingTokens),
+            (nameof(WebResearchTimeoutSeconds), WebResearchTimeoutSeconds),
         }.FirstOrDefault(b => b.Value <= 0).Name;
 }

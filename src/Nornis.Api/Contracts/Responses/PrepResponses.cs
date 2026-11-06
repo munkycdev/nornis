@@ -67,9 +67,10 @@ public record AdventureHandoutResponse(Guid Id, string Title, string? Slug, stri
 /// <summary>
 /// AI's part in the Adventure (feature 38). <see cref="Locked"/> means recorded use: the box is
 /// ticked and the GM can't untick it. <see cref="Kind"/> is what a print would say:
-/// None, Declared, Text, Art or TextAndArt.
+/// None, Declared, Text, Art or TextAndArt. <see cref="ResearchedOnWeb"/> (feature 40): a research
+/// answer's text went into the Adventure, so its rights page says so.
 /// </summary>
-public record AdventureAiUseResponse(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind);
+public record AdventureAiUseResponse(bool WroteText, bool MadeArt, bool Declared, bool Locked, string Kind, bool ResearchedOnWeb = false);
 
 /// <summary>The design draft (feature 37); <see cref="RevisionCount"/> is how many changes Undo can step back.</summary>
 public record AdventureDraftResponse(string Markdown, DateTimeOffset UpdatedAt, int RevisionCount);
@@ -116,9 +117,22 @@ public record AdventureExportResponse(Guid SourceId, string Title, string? Slug)
 /// <summary>One message of an Adventure's side conversation. <see cref="Role"/> is User (the GM) or Assistant.</summary>
 /// <param name="Edits">The suggested edits to the design draft an answer carries (feature 37), in order; null when none.</param>
 /// <param name="Prose">The answer with its edit fences taken out, to show around the edits; null when it has none.</param>
+/// <param name="WebResearch">What a research answer found on the web (feature 40); null when the turn wasn't one.</param>
 public record ConversationMessageResponse(
     Guid Id, string Role, string Content, string? Model, DateTimeOffset CreatedAt,
-    IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null);
+    IReadOnlyList<DraftEditResponse>? Edits = null, string? Prose = null, WebResearchResponse? WebResearch = null);
+
+/// <summary>
+/// A research answer's web pages, in the order the provider gave them (feature 40).
+/// <see cref="Searches"/> is null when the provider didn't say. <see cref="SuggestionsHtml"/> is
+/// the provider's own search suggestions (Gemini), shown only in a sandbox; null otherwise.
+/// </summary>
+public record WebResearchResponse(IReadOnlyList<WebPageResponse> Pages, int? Searches, string? SuggestionsHtml);
+
+public record WebPageResponse(string Title, string Url);
+
+/// <summary>Whether the next turn can search the web (feature 40); <see cref="Reason"/> says why not, null when it can.</summary>
+public record WebResearchAvailabilityResponse(bool Available, string? Reason);
 
 /// <summary>A split plan (feature 37): Source is Headings or Loremaster; Note says why it isn't what was asked for.</summary>
 public record DraftPlanResponse(IReadOnlyList<DraftPlanRowResponse> Rows, string Source, string? Note, DateTimeOffset? DraftUpdatedAt);
@@ -129,7 +143,8 @@ public record DraftPlanRowResponse(int StartLine, string Title, string Kind, str
 public record DraftEditResponse(string Find, string Replace);
 
 /// <summary>The side conversation, oldest first. <see cref="IsFull"/> means it must be cleared before another turn.</summary>
-public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull);
+/// <see cref="WebResearch"/> is whether the switch can be turned on (feature 40).
+public record ConversationResponse(IReadOnlyList<ConversationMessageResponse> Messages, bool IsFull, WebResearchAvailabilityResponse WebResearch);
 
 /// <summary>
 /// The Cover card (feature 38). <see cref="Options"/> are the generated options, newest first;

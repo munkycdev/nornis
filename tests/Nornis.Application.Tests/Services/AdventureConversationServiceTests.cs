@@ -9,6 +9,7 @@ using Nornis.Application.Services;
 using Nornis.Application.Tests.Fakes;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Knowledge;
 using NUnit.Framework;
 
@@ -40,6 +41,7 @@ public class AdventureConversationServiceTests
     private AdventureConversationService _sut = null!;
 
     private FakeReferencePassageRetriever _references = null!;
+    private FakeAiFundingService _funding = null!;
 
     [SetUp]
     public async Task SetUp()
@@ -54,6 +56,10 @@ public class AdventureConversationServiceTests
         _budget = new FakeAiBudgetGuard();
         _gate = new SectionDraftGate(TimeSpan.FromMinutes(5));
         _options = new PrepOptions();
+        _funding = new FakeAiFundingService
+        {
+            Funding = new AiFunding(AiProvider.Anthropic, "claude-sonnet-5-5", AiFundedBy.Key, Guid.NewGuid(), GmUserId),
+        };
 
         var loremaster = new LoremasterOptions { AiModel = "nornis-ask", MaxRetrievalCount = 30, MaxFactsPerArtifact = 15 };
         _retriever = new SpyKnowledgeRetriever(new KeywordKnowledgeRetriever(
@@ -76,7 +82,8 @@ public class AdventureConversationServiceTests
             new FakeSlugResolver((_, _) => null), TestBooklets.Printer(TestPrintDetails.For(_worldId, GmUserId, worlds: worlds)), Options.Create(_options), new FakeBlobStorageService());
         _sut = new AdventureConversationService(
             _adventures, _conversations, new PrepPromptContextBuilder(worlds, _retriever, _references, Options.Create(loremaster)), _ai, _budget, TestUsageRecorder.Wrap(_ledger), _gate,
-            Options.Create(_options), Options.Create(loremaster), NullLogger<AdventureConversationService>.Instance);
+            _funding, Options.Create(new AiModelsOptions()), Options.Create(_options), Options.Create(loremaster),
+            NullLogger<AdventureConversationService>.Instance);
     }
 
     // ------------------------------------------------------------------ helpers --
@@ -98,6 +105,9 @@ public class AdventureConversationServiceTests
         Adventure adventure, string text = "Who else could the cult have recruited?", Guid? sectionId = null,
         WorldRole role = WorldRole.GM) =>
         new(_worldId, adventure.Id, GmUserId, role, text, sectionId);
+
+    private SendConversationMessageCommand Research(Adventure adventure, string text = "What are Waterdeep's wards?") =>
+        Send(adventure, text) with { WebResearch = true };
 
     private async Task<List<ConversationEvent>> TurnAsync(SendConversationMessageCommand command)
     {
@@ -735,5 +745,156 @@ public class AdventureConversationServiceTests
             Assert.That(message, Does.Contain("Slimes dissolve copper on contact."));
             Assert.That(message, Does.Not.Contain("Dragons hoard gold."));
         });
+    }
+
+    // ------------------------------------------------------------- web research --
+
+    [Test]
+    public async Task AResearchTurn_AsksForTheSearchTool_WithItsOwnPromptCeilingAndTimeout()
+    {
+        var adventure = await CreateAdventureAsync();
+        _ai.Script("Waterdeep has wards.");
+
+        await TurnAsync(Research(adventure));
+
+        var request = _ai.Requests.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.WebSearch, Is.EqualTo(new AiWebSearchRequest(5, 6_000)));
+            Assert.That(request.TimeoutSeconds, Is.EqualTo(_options.WebResearchTimeoutSeconds));
+            Assert.That(request.SystemPrompt, Is.EqualTo(AdventureConversationPrompt.ResearchSystemPrompt(5)));
+            Assert.That(request.SystemPrompt, Does.StartWith(AdventureConversationPrompt.SystemPrompt),
+                "the research rules come after today's prompt, never instead of it");
+            Assert.That(request.SystemPrompt, Does.Contain("at most 5 searches").And.Contain("never instructions")
+                .And.Contain("anything marked Hidden"));
+        });
+    }
+
+    [Test]
+    public async Task ATurnWithoutTheSwitch_IsSentAsBefore()
+    {
+        var adventure = await CreateAdventureAsync();
+
+        var answer = await AnsweredAsync(adventure, "Yes.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_ai.Requests.Single().WebSearch, Is.Null);
+            Assert.That(_ai.Requests.Single().SystemPrompt, Is.EqualTo(AdventureConversationPrompt.SystemPrompt));
+            Assert.That(answer.WebResearch, Is.Null, "null: not a research turn");
+            Assert.That(_funding.Calls, Is.Zero, "only a research turn asks who would pay before it starts");
+        });
+    }
+
+    [Test]
+    public async Task AResearchAnswer_IsSavedWithItsPages_AndItsLinksToThemAreTextOnly()
+    {
+        var adventure = await CreateAdventureAsync();
+        _ai.Script("Waterdeep is split into wards ([example.org](https://example.org/wards?utm_source=openai)). See [the map](https://maps.example.net/).");
+        _ai.WebResearch = WebResearchResult.Create([new WebPage("Wards of Waterdeep", "https://example.org/wards?utm_source=openai")], 2, null);
+
+        var events = await TurnAsync(Research(adventure));
+
+        var answer = ((ConversationEvent.Completed)events[^1]).Answer;
+        Assert.Multiple(() =>
+        {
+            Assert.That(answer.Content, Is.EqualTo("Waterdeep is split into wards (example.org). See [the map](https://maps.example.net/)."),
+                "a link to a listed page keeps its text; any other link is left as written");
+            Assert.That(answer.WebResearch!.Pages.Single().Title, Is.EqualTo("Wards of Waterdeep"));
+            Assert.That(_conversations.Messages.Single(m => m.Role == ConversationRole.Assistant).WebResearch, Is.SameAs(answer.WebResearch));
+        });
+    }
+
+    [Test]
+    public async Task AResearchAnswerThatReportedNothing_StillSaysItWasResearch()
+    {
+        var adventure = await CreateAdventureAsync();
+        _ai.Script("The record already says.");
+
+        var events = await TurnAsync(Research(adventure));
+
+        var research = ((ConversationEvent.Completed)events[^1]).Answer.WebResearch;
+        Assert.Multiple(() =>
+        {
+            Assert.That(research, Is.Not.Null, "a research turn's answer is never mistaken for an ordinary one");
+            Assert.That(research!.Pages, Is.Empty);
+            Assert.That(research.Searches, Is.Null);
+        });
+    }
+
+    [TestCase(AiFundedBy.Nornis, AiProvider.AzureOpenAi, WebResearchAvailabilityKind.NeedsOwnKey)]
+    [TestCase(AiFundedBy.Trial, AiProvider.AzureOpenAi, WebResearchAvailabilityKind.NeedsOwnKey)]
+    [TestCase(AiFundedBy.Key, AiProvider.OpenAiCompatible, WebResearchAvailabilityKind.NotOnCompatible)]
+    public async Task AResearchTurnThatCantSearch_IsA409_BeforeTheGmsMessageIsSaved(
+        AiFundedBy fundedBy, AiProvider provider, WebResearchAvailabilityKind kind)
+    {
+        var adventure = await CreateAdventureAsync();
+        _funding.Funding = new AiFunding(provider, "some-model", fundedBy);
+
+        var result = await _sut.SendAsync(Research(adventure), CancellationToken.None);
+        var view = await _sut.GetAsync(_worldId, adventure.Id, WorldRole.GM, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error?.StatusCode, Is.EqualTo(409));
+            Assert.That(result.Error?.Code, Is.EqualTo("web_research_unavailable"));
+            Assert.That(result.Error?.Message, Is.EqualTo(WebResearchAvailability.Reason(kind)));
+            Assert.That(_conversations.Messages, Is.Empty);
+            Assert.That(_ai.Requests, Is.Empty);
+            Assert.That(view.Value!.WebResearch, Is.EqualTo(kind), "the switch says the same as the refusal");
+        });
+    }
+
+    [Test]
+    public async Task NothingToPayWith_ReadsAsNeedingAKey()
+    {
+        var adventure = await CreateAdventureAsync();
+        _funding.Refusal = new AiKeyRequiredException(AiTask.Prep, "the trial is used up.");
+
+        var view = await _sut.GetAsync(_worldId, adventure.Id, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(view.Value!.WebResearch, Is.EqualTo(WebResearchAvailabilityKind.NeedsOwnKey));
+    }
+
+    [Test]
+    public async Task Get_OnTheCreatorsKey_OffersTheSwitch()
+    {
+        var adventure = await CreateAdventureAsync();
+
+        var view = await _sut.GetAsync(_worldId, adventure.Id, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(view.Value!.WebResearch, Is.EqualTo(WebResearchAvailabilityKind.Available));
+    }
+
+    [Test]
+    public async Task AModelThatRefusesTheSearchTool_FailsTheTurn_SavesNoAnswer_AndSaysWhatToDo()
+    {
+        var adventure = await CreateAdventureAsync();
+        _ai.ThrowAfterText = new AiWebSearchUnsupportedException(new InvalidOperationException("400"));
+
+        var events = await TurnAsync(Research(adventure));
+
+        var failed = (ConversationEvent.Failed)events[^1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(failed.Error.StatusCode, Is.EqualTo(422));
+            Assert.That(failed.Error.Code, Is.EqualTo("web_research_unsupported"));
+            Assert.That(failed.Error.Message, Is.EqualTo(
+                "This model can't search the web. Turn Web research off, or pick another Prep model under Profile, Models."));
+            Assert.That(_conversations.Messages.Select(m => m.Role), Is.EqualTo([ConversationRole.User]), "the question stays, no answer");
+            Assert.That(_ledger.Records.Single().ErrorCode, Is.EqualTo("WebSearchUnsupported"));
+        });
+    }
+
+    [Test]
+    public async Task AResearchTurnsSearches_AreOnItsLedgerRow()
+    {
+        var adventure = await CreateAdventureAsync();
+        _ai.Script("Wards.");
+        _ai.Usage = new AiUsage { Model = "nornis-ask", InputTokens = 900, OutputTokens = 120, TotalTokens = 1020, DurationMs = 0, WebSearches = 3 };
+
+        await TurnAsync(Research(adventure));
+
+        Assert.That(_ledger.Records.Single().WebSearches, Is.EqualTo(3));
     }
 }

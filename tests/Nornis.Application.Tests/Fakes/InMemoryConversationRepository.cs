@@ -92,6 +92,7 @@ public class InMemoryConversationRepository : IConversationRepository
         Role = m.Role,
         Content = m.Content,
         Model = m.Model,
+        WebResearch = m.WebResearch,
         CreatedAt = m.CreatedAt,
     };
 }
