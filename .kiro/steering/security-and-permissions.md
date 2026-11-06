@@ -1,5 +1,24 @@
 ﻿# Security and Permissions
 
+> **Amendment (2026-11-06): web research in Prep.** Feature 40 (Nornis 3.11) lets a turn of
+> Prep's side conversation search the web, through the provider of the world creator's own key.
+>
+> - **Web content now reaches a model holding Hidden truth.** A Prep prompt carries the world's
+>   GM-only record, and a research turn adds pages from the open web. The prompt says pages are
+>   reference, never instructions, and that the record wins; nothing a page says can widen what
+>   the answer reaches, because the answer only ever goes back to the GM who asked.
+> - **Search only, never fetch.** A research turn gets the provider's search tool and no other:
+>   never Claude's `web_fetch`, Gemini's URL context or any function tool, because a model that
+>   can open a URL it chose can carry the prompt out in that URL. `WebResearchWireTests` reads
+>   each provider's request body and fails on any other tool.
+> - **Queries leave the provider.** The prompt forbids putting the record, above all Hidden truth,
+>   into a search. OpenAI's Responses call is sent with `store: false`.
+> - **Prep only, GM only, the creator's key only.** Only the side conversation can ask
+>   (`AiPromptRequest.WebSearch` is set nowhere else), the binder refuses a search on Nornis's or
+>   the trial's money, and a page's links open in a new tab with `noopener noreferrer nofollow`.
+>   A provider's search suggestions are shown in a sandboxed frame with no scripts and no
+>   same-origin.
+
 > **Amendment (2026-11-03): users' AI keys.** Feature 39 lets a user save their own key for an
 > AI provider, which their worlds' AI then spends.
 >

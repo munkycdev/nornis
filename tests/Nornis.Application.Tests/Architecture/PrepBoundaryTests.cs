@@ -303,18 +303,26 @@ public class PrepBoundaryTests
         var deciders = SourceFiles()
             .SelectMany(f => CodeLines(f)
                 .Where(l => l.Text.Contains("researchedOnWeb:", StringComparison.Ordinal))
-                .Select(l => (f.Relative, Decided: l.Text.Contains("WebResearch is not null", StringComparison.Ordinal)
-                    ? "the answer" : l.Text.Contains("researchedOnWeb: false", StringComparison.Ordinal) ? "never" : l.Text.Trim())))
+                .Select(l => (f.Relative, Decided: Decided(l.Text))))
             .OrderBy(d => d.Relative, StringComparer.Ordinal).ThenBy(d => d.Decided, StringComparer.Ordinal)
             .ToList();
 
-        Assert.That(deciders, Is.EqualTo(new[]
-        {
+        (string, string)[] expected =
+        [
+            ("src/Nornis.Application/Prep/AdventurePrintDetails.cs", "the record"),
             ("src/Nornis.Application/Services/AdventureConversationService.cs", "the answer"),
             ("src/Nornis.Application/Services/AdventureDesignService.cs", "the answer"),
             ("src/Nornis.Application/Services/AdventureDesignService.cs", "the answer"),
             ("src/Nornis.Application/Services/AdventureDraftingService.cs", "never"),
-        }), "Put in section, Put in draft and Apply read it off the answer; a draft is never research");
+        ];
+        Assert.That(deciders, Is.EqualTo(expected),
+            "Put in section, Put in draft and Apply read it off the answer; a draft is never research; the print only reads the record");
+
+        static string Decided(string line) =>
+            line.Contains("WebResearch is not null", StringComparison.Ordinal) ? "the answer"
+            : line.Contains("researchedOnWeb: false", StringComparison.Ordinal) ? "never"
+            : line.Contains("AiUse.ResearchedOnWeb", StringComparison.Ordinal) ? "the record"
+            : line.Trim();
     }
 
     /// <summary>
