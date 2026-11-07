@@ -364,7 +364,7 @@ public class BookletModelTests
         var rights = BookletModel.Build(Adventure("The Silver Key"), details, Imprint).Rights;
 
         Assert.That(rights, Is.EqualTo(new BookletRights(
-            "The Silver Key", "Nornis Press", "Nornis adventure · Nornis Press · 2025", "© 2025 kelda", "Shadowdark 1st", "Levels 1–3",
+            "The Silver Key", "Nornis Press", "Nornis Press · 2025", "© 2025 kelda", "Shadowdark 1st", "Levels 1–3",
             "Printed 3 November 2026", "Made with Nornis 3.9", "Text written with AI assistance.", RightsStatement.Notice)));
     }
 
@@ -376,7 +376,7 @@ public class BookletModelTests
         Assert.Multiple(() =>
         {
             Assert.That(rights.Copyright, Is.EqualTo("© 2026 kelda"));
-            Assert.That(rights.Credits, Is.EqualTo("Nornis adventure · Nornis Press"));
+            Assert.That(rights.Credits, Is.EqualTo("Nornis Press"), "the type isn't printed");
             Assert.That((rights.SystemLine, rights.LevelsLine), Is.EqualTo(((string?)null, (string?)null)));
             Assert.That(rights.AiStatement, Is.EqualTo("No AI was used to write this adventure's text or art."));
         });

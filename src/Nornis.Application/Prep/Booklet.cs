@@ -48,7 +48,7 @@ public sealed record BookletArt(byte[] Image, CoverLayout Layout);
 /// The rights page (feature 38), straight after the cover: credits, then the notices. Each line is
 /// already worded; a null line is left off.
 /// </summary>
-/// <param name="Credits">The type, the publisher and the year, as the cover used to carry them.</param>
+/// <param name="Credits">The publisher and the year: "Nornis Press · 2026". The type isn't printed.</param>
 /// <param name="Copyright">"© 2026 kelda".</param>
 /// <param name="Printed">"Printed 3 November 2026".</param>
 /// <param name="MadeWith">"Made with Nornis 3.9".</param>

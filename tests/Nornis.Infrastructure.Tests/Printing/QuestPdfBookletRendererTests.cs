@@ -37,7 +37,7 @@ public class QuestPdfBookletRendererTests
         "The Silver Key", "Shadowdark", "Levels 1–3", "by Dave", "A heist under the harbour.");
 
     private static readonly BookletRights Rights = new(
-        "The Silver Key", "Nornis Press", "Nornis adventure · Nornis Press · 2026", "© 2026 Dave", "Shadowdark", "Levels 1–3",
+        "The Silver Key", "Nornis Press", "Nornis Press · 2026", "© 2026 Dave", "Shadowdark", "Levels 1–3",
         "Printed 3 November 2026", "Made with Nornis 3.9", "Text written with AI assistance.", "rightsnotice is a trademark line.");
 
     private readonly QuestPdfBookletRenderer _renderer = new();
