@@ -18,7 +18,7 @@
     </div>
     @if (Worlds.Current is not null && Worlds.EffectiveRole != "Observer")
     {
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Outlined.UploadFile"
                    OnClick="OpenUploadAsync">
             Add to library
@@ -60,6 +60,13 @@ else
             Upload adventure sourcebooks and the Loremaster can quote them mid-session —
             "what happens at level 8?" answered with page citations.
         </MudText>
+        @if (Worlds.Current is not null && Worlds.EffectiveRole != WorldRoles.Observer)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                       StartIcon="@Icons.Material.Outlined.UploadFile" OnClick="OpenUploadAsync">
+                Add the first book
+            </MudButton>
+        }
     </MudPaper>
 }
 else

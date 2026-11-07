@@ -652,6 +652,12 @@ if (app.Environment.IsDevelopment() && app.Configuration["Auth0:Domain"] == "you
     // Dev mode: bypass auth entirely with a fake user
     app.UseMiddleware<UserProvisioningMiddleware>(); // skip real auth middleware
     app.UseMiddleware<DevAuthBypassMiddleware>();
+
+    // Explicit, and after the bypass. Without a call of its own, WebApplication inserts
+    // UseAuthorization automatically straight after routing, ahead of every middleware here, so
+    // the fallback policy (an authenticated user) refused each request before the fake user
+    // existed: every local API call was a 401.
+    app.UseAuthorization();
 }
 else
 {

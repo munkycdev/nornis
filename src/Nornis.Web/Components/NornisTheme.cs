@@ -132,6 +132,12 @@ public static class NornisTheme
             H4 = new H4Typography { FontFamily = Serif },
             H5 = new H5Typography { FontFamily = Serif },
             H6 = new H6Typography { FontFamily = Serif },
+
+            // Buttons and tabs read as words, not as an enterprise console: MudBlazor's default is
+            // uppercase with tracking, which fought the serif voice and was overridden in some
+            // places and not others. Uppercase stays where it carries meaning — the small eyebrow
+            // labels in app.css.
+            Button = new ButtonTypography { FontFamily = Sans, TextTransform = "none", LetterSpacing = "normal", FontWeight = "500" },
         },
         LayoutProperties = new LayoutProperties
         {

@@ -38,7 +38,7 @@
                     <MudCheckBox T="bool" Dense="true"
                                  Value="_relationships.Contains(r.Id)"
                                  ValueChanged="(bool v) => ToggleRelationship(r.Id, v)"
-                                 Label="@($"{r.Type} → {OtherName(r)}")" />
+                                 Label="@($"{DisplayText.Predicate(r.Type)} → {OtherName(r)}")" />
                 }
             }
 
@@ -63,7 +63,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Submit"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit"
                    Disabled="@(_busy || !HasSelection)">
             Reveal to the party
         </MudButton>

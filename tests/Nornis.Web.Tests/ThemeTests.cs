@@ -132,6 +132,36 @@ public class ThemeTests
     }
 
     [Test]
+    public void Buttons_AreSentenceCase()
+    {
+        var b = NornisTheme.Theme.Typography.Button;
+        Assert.Multiple(() =>
+        {
+            Assert.That(b.TextTransform, Is.EqualTo("none"), "MudBlazor's default is uppercase");
+            Assert.That(b.FontFamily![0], Is.EqualTo("IBM Plex Sans"));
+        });
+    }
+
+    /// <summary>
+    /// 2.0 retired the gold Secondary role to quiet ink, so a filled Secondary button is a slate
+    /// block that reads as disabled beside an outlined terracotta one. Forty-nine survived the
+    /// palette change because nothing could notice them. A filled button is the page's or the
+    /// dialog's main action, and the main action is the one accent.
+    /// </summary>
+    [Test]
+    public void FilledButtons_UseTheAccent()
+    {
+        var razor = Directory.EnumerateFiles(Path.Combine(RepoRoot(), "src", "Nornis.Web", "Components"), "*.razor", SearchOption.AllDirectories);
+        var offenders = razor
+            .SelectMany(file => Regex.Matches(File.ReadAllText(file), @"<MudButton\b[^>]*>", RegexOptions.Singleline)
+                .Where(m => m.Value.Contains("Variant.Filled") && m.Value.Contains("Color.Secondary"))
+                .Select(_ => Path.GetFileName(file)))
+            .ToList();
+
+        Assert.That(offenders, Is.Empty, "filled Secondary buttons render grey; use Color.Primary");
+    }
+
+    [Test]
     public void FontLink_LoadsExactlyTheTwoFamilies()
     {
         var app = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Nornis.Web", "Components", "App.razor"));

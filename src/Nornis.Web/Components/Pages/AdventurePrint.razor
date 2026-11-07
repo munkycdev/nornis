@@ -69,7 +69,7 @@ else if (_adventure is not null && Worlds.Current is { } world)
                    StartIcon="@Icons.Material.Outlined.Download" Href="@Links.Booklet(world.Id, _adventure.Id, download: true)">
             Download
         </MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="nornis-booklet-file"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="nornis-booklet-file"
                    StartIcon="@Icons.Material.Outlined.LibraryAdd" Disabled="_filing" OnClick="FileToLibraryAsync">
             @(_filing ? "Filing…" : "File to Library")
         </MudButton>

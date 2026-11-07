@@ -544,7 +544,7 @@ else
 
                 result.Add(new DrawableLink(
                     $"M {x} {y1} C {bulge} {y1}, {bulge} {y2}, {x} {y2}",
-                    $"{laneA.Name} — {link.Type} — {laneB.Name}"));
+                    $"{laneA.Name} — {DisplayText.Predicate(link.Type)} — {laneB.Name}"));
             }
 
             return result;

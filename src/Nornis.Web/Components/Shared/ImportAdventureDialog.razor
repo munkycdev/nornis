@@ -44,7 +44,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SubmitAsync"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync"
                    Disabled="@(_busy || _files.Count == 0)">
             @(_busy ? "Importing…" : "Import")
         </MudButton>

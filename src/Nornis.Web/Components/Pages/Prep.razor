@@ -30,7 +30,7 @@
                        StartIcon="@Icons.Material.Outlined.FileUpload" OnClick="ImportAsync">
                 Import Markdown
             </MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.Add" OnClick="CreateAsync">
                 New adventure
             </MudButton>
@@ -68,6 +68,10 @@ else if (_adventures.Count == 0)
         <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
             Start an adventure from an outline of scenes, or import one you've already written in Markdown.
         </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                   StartIcon="@Icons.Material.Outlined.Add" OnClick="CreateAsync">
+            Start an adventure
+        </MudButton>
     </MudPaper>
 }
 else

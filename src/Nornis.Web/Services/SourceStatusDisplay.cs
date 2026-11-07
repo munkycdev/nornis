@@ -22,4 +22,10 @@ public static class SourceStatusDisplay
         "Ready" => Color.Warning,
         _ => Color.Default,
     };
+
+    /// <summary>
+    /// Whether a list row should carry the status chip. Processed is where every source ends up,
+    /// and a green chip on every row is the loudest thing on the page while saying nothing.
+    /// </summary>
+    public static bool IsWorthShowing(string status) => status != "Processed";
 }

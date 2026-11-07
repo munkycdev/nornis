@@ -52,7 +52,7 @@
         <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="CreateAndAcceptAsync" Disabled="_busy">
             Create what's missing
         </MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="AttachAndAcceptAsync"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AttachAndAcceptAsync"
                    Disabled="@(_busy || _names.Count == 0 || !Changed())">
             Attach and accept
         </MudButton>

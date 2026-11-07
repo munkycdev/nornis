@@ -41,13 +41,13 @@
         @if (_filed is null)
         {
             <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ExportAsync" Disabled="_busy">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExportAsync" Disabled="_busy">
                 Export
             </MudButton>
         }
         else
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Close">Done</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Done</MudButton>
         }
     </DialogActions>
 </MudDialog>

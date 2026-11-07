@@ -25,7 +25,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Disabled="_busy">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SubmitAsync"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync"
                    Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">
             @(Existing is null ? "Create" : "Save")
         </MudButton>

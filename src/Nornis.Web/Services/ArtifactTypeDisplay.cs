@@ -34,4 +34,10 @@ public static class ArtifactTypeDisplay
         "Resolved" => Color.Info,
         _ => Color.Default,
     };
+
+    /// <summary>
+    /// Whether a card should carry the status chip. Active is the resting state of an entry; the
+    /// chip earns its place when an entry has gone dormant, resolved or been archived.
+    /// </summary>
+    public static bool IsWorthShowing(string status) => status != "Active";
 }

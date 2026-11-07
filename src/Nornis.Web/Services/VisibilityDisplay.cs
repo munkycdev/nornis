@@ -13,4 +13,11 @@ public static class VisibilityDisplay
         "Private" => "Private",
         _ => scope,
     };
+
+    /// <summary>
+    /// Whether a list row should say its scope at all. Party visible is the resting state of a
+    /// shared world, so a chip on every row saying so is noise; the exceptions are what a GM
+    /// scans for.
+    /// </summary>
+    public static bool IsWorthShowing(string scope) => scope != "PartyVisible";
 }

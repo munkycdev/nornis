@@ -24,7 +24,7 @@
                    OnClick="UndoAsync" aria-label="Undo" />
     <MudSpacer />
     <span class="nornis-ink-status">@_status</span>
-    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.AutoAwesome"
                OnClick="ProcessAsync" Disabled="@(_busy || _sourceId is null)">
         Process
