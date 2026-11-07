@@ -10,7 +10,7 @@
 
 <div>
     <MudText Typo="Typo.h4" Class="nornis-serif">Your settings</MudText>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Personal settings for this world.</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Your account, AI keys and models, and how you appear in this world.</MudText>
 
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
         <div class="nornis-detail-section-title">Appearance</div>
@@ -48,7 +48,7 @@
             <div class="nornis-add-member">
                 <MudTextField @bind-Value="_displayName" Label="Display name" MaxLength="200"
                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="flex-grow-1" />
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            OnClick="SaveDisplayNameAsync" Disabled="_savingDisplayName">
                     Save
                 </MudButton>
@@ -124,7 +124,7 @@
                             {
                                 <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_characterError</MudAlert>
                             }
-                            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                                        OnClick="SaveCharacterAsync" Disabled="_savingCharacter" Class="mr-2">Save</MudButton>
                             <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="CancelEditCharacter">Cancel</MudButton>
                         </div>

@@ -47,7 +47,7 @@ else if (_adventure is not null)
             </MudText>
         </div>
         <div class="nornis-page-head-actions">
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-print"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="nornis-prep-print"
                        StartIcon="@Icons.Material.Outlined.Print" OnClick="PrintAsync" Disabled="_busy">
                 Print
             </MudButton>
@@ -55,10 +55,14 @@ else if (_adventure is not null)
                        StartIcon="@Icons.Material.Outlined.MoveToInbox" OnClick="ExportAsync" Disabled="_busy">
                 Export to Nornis
             </MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Error"
-                       StartIcon="@Icons.Material.Outlined.Delete" OnClick="DeleteAdventureAsync" Disabled="_busy">
-                Delete
-            </MudButton>
+            @* Delete is hard and cascades (every section, draft and conversation), so it does not
+               sit beside Print at the same weight; it is one step away, behind the menu. *@
+            <MudMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="More actions" Class="nornis-prep-more"
+                     AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Disabled="_busy">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconColor="Color.Error" OnClick="DeleteAdventureAsync">
+                    Delete adventure…
+                </MudMenuItem>
+            </MudMenu>
         </div>
     </div>
 
@@ -193,7 +197,7 @@ else if (_adventure is not null)
                 }
 
                 <div class="d-flex gap-2 mt-3 flex-wrap align-center">
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveAsync"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
                                StartIcon="@Icons.Material.Outlined.Save" Disabled="_busy">
                         @(_saving ? "Saving…" : "Save")
                     </MudButton>

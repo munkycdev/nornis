@@ -37,6 +37,13 @@ else if (_proposals.Count == 0)
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                 When Nornis processes a source, its proposed updates will appear here for you to accept.
             </MudText>
+            @if (Worlds.EffectiveRole != WorldRoles.Observer)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-4" Href="/capture"
+                           StartIcon="@Icons.Material.Outlined.EditNote">
+                    Tell Nornis what happened
+                </MudButton>
+            }
         </MudPaper>
     }
 }
@@ -86,7 +93,7 @@ else
     @if (OpenIds().Count > 0)
     {
         <div class="d-flex gap-2 mb-4 align-center">
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.DoneAll"
                        OnClick="AcceptAllAsync" Disabled="@_batchActing">
                 @(_batchActing && _batchAccepting ? "Accepting…" : "Accept all")
@@ -165,7 +172,7 @@ else
                 }
 
                 <div class="nornis-proposal-actions">
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.Check"
                                OnClick="() => AcceptAsync(p)" Disabled="@_acting.Contains(p.Id)">
                         Accept

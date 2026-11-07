@@ -65,7 +65,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Disabled="_uploading">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    OnClick="UploadAsync"
                    Disabled="@(_uploading || _fileName is null || string.IsNullOrWhiteSpace(_title))">
             Upload

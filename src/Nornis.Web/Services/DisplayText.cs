@@ -19,6 +19,14 @@ public static class DisplayText
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
 
     /// <summary>
+    /// A relationship type as it reads in a sentence: "LocatedIn" → "located in", "PartOf" →
+    /// "part of". Relationship types are free text the extraction proposes, so anything already
+    /// written as words passes through lower-cased.
+    /// </summary>
+    public static string Predicate(string type) =>
+        System.Text.RegularExpressions.Regex.Replace(type.Trim(), "(?<=[a-z])(?=[A-Z])", " ").ToLowerInvariant();
+
+    /// <summary>
     /// Byte counts for humans. The GB tier is load-bearing: four copies stopped at MB
     /// and rendered "1228.8 MB" where the list said "1.2 GB".
     /// </summary>

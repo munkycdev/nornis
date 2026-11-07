@@ -28,6 +28,13 @@ html, body {
     color: var(--mud-palette-text-primary);
 }
 
+/* FocusOnNavigate (Routes.razor) moves focus to the page's h1 so screen readers announce the new
+   page. The heading is not a control, so the ring it drew — a black box round the landing hero on
+   every load — said nothing to anyone. The template's own rule, which the app had lost. */
+h1:focus {
+    outline: none;
+}
+
 /* Serif display type for headings and brand — applied via class, never inline. */
 .nornis-serif {
     font-family: var(--nornis-serif);
@@ -101,11 +108,14 @@ html, body {
 }
 
 .nornis-brand {
+    /* One row, not a masthead: the stacked logo, wordmark and tagline took ~200px and pushed
+       the Table and GM groups (Prep among them) below the fold on a 900px window. The world
+       switcher under it is what tells you where you are. */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
-    padding: 8px 0 4px 0;
+    gap: 10px;
+    padding: 4px 6px 2px;
 }
 
 .nornis-brand-link {
@@ -420,24 +430,22 @@ html, body {
 }
 
 .nornis-brand-logo {
-    width: 92px;
+    width: 40px;
     height: auto;
 }
 
 .nornis-brand-name {
     font-family: var(--nornis-serif);
-    font-size: 1.35rem;
-    letter-spacing: 0.34em;
+    font-size: 1.1rem;
+    letter-spacing: 0.3em;
     font-weight: 500;
     color: var(--mud-palette-text-primary);
-    padding-left: 0.34em;
 }
 
-.nornis-brand-tagline {
-    font-size: 0.62rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--mud-palette-text-secondary);
+/* The logo files are black ink on transparent; after dark they would vanish into the page.
+   invert + a half-turn of hue flips the lightness and keeps the rune's terracotta warm. */
+.nornis-dark .nornis-logo-ink {
+    filter: invert(1) hue-rotate(180deg);
 }
 
 /* World selector card. */
@@ -1947,6 +1955,26 @@ a.nornis-cite:hover {
     text-align: center;
     min-height: 340px;
     gap: 6px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+}
+
+/* Strata under the large empty states (ui-design-system.md: "subtle layered line patterns in
+   backgrounds or empty states"): faint bedding lines that rise from the foot of the card and fade
+   out before they reach the words, so the box reads as intended rather than blank. */
+.nornis-comingsoon::before {
+    content: "";
+    position: absolute;
+    inset: 45% 0 0 0;
+    z-index: -1;
+    background-image: repeating-linear-gradient(
+        176deg,
+        transparent 0 13px,
+        color-mix(in srgb, var(--mud-palette-text-secondary) 14%, transparent) 13px 14px);
+    -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0%, transparent 100%);
+    pointer-events: none;
 }
 
 .nornis-comingsoon-icon {

@@ -104,7 +104,7 @@ else
                     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-graph-card">
                         <div class="nornis-list-title">@_graphSelected.Name</div>
                         <div class="nornis-list-sub mb-2">@_graphSelected.Type · @_graphSelected.Status</div>
-                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary"
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
                                    Href="@Links.Artifact(_graphSelected.Slug, _graphSelected.Id)">Open</MudButton>
                     </MudPaper>
                 }
@@ -167,7 +167,10 @@ else
                     }
                     <div class="nornis-artifact-card-foot">
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@a.Type</MudChip>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(a.Status)">@a.Status</MudChip>
+                        @if (ArtifactTypeDisplay.IsWorthShowing(a.Status))
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(a.Status)">@a.Status</MudChip>
+                        }
                         <span class="nornis-list-meta ml-auto">@RelativeTime.Ago(a.UpdatedAt)</span>
                     </div>
                 </a>

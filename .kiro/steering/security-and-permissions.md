@@ -164,7 +164,9 @@ GET  /api/shelf/{code}/**                 the party shelf behind a shelf link (b
 
 The `/api/public/**` family is anonymous by design and rate-limited as a group. It serves
 only what a GM has explicitly published: a world with `PublicAccessEnabled` and a slug, and
-within it only PartyVisible content. Public Ask additionally requires a positive
+within it only PartyVisible content. A world's key art (feature 42, 2026-11-07) is published with
+it: it is world-level and so party-visible by definition, and is served under
+`/api/public/worlds/{slug}/hero` on the same terms. Public Ask additionally requires a positive
 per-world monthly budget — the cap is also the switch, so it is off until a GM sets one.
 
 Everything else requires:

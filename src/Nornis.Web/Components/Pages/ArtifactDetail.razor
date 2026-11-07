@@ -76,7 +76,7 @@
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(_detail.Status)">@_detail.Status</MudChip>
                     }
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_detail.Visibility</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@VisibilityDisplay.Label(_detail.Visibility)</MudChip>
                     @if (_detail.PlayedBy is { Count: > 0 } players)
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary"
@@ -161,7 +161,7 @@
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@TruthColor(f.TruthState)">@f.TruthState</MudChip>
                     @if (f.Visibility != "PartyVisible")
                     {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@f.Visibility</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@VisibilityDisplay.Label(f.Visibility)</MudChip>
                     }
                 </div>
             }
@@ -178,7 +178,7 @@
                 var other = OtherArtifact(r);
                 <div class="nornis-fact-row">
                     <div class="nornis-fact-body">
-                        <span class="nornis-fact-predicate">@r.Type</span>
+                        <span class="nornis-fact-predicate">@DisplayText.Predicate(r.Type)</span>
                         @if (other is not null)
                         {
                             <ArtifactTip Name="@other.Name" Summary="@other.Summary">

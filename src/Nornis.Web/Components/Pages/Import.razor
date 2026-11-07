@@ -51,7 +51,7 @@ else
                 This is a connection problem, not a lost backlog — if an extraction was in progress
                 it is still there. Try again in a moment.
             </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
                        OnClick="RefreshAsync" Disabled="@(_busy || _loading)" Class="mt-4">
                 Try again
             </MudButton>
@@ -66,7 +66,7 @@ else
                 Start one and add your notes oldest first. Nothing is read until you say go, and then
                 only one note at a time — so the second session is read knowing what the first established.
             </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                        OnClick="CreateAsync" Disabled="@_busy" Class="mt-4">
                 Start extracting
             </MudButton>
@@ -82,7 +82,7 @@ else
                           Variant="Variant.Outlined" Class="mb-3" />
             <MudDatePicker @bind-Date="_occurredAt" Label="Session date" Variant="Variant.Outlined"
                            Clearable="true" Class="mb-3" />
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                        OnClick="AddNoteAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">
                 Add to backlog
             </MudButton>
@@ -179,7 +179,7 @@ else
                         }
                     </div>
 
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mt-3"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
                                StartIcon="@Icons.Material.Filled.PlaylistAdd"
                                OnClick="AddSelectedAsync" Disabled="@(_busy || _selected.Count == 0)">
                         Add @_selected.Count to backlog
@@ -315,7 +315,7 @@ else
             }
 
             <div class="d-flex gap-2 mt-4">
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.PlayArrow"
                            OnClick="StartAsync" Disabled="@(_busy || _session.Items.Count == 0)">
                     Start extracting
@@ -379,7 +379,7 @@ else
                         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                             Ready when you are — this note has not been read yet.
                         </MudText>
-                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.PlayArrow"
                                    OnClick="() => AdvanceAsync(false)" Disabled="@_busy">
                             Read this note
@@ -431,7 +431,7 @@ else
                             Extraction failed for this note.
                         </MudText>
                         <div class="d-flex gap-2">
-                            <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                        StartIcon="@Icons.Material.Filled.Refresh"
                                        OnClick="RetryAsync" Disabled="@_busy">
                                 Retry
@@ -448,7 +448,7 @@ else
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                     Every note has been read or skipped.
                 </MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Done"
                            OnClick="() => AdvanceAsync(false)" Disabled="@_busy">
                     Finish
@@ -540,7 +540,7 @@ else
                     <text>Nothing was deleted — notes not yet read are waiting as draft sources.</text>
                 }
             </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="/sources" Class="mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/sources" Class="mt-4">
                 Go to sources
             </MudButton>
         </MudPaper>

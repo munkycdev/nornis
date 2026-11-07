@@ -8,11 +8,11 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<PageTitle>Timeline — Nornis</PageTitle>
+<PageTitle>@Heading — Nornis</PageTitle>
 
 <div class="nornis-page-head">
     <div>
-        <MudText Typo="Typo.h4" Class="nornis-serif">Timeline</MudText>
+        <MudText Typo="Typo.h4" Class="nornis-serif">@Heading</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">The stories in motion.</MudText>
     </div>
     @if (Worlds.IsGm)
@@ -148,7 +148,10 @@ else
                         <p class="nornis-artifact-card-summary">@s.Summary</p>
                     }
                     <div class="nornis-artifact-card-foot">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(s.Status)">@s.Status</MudChip>
+                        @if (ArtifactTypeDisplay.IsWorthShowing(s.Status))
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(s.Status)">@s.Status</MudChip>
+                        }
                         @if (s.Visibility == "GMOnly")
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">GM only</MudChip>
@@ -169,6 +172,19 @@ else
     private string? _error;
     private readonly HashSet<string> _selectedStatuses = [.. DefaultStatuses];
     private string _view = "timeline";
+
+    // Two nav entries open this page: Storylines lands on the cards, Timeline on the chart. The
+    // heading names the view on screen, so the title always matches what was clicked and what
+    // is shown. _route remembers which entry we came in by, because moving between them reuses
+    // this component rather than creating a new one.
+    private string _route = "";
+    private string DefaultView => _route == "/storylines" ? "cards" : "timeline";
+    private string Heading => _view switch
+    {
+        "cards" => "Storylines",
+        "journey" => "Journey",
+        _ => "Timeline",
+    };
     private bool _retroBusy;
     private IReadOnlyList<ArtifactListItem> _storylines = [];
 
@@ -361,10 +377,32 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        RestoreFromQuery();
+        ApplyRoute();
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
         await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Query-only changes (SyncUrl) keep the view; a move between /storylines and /timeline
+        // resets it to that entry's default.
+        if (CurrentRoute() != _route)
+        {
+            ApplyRoute();
+            await LoadAsync();
+        }
+    }
+
+    private string CurrentRoute() => "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/');
+
+    private void ApplyRoute()
+    {
+        _route = CurrentRoute();
+        _view = DefaultView;
+        _selectedStatuses.Clear();
+        _selectedStatuses.UnionWith(DefaultStatuses);
+        RestoreFromQuery();
     }
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
@@ -420,7 +458,7 @@ else
                 : string.Join(',', _statuses.Where(_selectedStatuses.Contains));
         var uri = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
         {
-            ["view"] = _view == "timeline" ? null : _view,
+            ["view"] = _view == DefaultView ? null : _view,
             ["status"] = status,
         });
         if (uri != Nav.Uri)

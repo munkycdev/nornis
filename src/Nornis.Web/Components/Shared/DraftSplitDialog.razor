@@ -71,7 +71,7 @@
         </MudButton>
         <MudSpacer />
         <MudButton OnClick="() => MudDialog.Cancel()" Disabled="_busy">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="ApplyAsync" Class="nornis-split-apply"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyAsync" Class="nornis-split-apply"
                    Disabled="@(_busy || _rows.Count == 0)">
             Split into @_rows.Count section@(_rows.Count == 1 ? "" : "s")
         </MudButton>

@@ -45,7 +45,7 @@
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@SourceTypeDisplay.Label(_source.Type)</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@_source.Visibility</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@VisibilityDisplay.Label(_source.Visibility)</MudChip>
                     @if (!_source.ExtractionEnabled)
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
@@ -65,7 +65,7 @@
                     {
                         @* The server says when a Queued source has waited long enough that nothing
                            is still coming for it; the Web does not keep its own copy of that clock. *@
-                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Replay"
                                    OnClick="ProcessAsync" Disabled="_processing">
                             Retry
@@ -73,7 +73,7 @@
                     }
                     else if (_source.ProcessingStatus is "Draft" or "Ready" or "Failed")
                     {
-                        <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                    StartIcon="@(_source.ExtractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
                                    OnClick="ProcessAsync" Disabled="_processing">
                             @(_source.ExtractionEnabled ? "Process" : "Store")
@@ -231,7 +231,7 @@
                 }
 
                 <div class="d-flex gap-2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SaveEditAsync" Disabled="_saving">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEditAsync" Disabled="_saving">
                         Save
                     </MudButton>
                     <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="CancelEditAsync" Disabled="_saving">

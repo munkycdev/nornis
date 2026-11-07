@@ -14,7 +14,7 @@
 <div class="nornis-invite-page">
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad" Style="max-width: 520px; margin: 3rem auto;">
         <div class="d-flex justify-center mb-4">
-            <img src="images/mini-logo.png" alt="" style="height: 48px;" />
+            <img src="images/mini-logo.png" alt="" class="nornis-logo-ink" style="height: 48px;" />
         </div>
 
         @if (_loading)
@@ -39,7 +39,7 @@
             }
 
             <div class="d-flex justify-center gap-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Login"
                            OnClick="AcceptAsync" Disabled="_joining">
                     Join @_preview.WorldName
