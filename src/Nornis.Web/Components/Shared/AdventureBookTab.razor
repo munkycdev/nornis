@@ -1,0 +1,76 @@
+@* The Book tab of an Adventure: the booklet as an object, apart from its words. The main column
+   is what the book carries besides its sections: the cover art, the handouts printed at its
+   back, and the documents that belong to it. Beside it, what it is called and filed by. Every
+   card saves itself and raises what the API returned; the page merges it, so nothing open on
+   the other tabs is replaced. *@
+
+<div class="nornis-prep-book">
+    <div class="nornis-prep-book-main">
+        <CoverCard WorldId="WorldId" AdventureId="Adventure.Id" Disabled="Disabled" OnChanged="OnCoverChanged" />
+
+        <HandoutsCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnHandoutsSaved" />
+
+        <AdventureDocumentsCard WorldId="WorldId" AdventureId="Adventure.Id" Disabled="Disabled" />
+    </div>
+
+    <div class="nornis-prep-book-side">
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-about">
+            <div class="d-flex align-center">
+                <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Adventure</MudText>
+                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-prep-about-edit"
+                               Disabled="Disabled" aria-label="Edit the title, pitch and campaign" OnClick="OnEditDetails" />
+            </div>
+            <div class="nornis-prep-about-row">
+                <div class="nornis-book-details-caption">Title</div>
+                <div class="nornis-prep-about-title">@Adventure.Title</div>
+            </div>
+            <div class="nornis-prep-about-row">
+                <div class="nornis-book-details-caption">Pitch</div>
+                @if (string.IsNullOrWhiteSpace(Adventure.Pitch))
+                {
+                    <div class="nornis-prep-about-none">No pitch yet.</div>
+                }
+                else
+                {
+                    <div class="nornis-prep-about-pitch">@Adventure.Pitch</div>
+                }
+            </div>
+            <div class="nornis-prep-about-row">
+                <div class="nornis-book-details-caption">Campaign</div>
+                @if (CampaignName is { } campaign)
+                {
+                    <div class="nornis-prep-about-campaign">@campaign</div>
+                }
+                else
+                {
+                    <div class="nornis-prep-about-none">Not tied to a campaign.</div>
+                }
+            </div>
+        </MudPaper>
+
+        <BookDetailsCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnBookDetailsSaved" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid WorldId { get; set; }
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    /// <summary>The world's campaigns, to name the one this adventure is for.</summary>
+    [Parameter] public IReadOnlyList<CampaignDto> Campaigns { get; set; } = [];
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>The pencil on the Adventure card: the page opens the details dialog, as it owns the URL.</summary>
+    [Parameter] public EventCallback OnEditDetails { get; set; }
+
+    [Parameter] public EventCallback OnCoverChanged { get; set; }
+
+    [Parameter] public EventCallback<AdventureDto> OnBookDetailsSaved { get; set; }
+
+    [Parameter] public EventCallback<AdventureDto> OnHandoutsSaved { get; set; }
+
+    private string? CampaignName =>
+        Adventure.CampaignId is { } id ? Campaigns.FirstOrDefault(c => c.Id == id)?.Name : null;
+}

@@ -84,7 +84,7 @@ public class AdventurePageTests : BunitContext
             LibraryDoc("Player's Guide", "Book", linked: null, print: null, onShelf: true),
         }, JsonSerializerOptions.Web);
 
-        var cut = await RenderAsync();
+        var cut = await RenderOnBookAsync();
 
         cut.WaitForAssertion(() => Assert.That(
             cut.FindAll(".nornis-adventure-document .nornis-list-title").Select(t => t.TextContent.Trim()),
@@ -94,7 +94,7 @@ public class AdventurePageTests : BunitContext
     [Test]
     public async Task TheDocumentsCard_SaysHowToAddOne_WhenNothingBelongs()
     {
-        var cut = await RenderAsync();
+        var cut = await RenderOnBookAsync();
 
         cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-adventure-documents-empty").TextContent,
             Does.Contain("Nothing belongs to this adventure yet")));
@@ -545,12 +545,110 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheBookDetails_SitUnderTheOutline()
+    public async Task TheBookDetails_SitOnTheBookTab_BesideTheCover()
     {
         var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(3)));
+        Assert.That(cut.FindAll(".nornis-book-details"), Is.Empty, "not on the Sections tab");
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-side .nornis-book-details"), Has.Count.EqualTo(1)));
-        Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
+        await cut.InvokeAsync(() => ModeButton(cut, "Book").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book-side .nornis-book-details"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
+            Assert.That(cut.FindAll(".nornis-prep-book-main .nornis-cover-card"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-book-main .nornis-handouts"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-book-main .nornis-adventure-documents"), Has.Count.EqualTo(1));
+            Assert.That(cut.Find(".nornis-prep-talk-column").HasAttribute("hidden"), Is.True, "Talk it through isn't on the Book tab");
+        });
+    }
+
+    [Test]
+    public async Task TheTitlePitchAndCampaign_AreEditedFromTheBookTab_NotTheHeader()
+    {
+        var cut = await RenderOnBookAsync();
+        var dialogs = Render<MudDialogProvider>();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-about"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-prep-about-title").TextContent, Is.EqualTo("The Silver Key"));
+            Assert.That(cut.FindAll(".nornis-page-head-actions button").Select(b => b.TextContent.Trim()), Has.None.EqualTo("Details"));
+        });
+
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-about-edit").Click());
+
+        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Adventure details")));
+    }
+
+    [Test]
+    public async Task EachTab_IsKeptInTheUrl_AndTheUrlOpensIt()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>();
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => ModeButton(cut, "Book").Click());
+
+        cut.WaitForAssertion(() => Assert.That(nav.Uri, Does.EndWith("?tab=book")));
+        await DisposeComponentsAsync();
+        var reopened = await RenderAsync();
+        reopened.WaitForAssertion(() => Assert.That(reopened.FindAll(".nornis-prep-book"), Has.Count.EqualTo(1),
+            "a written adventure would open on Sections, but the URL names Book"));
+    }
+
+    [Test]
+    public void ATabInTheUrl_IsReadWhateverItsCase_AndAnUnknownOneIsIgnored()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AdventureDetail.ModeFromQuery("book"), Is.EqualTo(AdventureDetail.BookMode));
+            Assert.That(AdventureDetail.ModeFromQuery("DESIGN"), Is.EqualTo(AdventureDetail.DesignMode));
+            Assert.That(AdventureDetail.ModeFromQuery("print"), Is.Null);
+            Assert.That(AdventureDetail.ModeFromQuery(null), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task TheOutline_IsOnlyOnTheSectionsTab()
+    {
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-outline"), Has.Count.EqualTo(1)));
+
+        await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
+        Assert.That(cut.FindAll(".nornis-prep-outline"), Is.Empty);
+    }
+
+    [Test]
+    public void WhatTheLoremasterReads_SaysWhatEachIsSetTo_WhenFolded()
+    {
+        var adventure = new AdventureDto(Guid.NewGuid(), Guid.NewGuid(), null, "A", "a", null, null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, []);
+        Assert.Multiple(() =>
+        {
+            Assert.That(LoremasterReadsPanel.SummaryOf(adventure), Is.EqualTo("No table brief · every Library book"));
+            Assert.That(LoremasterReadsPanel.SummaryOf(adventure with
+            {
+                TableBrief = "Four players.",
+                SourceBooks = [new AdventureSourceBookDto(Guid.NewGuid(), "Core", null), new AdventureSourceBookDto(Guid.NewGuid(), "Bestiary", null)],
+            }), Is.EqualTo("Table brief · 2 source books"));
+        });
+    }
+
+    private async Task<IRenderedComponent<AdventureDetail>> RenderOnBookAsync()
+    {
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/prep/the-silver-key?tab=book");
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(1)));
+        return cut;
+    }
+
+    private static async Task OpenWhatTheLoremasterReadsAsync(IRenderedComponent<AdventureDetail> cut)
+    {
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-prep-reads-toggle"), Has.Count.EqualTo(1)));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-reads-toggle").Click());
     }
 
     // ------------------------------------------------------------ Design mode (feature 37) --
@@ -588,7 +686,7 @@ public class AdventurePageTests : BunitContext
         _handler.DraftJson = $$"""{"markdown":"Old draft.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
         _handler.DraftSaveStatus = HttpStatusCode.Conflict;
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(2)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(3)));
 
         await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
@@ -623,7 +721,7 @@ public class AdventurePageTests : BunitContext
     {
         _handler.DraftJson = $$"""{"markdown":"Old draft.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(2)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(3)));
         await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
 
@@ -649,10 +747,11 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheTableBrief_IsEditedBesideTheBookDetails_AndSavedWhole()
+    public async Task TheTableBrief_IsEditedBesideTalkItThrough_AndSavedWhole()
     {
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-side .nornis-table-brief"), Has.Count.EqualTo(1)));
+        await OpenWhatTheLoremasterReadsAsync(cut);
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-column .nornis-table-brief"), Has.Count.EqualTo(1)));
         Assert.That(cut.Find(".nornis-table-brief-empty").TextContent, Does.Contain("It never prints"));
 
         await cut.InvokeAsync(() => cut.Find("button.nornis-table-brief-pencil").Click());
@@ -671,7 +770,8 @@ public class AdventurePageTests : BunitContext
         _handler.LibraryJson = JsonSerializer.Serialize(
             books.Append(LibraryDoc("Harbor map", "Map", null, null, true)), JsonSerializerOptions.Web);
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-source-books-empty").TextContent, Does.Contain("every book")));
+        await OpenWhatTheLoremasterReadsAsync(cut);
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-talk-column .nornis-source-books-empty").TextContent, Does.Contain("every book")));
 
         await cut.InvokeAsync(() => cut.Find("button.nornis-source-books-pencil").Click());
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-source-books-choice"), Has.Count.EqualTo(6), "the map isn't offered"));
@@ -863,7 +963,7 @@ public class AdventurePageTests : BunitContext
         _handler.DraftJson = $$"""{"markdown":"Old.","updatedAt":"{{StubHandler.DraftStamp:O}}","revisionCount":0}""";
         var cut = await RenderAsync();
         var dialogs = Render<MudDialogProvider>();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(2)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(3)));
         await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
         cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-prep-design-gather"), Has.Count.EqualTo(1)));
 

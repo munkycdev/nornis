@@ -1,5 +1,17 @@
 # Design Document
 
+> **Amendment (2026-11-07, Nornis 3.13):** `/prep/{key}` is now three tabs, Design, Sections and
+> Book, kept in the URL as `?tab=design|sections|book` (read when the page opens; the opening tab
+> otherwise follows `AdventureDetail.OpeningMode`). Design is the draft with one right rail;
+> Sections is the outline on the left, the section editor, and the same rail; Book
+> (`AdventureBookTab`) is the cover, Handouts and Documents as the main column beside the
+> Adventure card (title, pitch, campaign through `AdventureDetailsDialog`, which replaces the
+> page head's Details button) and Book details. The rail is one element for Design and Sections, hidden
+> rather than unmounted on Book, so the conversation keeps its state across tabs; it holds
+> `LoremasterReadsPanel` (the table brief and source books, folded to a summary line) above
+> Talk it through. Leaving a tab saves what was typed on it; no tab changes while a turn runs.
+> The page head holds Print, Export to Nornis and Delete. The text below is left as written.
+
 > **Amendment (2026-11-02, Phase D):** what building Print and Export changed. The text below
 > is left as written.
 >

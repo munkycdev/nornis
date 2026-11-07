@@ -1,0 +1,47 @@
+@* What the Loremaster reads for this adventure, above Talk it through on the Design and Sections
+   tabs: the table brief and the source books (feature 37). Both go into every Prep prompt and
+   never print, so they sit with the conversation rather than with the book. Folded to one line
+   that says what each is set to; open, it shows both cards, which save themselves. *@
+
+<div class="nornis-prep-reads">
+    <button type="button" class="nornis-prep-reads-toggle" aria-expanded="@(_open ? "true" : "false")"
+            @onclick="() => _open = !_open">
+        <MudIcon Icon="@(_open ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+        <span class="nornis-prep-reads-label">What the Loremaster reads</span>
+        @if (!_open)
+        {
+            <span class="nornis-prep-reads-summary">@Summary</span>
+        }
+    </button>
+
+    @if (_open)
+    {
+        <div class="nornis-prep-reads-cards">
+            <TableBriefCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnSaved" />
+            <SourceBooksCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnSaved" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after either card saved.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private bool _open;
+
+    /// <summary>The folded line: whether the brief is written, and which books are read.</summary>
+    public static string SummaryOf(AdventureDto adventure)
+    {
+        var brief = string.IsNullOrWhiteSpace(adventure.TableBrief) ? "No table brief" : "Table brief";
+        var books = adventure.SourceBooks is { Count: > 0 } chosen
+            ? chosen.Count == 1 ? "1 source book" : $"{chosen.Count} source books"
+            : "every Library book";
+        return $"{brief} · {books}";
+    }
+
+    private string Summary => SummaryOf(Adventure);
+}
