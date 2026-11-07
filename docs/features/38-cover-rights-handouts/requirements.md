@@ -88,6 +88,8 @@ having to remember.
 4. It SHALL carry a non-affiliation line: game system names are trademarks of their owners,
    and this adventure is not affiliated with or endorsed by them.
 5. The cover's credits line (type, publisher, year) SHALL move to the rights page.
+   *Amended 2026-11-07 (Dave): the type ("Nornis adventure") is no longer printed; the line
+   reads "Nornis Press · {year}". The type stays in the print details and Bibliotaph metadata.*
 
 ### Requirement 3 — Cover art
 

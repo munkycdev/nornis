@@ -98,7 +98,9 @@ public static class BookletModel
     /// </summary>
     private static BookletRights Rights(PrintDetails details, BookletImprint imprint)
     {
-        var credits = new[] { details.Type, details.Publisher, details.Year?.ToString(CultureInfo.InvariantCulture) }
+        // The type ("Nornis adventure") stays in the print details and Bibliotaph's metadata but
+        // isn't printed: Dave dropped it from the page on 2026-11-07.
+        var credits = new[] { details.Publisher, details.Year?.ToString(CultureInfo.InvariantCulture) }
             .Where(v => !string.IsNullOrWhiteSpace(v));
         var year = details.Year ?? imprint.Printed.Year;
 
