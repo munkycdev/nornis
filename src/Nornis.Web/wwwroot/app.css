@@ -4578,6 +4578,31 @@ a.nornis-cite:hover {
     margin-bottom: 16px;
 }
 
+/* The frame and its "working" overlay, which covers it until the PDF loads. */
+.nornis-booklet-stage {
+    position: relative;
+}
+
+.nornis-booklet-working {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 4px;
+}
+
+.nornis-booklet-working-hint {
+    margin-top: 4px;
+    max-width: 360px;
+    color: var(--mud-palette-text-secondary);
+}
+
 .nornis-booklet-frame {
     display: block;
     width: 100%;

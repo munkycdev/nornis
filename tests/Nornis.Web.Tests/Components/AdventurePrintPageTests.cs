@@ -91,6 +91,26 @@ public class AdventurePrintPageTests : BunitContext
         });
     }
 
+    /// <summary>The API lays the booklet out while the frame waits, so the frame says it's working until the PDF loads.</summary>
+    [Test]
+    public async Task WhileTheBookletIsLaidOut_ThePageSaysItsWorking_UntilTheFrameLoads()
+    {
+        var cut = await RenderPrintAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("iframe.nornis-booklet-frame"), Has.Count.EqualTo(1)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.FindAll(".nornis-booklet-working"), Has.Count.EqualTo(1));
+            Assert.That(cut.Find(".nornis-booklet-working").TextContent, Does.Contain("Laying out the booklet"));
+            Assert.That(cut.Find(".nornis-booklet-working").GetAttribute("role"), Is.EqualTo("status"));
+        });
+
+        await cut.InvokeAsync(() => cut.Find("iframe.nornis-booklet-frame").TriggerEvent("onload", new ProgressEventArgs()));
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-booklet-working"), Is.Empty));
+        Assert.That(cut.FindAll("iframe.nornis-booklet-frame"), Has.Count.EqualTo(1), "the frame stays; only the overlay goes");
+    }
+
     [Test]
     public async Task ThePagesTitle_IsTheAdventuresTitleAlone()
     {
