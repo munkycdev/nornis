@@ -182,9 +182,12 @@ public class AdventureConversationService : IAdventureConversationService
                 await _conversations.AddMessageAsync(question, ct);
             }
 
-            // In Design mode the draft rides instead of a section (feature 37).
+            // In Design mode the draft rides instead of a section (feature 37); on the Book tab, the
+            // book does (3.13). Only a Section turn sees a section.
             var onDraft = command.Scope == ConversationScope.Draft;
-            var section = onDraft ? null : adventure.Sections.FirstOrDefault(s => s.Id == command.SectionId);
+            var section = command.Scope == ConversationScope.Section
+                ? adventure.Sections.FirstOrDefault(s => s.Id == command.SectionId)
+                : null;
             var context = await _prompts.BuildAsync(
                 adventure, RetrievalText(adventure, section, text), command.ActingUserId, command.ActingUserRole, ct);
 
@@ -201,7 +204,7 @@ public class AdventureConversationService : IAdventureConversationService
                     AdventureConversationPrompt.HistoryWindow(earlier, _options.ConversationHistoryChars),
                     text,
                     _options.ConversationSectionChars,
-                    onDraft)),
+                    command.Scope)),
                 Model = Model,
                 TimeoutSeconds = TimeoutFor(onDraft, command.WebResearch),
                 WebSearch = command.WebResearch

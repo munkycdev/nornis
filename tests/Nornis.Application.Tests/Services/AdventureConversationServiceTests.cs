@@ -729,6 +729,29 @@ public class AdventureConversationServiceTests
     }
 
     [Test]
+    public async Task OnTheBookTab_TheTurnSeesTheBook_NotTheSectionOrTheDraft()
+    {
+        var adventure = await CreateAdventureAsync();
+        var stored = _adventures.Adventures.Single(a => a.Id == adventure.Id);
+        stored.DraftMarkdown = "THE-WHOLE-DRAFT";
+        stored.CoverBrief = "A-BRIEF-IN-PROGRESS";
+        _ai.Script("Try a lighthouse at dusk.");
+
+        await TurnAsync(Send(adventure, sectionId: adventure.Sections.First().Id) with { Scope = ConversationScope.Book });
+
+        var request = _ai.Requests.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.UserMessage, Does.Contain("## The book the GM is working on"));
+            Assert.That(request.UserMessage, Does.Contain("A-BRIEF-IN-PROGRESS"));
+            Assert.That(request.UserMessage, Does.Not.Contain("THE-WHOLE-DRAFT"));
+            Assert.That(request.UserMessage, Does.Not.Contain("## The section the GM has open"));
+            Assert.That(request.UserMessage, Does.Not.Contain("<- open on the GM's screen"));
+            Assert.That(request.OutputCeilingTokens, Is.Null, "a Book turn is a talk, not a Design write");
+        });
+    }
+
+    [Test]
     public async Task ChosenSourceBooks_AreTheOnlyBooksThePromptReads()
     {
         var adventure = await CreateAdventureAsync();

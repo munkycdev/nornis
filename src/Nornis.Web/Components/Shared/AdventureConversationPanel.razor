@@ -32,6 +32,11 @@
                 @:Talk the draft through with the Loremaster. It sees the whole draft, and when you ask it
                 @:to write or change something it does so in the draft. Undo on the draft takes a change back.
             }
+            else if (BookMode)
+            {
+                @:Talk the book through with the Loremaster: the cover art and its brief, the layout, and the
+                @:handouts. It sees what the cover and the handouts are now. Nothing here changes the book.
+            }
             else
             {
                 @:Ask the Loremaster about this adventure. It knows your world, Hidden truth included, and
@@ -223,10 +228,16 @@
     [Parameter] public Func<ConversationMessageDto, PutInSectionChoice, Task>? PutInSection { get; set; }
 
     /// <summary>
-    /// Design mode (feature 37): each message is sent with the whole draft instead of the open
-    /// section, answers' suggested edits can be applied, and Put in draft replaces Put in section.
+    /// What each message is sent with besides the outline, as <see cref="SendConversationMessageRequest"/>
+    /// names it. Section: the open section. Draft, in Design mode (feature 37): the whole draft
+    /// instead, answers' suggested edits can be applied, and Put in draft replaces Put in section.
+    /// Book, on the Book tab (3.13): the cover, its brief and the handouts instead.
     /// </summary>
-    [Parameter] public bool DraftMode { get; set; }
+    [Parameter] public string Scope { get; set; } = SendConversationMessageRequest.SectionScope;
+
+    private bool DraftMode => Scope == SendConversationMessageRequest.DraftScope;
+
+    private bool BookMode => Scope == SendConversationMessageRequest.BookScope;
 
     /// <summary>Applies the answer's edit at the index. The page saves the editor first; true when it was applied.</summary>
     [Parameter] public Func<ConversationMessageDto, int, Task<bool>>? ApplyEdit { get; set; }
@@ -344,9 +355,8 @@
         try
         {
             await foreach (var e in Api.StreamAdventureConversationAsync(WorldId, AdventureId,
-                               onDraft
-                                   ? new SendConversationMessageRequest(text, null, SendConversationMessageRequest.DraftScope, _researching)
-                                   : new SendConversationMessageRequest(text, SelectedSectionId, WebResearch: _researching), _cts.Token))
+                               new SendConversationMessageRequest(text, Scope == SendConversationMessageRequest.SectionScope ? SelectedSectionId : null,
+                                   Scope, _researching), _cts.Token))
             {
                 switch (e)
                 {

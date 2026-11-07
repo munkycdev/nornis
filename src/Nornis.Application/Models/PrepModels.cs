@@ -191,6 +191,12 @@ public enum ConversationScope
 
     /// <summary>The whole design draft. Answers may carry suggested edits to it.</summary>
     Draft,
+
+    /// <summary>
+    /// The book (Nornis 3.13): the cover, its art brief and layout, and the handouts, for the Book
+    /// tab. No section rides, and nothing in an answer changes the adventure.
+    /// </summary>
+    Book,
 }
 
 /// <summary>What a turn's stream says, in order: the answer as it is written, then exactly one end.</summary>

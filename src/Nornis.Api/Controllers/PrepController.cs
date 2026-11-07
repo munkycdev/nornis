@@ -287,7 +287,7 @@ public class PrepController : ControllerBase
         var scope = ConversationScope.Section;
         if (request.Scope is not null && !EnumParsing.TryParseDefined(request.Scope, out scope))
         {
-            return BadRequest(new ErrorResponse("invalid_scope", $"'{request.Scope}' is not Section or Draft."));
+            return BadRequest(new ErrorResponse("invalid_scope", $"'{request.Scope}' is not Section, Draft or Book."));
         }
 
         var result = await _conversation.SendAsync(new SendConversationMessageCommand(
