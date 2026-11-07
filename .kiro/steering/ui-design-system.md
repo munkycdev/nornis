@@ -1,5 +1,33 @@
 # UI Design System
 
+> **Amendment (2026-11-07, feature 42, "the world is the hero"):** after a UX review found every
+> page the same white card on the same paper, so that one world looked like any other, Dave chose
+> to let the world's own imagery and a meaningful use of colour into the interface. What changes,
+> on top of the Nornis 2.0 note below (which otherwise stands):
+>
+> - **Key art.** Each world may have one landscape image, uploaded or generated on the creator's
+>   key. Home and the public world page open on it, faded into the page so text always sits on
+>   paper. With no key art the hero falls back to the world map the reader can already see, then
+>   to type alone. Imagery is the world's content, not chrome texture: the "Do not use" list under
+>   Logo Direction still holds, and nothing in the interface is drawn to look like parchment or
+>   stone.
+> - **Type colours.** Each artifact type has one muted colour (table in
+>   `docs/features/42-world-as-hero/design.md`, constants in `NornisTheme`). It appears on the
+>   type's icon tile and small kind label only, never on running text, links or buttons.
+>   Terracotta remains the one accent and still means action; semantic colours (success, warning,
+>   error) still mean state.
+> - **Pictures where the world has them.** Adventures show as book covers in Prep; the Map takes
+>   the full content width.
+> - **Status chips only when not resting** (3.14): Active entries, Processed sources and Party
+>   visible items carry no chip; the exceptions are what a reader scans for.
+> - **Buttons and tabs are sentence case** (3.14), set once in the theme's button typography.
+>   Uppercase with tracking is kept for the small eyebrow labels.
+> - **The sidebar brand is one row** (3.14): logo and wordmark, no tagline, so every nav group
+>   fits on a laptop screen. The world switcher carries the identity.
+>
+> The "Aim for" bullet *Clean cards with slightly stronger contrast than the body* is joined by:
+> *one picture per page at most, and only the world's own*.
+
 > **Amendment (2026-09-11): the Codex route is `/codex`.** The note below that the rename was
 > "presentation only" and the route "still `/artifacts`" no longer holds: the Web pages moved to
 > `/codex` and `/codex/{key}` (and `/w/{slug}/codex` on the public site). `/artifacts` remains as a
