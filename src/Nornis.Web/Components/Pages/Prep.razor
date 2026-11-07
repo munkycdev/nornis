@@ -93,30 +93,45 @@ else
     }
     else
     {
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        @* Feature 42: a shelf of books. The cover art when the adventure has one, through the same
+           proxy the Cover card uses; otherwise a typeset cover in ink, as the booklet prints it. *@
+        <div class="nornis-shelf">
             @foreach (var adventure in FilteredAdventures)
             {
-                <a href="@Links.Adventure(adventure.Slug, adventure.Id)" class="nornis-list-row nornis-list-link nornis-prep-row">
-                    <div class="nornis-list-thumb">
-                        <MudIcon Icon="@Icons.Material.Outlined.HistoryEdu" Size="Size.Small" />
-                    </div>
-                    <div class="nornis-list-body">
-                        <div class="nornis-list-title">@adventure.Title</div>
+                <a href="@Links.Adventure(adventure.Slug, adventure.Id)" class="nornis-shelf-book nornis-prep-book">
+                    @if (adventure.CoverUpdatedAt is { } stamp)
+                    {
+                        <div class="nornis-shelf-cover nornis-shelf-cover-art">
+                            <img src="@Links.PrepCover(Worlds.Current!.Id, adventure.Id, stamp)" alt="" loading="lazy" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="nornis-shelf-cover nornis-shelf-cover-typeset" aria-hidden="true">
+                            <span class="nornis-shelf-cover-title">@adventure.Title</span>
+                            <span class="nornis-shelf-cover-press">Nornis Press</span>
+                        </div>
+                    }
+                    <div class="nornis-shelf-caption">
+                        <div class="nornis-prep-book-title">@adventure.Title</div>
                         <div class="nornis-list-sub">
-                            @CampaignName(adventure.CampaignId) · @PrepDisplay.Progress(adventure.FilledSectionCount, adventure.SectionCount) · edited @RelativeTime.Ago(adventure.UpdatedAt)
+                            @CampaignName(adventure.CampaignId) · @PrepDisplay.Progress(adventure.FilledSectionCount, adventure.SectionCount)
+                        </div>
+                        <div class="nornis-shelf-marks">
+                            <span class="nornis-list-meta">edited @RelativeTime.Ago(adventure.UpdatedAt)</span>
+                            @if (adventure.IsExported)
+                            {
+                                <span class="nornis-shelf-mark nornis-prep-exported">Exported</span>
+                            }
+                            @if (PrepDisplay.IsPublished(adventure))
+                            {
+                                <span class="nornis-shelf-mark nornis-shelf-mark-accent nornis-prep-published">Published</span>
+                            }
                         </div>
                     </div>
-                    @if (adventure.IsExported)
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Tertiary" Class="nornis-prep-exported">Exported</MudChip>
-                    }
-                    @if (PrepDisplay.IsPublished(adventure))
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="nornis-prep-published">Published</MudChip>
-                    }
                 </a>
             }
-        </MudPaper>
+        </div>
     }
 }
 

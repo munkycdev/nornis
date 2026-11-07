@@ -171,8 +171,7 @@
         }
     }
 
-    private string CoverUrl(CoverDto cover) =>
-        $"/prep-covers/{WorldId}/{AdventureId}?v={cover.UpdatedAt.ToUnixTimeMilliseconds()}";
+    private string CoverUrl(CoverDto cover) => Links.PrepCover(WorldId, AdventureId, cover.UpdatedAt);
 
     private string OptionUrl(Guid option) => $"/prep-covers/{WorldId}/{AdventureId}/options/{option}";
 

@@ -85,9 +85,7 @@
                                     @foreach (var a in group.Items)
                                     {
                                         <a href="@Links.PublicArtifact(Slug, a.Slug, a.Id)" class="nornis-list-row nornis-link">
-                                            <div class="nornis-list-thumb">
-                                                <MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" />
-                                            </div>
+                                            <TypeTile Type="@a.Type" />
                                             <div class="flex-grow-1">
                                                 <div class="d-flex align-center gap-2">
                                                     <span class="nornis-list-title">@a.Name</span>

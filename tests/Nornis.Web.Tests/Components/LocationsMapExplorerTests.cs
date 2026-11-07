@@ -53,6 +53,34 @@ public class LocationsMapExplorerTests : BunitContext
         Assert.That(untouched.ClassList, Does.Not.Contain("has-history"));
     }
 
+    /// <summary>
+    /// Feature 42: on a wide page the places panel floats over the map, so it can be put away;
+    /// choosing a pin brings it back, since that is what the panel is for.
+    /// </summary>
+    [Test]
+    public void ThePlacesPanel_CanBePutAway_AndAPinBringsItBack()
+    {
+        var cut = Render<LocationsMapExplorer>(ps => ps
+            .Add(p => p.Journey, Journey(Stop("The docks", BlackHarbor))));
+        Assert.That(cut.Find(".nornis-places-stage .nornis-journey-ledger").ClassList, Does.Not.Contain("is-closed"));
+
+        cut.Find("button.nornis-places-hide").Click();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-journey-ledger").ClassList, Does.Contain("is-closed"));
+            Assert.That(cut.FindAll("button.nornis-places-show"), Has.Count.EqualTo(1));
+        });
+
+        cut.FindAll("button.nornis-journey-pin").First().Click();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.Find(".nornis-journey-ledger").ClassList, Does.Not.Contain("is-closed"));
+            Assert.That(cut.FindAll("button.nornis-places-show"), Is.Empty);
+        });
+    }
+
     [Test]
     public void PinTip_CountsSessions_SoTheColourIsNeverTheOnlyTelling()
     {

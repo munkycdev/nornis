@@ -24,11 +24,11 @@
             <EntityPage>
             <Header>
             <div class="nornis-detail-head">
-                <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(_detail.Type)" /></div>
+                <TypeTile Type="@_detail.Type" Large="true" />
                 <div class="nornis-detail-title">
                     <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
                     <div class="nornis-detail-chips">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
+                        <span class="nornis-type-label @ArtifactTypeDisplay.TypeClass(_detail.Type)">@_detail.Type</span>
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(_detail.Status)">@_detail.Status</MudChip>
                         @if (_detail.PlayedBy is { Count: > 0 } players)
                         {
@@ -221,6 +221,6 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.ConnectedArtifacts
             .Take(8)
-            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, Links.PublicArtifact(Slug, c.Slug, c.Id)))
+            .Select(c => new ContextRail.RailLink(c.Type, c.Name, Links.PublicArtifact(Slug, c.Slug, c.Id)))
             .ToList();
 }

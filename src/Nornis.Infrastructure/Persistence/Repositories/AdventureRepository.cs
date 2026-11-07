@@ -31,7 +31,8 @@ public class AdventureRepository : IAdventureRepository
                 a.Sections.Count(s => !unfilledBodies.Contains(s.BodyMarkdown)),
                 a.LastPrintedDocumentId,
                 a.UpdatedAt,
-                _context.Sources.Any(s => s.AdventureId == a.Id)))
+                _context.Sources.Any(s => s.AdventureId == a.Id),
+                a.Cover == null ? null : a.Cover.UpdatedAt))
             .ToListAsync(cancellationToken);
 
         // Newest work first. Ordered here rather than in SQL so the SQLite test provider, which

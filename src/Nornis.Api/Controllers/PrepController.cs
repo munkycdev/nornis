@@ -65,7 +65,7 @@ public class PrepController : ControllerBase
         return result.IsSuccess
             ? Ok(result.Value!.Select(a => new AdventureSummaryResponse(
                 a.Id, a.Title, a.Slug, a.CampaignId, a.SectionCount, a.FilledSectionCount, a.LastPrintedDocumentId, a.UpdatedAt,
-                a.IsExported)).ToList())
+                a.IsExported, a.CoverUpdatedAt)).ToList())
             : result.Error!.ToActionResult();
     }
 

@@ -5,16 +5,21 @@
 window.nornisGraph = (function () {
     const instances = new Map();
 
-    const typeColors = {
-        Character: "#C98A4B",
-        Location: "#4B8AC9",
-        Item: "#8A6FC9",
-        Faction: "#C94B6E",
-        Event: "#4BC98A",
-        Storyline: "#C9B44B",
-        Concept: "#6EC9C0",
-        Document: "#9AA5B1"
-    };
+    // A node is filled with its type's colour (feature 42), read from the stylesheet's
+    // --nornis-type-* tokens on the canvas, so the graph, the Codex's tiles and the theme agree
+    // and dark mode takes the dark set. A type with no token (Document, unknown) is secondary ink.
+    function typeColorReader(el) {
+        const css = getComputedStyle(el);
+        const fallback = css.getPropertyValue("--mud-palette-text-secondary").trim() || "#9AA5B1";
+        const cache = new Map();
+        return type => {
+            if (!cache.has(type)) {
+                const token = css.getPropertyValue("--nornis-type-" + String(type ?? "").toLowerCase()).trim();
+                cache.set(type, token || fallback);
+            }
+            return cache.get(type);
+        };
+    }
 
     // Border drawn around each dot to carry its status. Color is the primary signal, but the
     // ring is also solid where the artifact still stands in the record (Active, Resolved) and
@@ -74,6 +79,7 @@ window.nornisGraph = (function () {
         destroy(elementId);
 
         const sub = neighborhood(nodes, edges, focusId, depth);
+        const typeColor = typeColorReader(el);
 
         // Stable relationship-type → color map for this render.
         const relColors = new Map();
@@ -157,7 +163,7 @@ window.nornisGraph = (function () {
                 const isFocus = node.id === focusId || node.id === hl.selectedId;
                 const dimmed = hl.links.size > 0 && !hl.nodes.has(node.id);
                 const r = isFocus ? 9 : 5;
-                const color = typeColors[node.type] ?? "#9AA5B1";
+                const color = typeColor(node.type);
 
                 ctx.globalAlpha = dimmed ? DIM_NODE_ALPHA : (node.status === "Archived" ? 0.35 : 1);
                 ctx.beginPath();

@@ -156,7 +156,7 @@ else
             {
                 <a href="@Links.Artifact(a.Slug, a.Id)" class="nornis-card nornis-artifact-card">
                     <div class="nornis-artifact-card-head">
-                        <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" /></div>
+                        <TypeTile Type="@a.Type" />
                         <div class="nornis-artifact-card-title">
                             <ArtifactTip Name="@a.Name" Summary="@a.Summary" />
                         </div>
@@ -166,7 +166,7 @@ else
                         <p class="nornis-artifact-card-summary">@a.Summary</p>
                     }
                     <div class="nornis-artifact-card-foot">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@a.Type</MudChip>
+                        <span class="nornis-type-label @ArtifactTypeDisplay.TypeClass(a.Type)">@a.Type</span>
                         @if (ArtifactTypeDisplay.IsWorthShowing(a.Status))
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ArtifactTypeDisplay.StatusColor(a.Status)">@a.Status</MudChip>
