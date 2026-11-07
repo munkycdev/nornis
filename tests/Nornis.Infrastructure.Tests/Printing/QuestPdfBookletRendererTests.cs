@@ -83,6 +83,26 @@ public class QuestPdfBookletRendererTests
         });
     }
 
+    /// <summary>The rights page carries the Nornis Press mark: one image, centred, just above the title.</summary>
+    [Test]
+    public void TheRightsPage_CarriesTheNornisMark_CentredAboveTheTitle()
+    {
+        var pdf = Render(Chapter("Arrival", P("chapterword one.")));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var page = document.GetPage(2);
+        var mark = page.GetImages().Single().BoundingBox;
+        var title = page.GetWords().First(w => w.Text == "Silver").BoundingBox;
+        Assert.Multiple(() =>
+        {
+            Assert.That(mark.Height, Is.EqualTo(QuestPdfBookletRenderer.PressMarkSize).Within(1), "about three quarters of an inch");
+            Assert.That(mark.Bottom, Is.GreaterThan(title.Top), "above the title");
+            Assert.That(mark.Bottom - title.Top, Is.LessThan(36), "and close to it, as the imprint's mark");
+            Assert.That((mark.Left + mark.Right) / 2, Is.EqualTo(page.Width / 2).Within(1), "centred");
+            Assert.That(document.GetPage(1).GetImages(), Is.Empty, "a typeset cover has no image");
+        });
+    }
+
     /// <summary>Feature 40, Requirement 6.2: the web research line sits after the AI statement, and the notice stays last.</summary>
     [Test]
     public void AnAdventureThatDrewOnTheWeb_SaysSoOnItsRightsPage_AboveTheNotice()

@@ -48,6 +48,12 @@
     <None Include="Printing\Fonts\*.txt" />
   </ItemGroup>
 
+  <!-- The Nornis Press mark on the booklet's rights page: a copy of the Web's
+       wwwroot/images/logo.png, embedded for the same reason as the fonts. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Printing\Images\nornis-logo.png" LogicalName="Nornis.Printing.Images.nornis-logo.png" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Nornis.Application\Nornis.Application.csproj" />
     <ProjectReference Include="..\Nornis.Domain\Nornis.Domain.csproj" />

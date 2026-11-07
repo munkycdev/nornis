@@ -12,8 +12,8 @@ namespace Nornis.Infrastructure.Printing;
 /// Lays the booklet out as a PDF with QuestPDF (feature 34). Every layout rule lives here, and
 /// nothing here knows Markdown or Adventures:
 ///
-/// - The cover has a page to itself, and the rights page (feature 38) the next; every chapter
-///   starts a page, its title across both columns.
+/// - The cover has a page to itself, and the rights page (feature 38) the next, under the Nornis
+///   Press mark; every chapter starts a page, its title across both columns.
 /// - Within a chapter the text flows down the left column, then the right, then the next page.
 /// - A heading never ends a column: it moves on with the start of what follows it.
 /// - A box, stat block or table row stays whole when it fits a column; a box longer than about
@@ -48,6 +48,12 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     private const float Gutter = 0.3f * 72;
     private const float BlockSpacing = 6;
 
+    /// <summary>The Nornis Press mark's height on the rights page: about three quarters of an inch.</summary>
+    internal const float PressMarkSize = 54;
+
+    /// <summary>The Nornis logo, drawn on the rights page as the imprint's mark.</summary>
+    private static readonly byte[] PressMark = Resource("Nornis.Printing.Images.nornis-logo.png");
+
     static QuestPdfBookletRenderer()
     {
         QuestPDF.Settings.License = LicenseType.Community;
@@ -61,6 +67,15 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             using var stream = assembly.GetManifestResourceStream(name)!;
             FontManager.RegisterFontFromStream(stream);
         }
+    }
+
+    private static byte[] Resource(string name)
+    {
+        using var stream = typeof(QuestPdfBookletRenderer).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"The embedded resource {name} is missing.");
+        using var bytes = new MemoryStream();
+        stream.CopyTo(bytes);
+        return bytes.ToArray();
     }
 
     public BookletPdf Render(Booklet booklet)
@@ -292,7 +307,8 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     /// <summary>
     /// The rights page (feature 38): centred in small serif at the foot of the page, as a
-    /// published book's is, the credits above a hairline and the notices below it.
+    /// published book's is, under the Nornis Press mark, the credits above a hairline and the
+    /// notices below it.
     /// </summary>
     private static void Rights(PageDescriptor page, BookletRights rights)
     {
@@ -300,6 +316,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         page.Content().AlignBottom().PaddingHorizontal(72).Column(col =>
         {
             col.Spacing(3);
+            col.Item().PaddingBottom(12).AlignCenter().Width(PressMarkSize).Height(PressMarkSize).Image(PressMark).FitArea();
             col.Item().AlignCenter().Text(rights.Title).FontSize(11).SemiBold();
             col.Item().AlignCenter().Text(rights.Credits.ToUpperInvariant())
                 .FontFamily(Sans, Fallback).FontSize(7.5f).LetterSpacing(0.08f).FontColor(Muted);

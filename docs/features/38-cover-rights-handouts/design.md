@@ -90,6 +90,10 @@ BookletModel + Cover + RightsPage + Handouts → QuestPdfBookletRenderer
   MadeWith, AiStatement, Notice)`.
 - The renderer draws it as page 2: centred, in small Serif, with a hairline between the credits
   and the notices.
+- *Amended 2026-11-07 (Dave asked for the Nornis logo on page two):* the Nornis Press mark sits
+  above the title, centred, about ¾" tall. It's a copy of the Web's `wwwroot/images/logo.png`
+  embedded in Infrastructure (`Printing/Images/nornis-logo.png`), as the fonts are, and drawn by
+  the renderer alone: `BookletRights` and the filed snapshot don't change.
 - `MadeWith` reads the assembly's informational version, so it is the deployed version.
 - The cover drops its credits line.
 
