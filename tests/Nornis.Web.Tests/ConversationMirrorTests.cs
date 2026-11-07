@@ -32,7 +32,7 @@ public class ConversationMirrorTests
 
     [Test]
     public void TheScopes_AreTheApplicationsConversationScopes() =>
-        Assert.That(new[] { SendConversationMessageRequest.SectionScope, SendConversationMessageRequest.DraftScope },
+        Assert.That(new[] { SendConversationMessageRequest.SectionScope, SendConversationMessageRequest.DraftScope, SendConversationMessageRequest.BookScope },
             Is.EqualTo(EnumMembers("src/Nornis.Application/Models/PrepModels.cs", "ConversationScope")));
 
     [Test]

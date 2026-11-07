@@ -1,6 +1,8 @@
 using System.Text;
+using Nornis.Application.Models;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Application.Prep;
 
@@ -12,8 +14,9 @@ namespace Nornis.Application.Prep;
 /// <param name="History">The conversation so far that fits the window, oldest first, without
 /// the new message. <see cref="AdventureConversationPrompt.HistoryWindow"/> chooses it.</param>
 /// <param name="MaxSectionChars">The section on screen is cut to this.</param>
-/// <param name="OnDraft">The GM is in Design mode (feature 37): the whole design draft rides
-/// instead of a section, and answers may suggest edits to it.</param>
+/// <param name="Scope">What rides besides the outline: the section on screen; in Design mode
+/// (feature 37) the whole design draft, which answers may edit; or on the Book tab (3.13) the
+/// book: its cover, art brief and handouts.</param>
 public sealed record AdventureConversationInput(
     PrepPromptContext Context,
     Adventure Adventure,
@@ -21,7 +24,7 @@ public sealed record AdventureConversationInput(
     IReadOnlyList<ConversationMessage> History,
     string Message,
     int MaxSectionChars,
-    bool OnDraft = false);
+    ConversationScope Scope = ConversationScope.Section);
 
 /// <summary>
 /// The prompt for one turn of an Adventure's side conversation (feature 30). Cache-ordered like
@@ -50,7 +53,8 @@ public static class AdventureConversationPrompt
           conversation. Treat them as things the GM can reveal, never as things the players know.
         - Passages from the GM's reference books, when any fit.
         - The adventure's title, pitch and outline, and the section the GM has open, if any; or,
-          when the GM is in Design mode, the whole design draft.
+          when the GM is in Design mode, the whole design draft; or, when the GM is working on the
+          book, its cover, the cover's art brief and the handouts printed at its back.
         - The conversation so far, and the GM's new message.
 
         ## Rules
@@ -89,6 +93,19 @@ public static class AdventureConversationPrompt
         - Never put text meant for the adventure outside an edit. Around your edits, say in a
           sentence or two what you changed, as done, and ask anything you need to.
         - When the GM is only talking an idea through, answer briefly in the chat without an edit.
+
+        ## When the GM is working on the book
+        The GM is on the book itself: its cover art, how the cover is laid out, and its handouts and
+        maps. Nothing you write changes the adventure; the GM copies what they want.
+        - An art brief is one paragraph of 60 to 120 words describing a single painted scene: the
+          setting, the light, the mood, one focal subject and the palette, in plain present tense.
+          The GM pastes it into the Cover's brief, and an image model paints from it.
+        - A cover never carries words: Nornis sets the title and every other word of type itself.
+          Leave calm, empty space across the top quarter for the title, and keep to a portrait
+          composition.
+        - A cover is seen by the players once the book is shared. Show the hook, never a Hidden
+          truth, a twist or a villain's identity, and never name a living artist or a publisher's
+          house style.
         """;
 
     /// <summary>
@@ -196,9 +213,13 @@ public static class AdventureConversationPrompt
 
         sb.AppendLine();
 
-        if (input.OnDraft)
+        if (input.Scope == ConversationScope.Draft)
         {
             AppendDraft(sb, input.Adventure.DraftMarkdown);
+        }
+        else if (input.Scope == ConversationScope.Book)
+        {
+            AppendBook(sb, input.Adventure);
         }
         else if (onScreen is not null)
         {
@@ -239,6 +260,65 @@ public static class AdventureConversationPrompt
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// The book (3.13): the cover as it stands, the art brief being worked on, and the handouts in
+    /// print order. All bounded: a brief by <see cref="AdventureCover.MaxBriefChars"/>, the
+    /// handouts by the Adventure's handout cap.
+    /// </summary>
+    private static void AppendBook(StringBuilder sb, Adventure adventure)
+    {
+        sb.AppendLine("## The book the GM is working on");
+        sb.AppendLine();
+        sb.AppendLine("### Cover");
+        sb.AppendLine();
+        if (adventure.Cover is { } cover)
+        {
+            sb.AppendLine(cover.Source == CoverSource.Generated
+                ? "Art: generated from a brief and chosen."
+                : "Art: the GM's own upload.");
+            sb.AppendLine($"Layout: {LayoutLabel(cover.Layout)}.");
+            if (!string.IsNullOrWhiteSpace(cover.Brief))
+            {
+                sb.AppendLine($"The brief it was painted from: {cover.Brief.Trim()}");
+            }
+        }
+        else
+        {
+            sb.AppendLine("Art: none yet, so the booklet prints a typeset cover.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(adventure.CoverBrief))
+        {
+            sb.AppendLine($"The latest art brief (the last one written or painted from): {adventure.CoverBrief.Trim()}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("### Handouts and maps, printed at the back");
+        sb.AppendLine();
+        var handouts = adventure.Handouts.OrderBy(h => h.SortOrder).ToList();
+        if (handouts.Count == 0)
+        {
+            sb.AppendLine("None yet.");
+        }
+        else
+        {
+            foreach (var handout in handouts)
+            {
+                sb.AppendLine($"- {handout.LibraryDocument?.Title ?? "A Library document"}");
+            }
+        }
+
+        sb.AppendLine();
+    }
+
+    private static string LayoutLabel(CoverLayout layout) => layout switch
+    {
+        CoverLayout.FullBleed => "full bleed, the art filling the page under a title band",
+        CoverLayout.Framed => "framed, the title above the art",
+        CoverLayout.ClassicModule => "classic module, the title at the top and the details below the art",
+        _ => layout.ToString(),
+    };
 
     /// <summary>The whole draft, which is bounded by <see cref="Adventure.MaxDraftChars"/>, so nothing is cut: an edit must quote it exactly.</summary>
     private static void AppendDraft(StringBuilder sb, string? draft)

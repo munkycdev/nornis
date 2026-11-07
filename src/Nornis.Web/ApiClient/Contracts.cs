@@ -1329,13 +1329,14 @@ public record WebResearchAvailabilityDto(bool Available, string? Reason);
 /// <param name="WebResearch">Whether the switch can be on (feature 40); null from an API before 3.11, read as off.</param>
 public record ConversationDto(IReadOnlyList<ConversationMessageDto> Messages, bool IsFull, WebResearchAvailabilityDto? WebResearch = null);
 
-/// <param name="Scope">Section, or Draft in Design mode (feature 37); the API's <c>ConversationScope</c>, pinned by a test.</param>
+/// <param name="Scope">Section, Draft in Design mode (feature 37), or Book on the Book tab (3.13); the API's <c>ConversationScope</c>, pinned by a test.</param>
 /// <param name="WebResearch">The Web research switch (feature 40): this turn may search the web.</param>
 public record SendConversationMessageRequest(
     string Text, Guid? SectionId, string Scope = SendConversationMessageRequest.SectionScope, bool WebResearch = false)
 {
     public const string SectionScope = "Section";
     public const string DraftScope = "Draft";
+    public const string BookScope = "Book";
 }
 
 /// <summary>One suggested edit: the passage it finds in the draft and its replacement. Mirrors <c>DraftEditResponse</c>.</summary>

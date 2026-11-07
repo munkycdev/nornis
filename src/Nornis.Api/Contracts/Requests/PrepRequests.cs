@@ -32,7 +32,7 @@ public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset B
 public record ExportAdventureRequest(Guid? ChapterSectionId);
 
 /// <summary>One turn of the side conversation. <see cref="SectionId"/> is the section on screen, or null.</summary>
-/// <param name="Scope">Section (the default) or Draft (feature 37): what the conversation sees besides the outline.</param>
+/// <param name="Scope">Section (the default), Draft (feature 37) or Book (3.13): what the conversation sees besides the outline.</param>
 /// <param name="WebResearch">The Web research switch (feature 40): this turn may search the web. Off when absent.</param>
 public record SendConversationMessageRequest(string? Text, Guid? SectionId, string? Scope = null, bool WebResearch = false);
 

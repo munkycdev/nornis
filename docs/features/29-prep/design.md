@@ -2,15 +2,19 @@
 
 > **Amendment (2026-11-07, Nornis 3.13):** `/prep/{key}` is now three tabs, Design, Sections and
 > Book, kept in the URL as `?tab=design|sections|book` (read when the page opens; the opening tab
-> otherwise follows `AdventureDetail.OpeningMode`). Design is the draft with one right rail;
-> Sections is the outline on the left, the section editor, and the same rail; Book
-> (`AdventureBookTab`) is the cover, Handouts and Documents as the main column beside the
-> Adventure card (title, pitch, campaign through `AdventureDetailsDialog`, which replaces the
-> page head's Details button) and Book details. The rail is one element for Design and Sections, hidden
-> rather than unmounted on Book, so the conversation keeps its state across tabs; it holds
-> `LoremasterReadsPanel` (the table brief and source books, folded to a summary line) above
-> Talk it through. Leaving a tab saves what was typed on it; no tab changes while a turn runs.
-> The page head holds Print, Export to Nornis and Delete. The text below is left as written.
+> otherwise follows `AdventureDetail.OpeningMode`). Every tab has the same right rail: one
+> element, so the conversation keeps its state across tabs, holding `LoremasterReadsPanel` (the
+> table brief and source books, folded to a summary line) above Talk it through. Design is the
+> draft beside it; Sections adds the outline on the left; Book (`AdventureBookTab`) is the cover,
+> Handouts and Documents beside the Adventure card (title, pitch, campaign through
+> `AdventureDetailsDialog`, which replaces the page head's Details button) and Book details. Each
+> tab sends its own `ConversationScope`: Section (the open section), Draft, or Book, a third
+> scope whose prompt carries the cover (source, layout, the brief it was painted from), the latest
+> `CoverBrief` and the handouts in print order instead of a section, with system-prompt rules
+> that keep lettering, twists and Hidden truth off a cover. A Book turn is an ordinary talk: no
+> edits, no Design ceiling or timeout. Leaving a tab saves what was typed on it; no tab changes
+> while a turn runs. The page head holds Print, Export to Nornis and Delete. The text below is
+> left as written.
 
 > **Amendment (2026-11-02, Phase D):** what building Print and Export changed. The text below
 > is left as written.

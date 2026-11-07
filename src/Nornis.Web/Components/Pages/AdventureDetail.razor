@@ -257,13 +257,13 @@ else if (_adventure is not null)
             }
         </div>
 
-        @* One rail for Design and Sections, so the conversation (and anything typed in its box)
-           stays put across them; hidden, not unmounted, on Book. *@
-        <div class="nornis-prep-talk-column" hidden="@(_mode == BookMode)">
+        @* One rail for every tab, so the conversation (and anything typed in its box) stays put
+           across them. Each tab sends what it shows: the open section, the draft or the book. *@
+        <div class="nornis-prep-talk-column">
             <LoremasterReadsPanel Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
             <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
                                         Sections="_adventure.Sections" SelectedSectionId="_selectedId"
-                                        PutInSection="PutAnswerAsync" DraftMode="@(_mode == DesignMode)"
+                                        PutInSection="PutAnswerAsync" Scope="@ConversationScopeOf(_mode)"
                                         ApplyEdit="ApplyEditAsync" PutInDraft="PutAnswerInDraftAsync"
                                         BeforeSend="SaveDraftBeforeTurnAsync" OnTurnRunning="OnTalkRunning"
                                         OnDraftEdited="ReloadDraftAsync" />
@@ -311,6 +311,14 @@ else if (_adventure is not null)
 
     /// <summary>The tabs, in the order a GM works: the draft, then its sections, then the book they make.</summary>
     public static readonly IReadOnlyList<string> Modes = [DesignMode, SectionsMode, BookMode];
+
+    /// <summary>What Talk it through sends with each message on a tab: the section, the draft or the book.</summary>
+    public static string ConversationScopeOf(string mode) => mode switch
+    {
+        DesignMode => SendConversationMessageRequest.DraftScope,
+        BookMode => SendConversationMessageRequest.BookScope,
+        _ => SendConversationMessageRequest.SectionScope,
+    };
 
     /// <summary>The tab a URL names, whatever its case; null for none or one that isn't a tab.</summary>
     public static string? ModeFromQuery(string? tab) =>

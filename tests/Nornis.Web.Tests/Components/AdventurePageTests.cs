@@ -545,7 +545,7 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheBookDetails_SitOnTheBookTab_BesideTheCover()
+    public async Task TheBookDetails_SitOnTheBookTab_WithTheCover_AndTalkItThrough()
     {
         var cut = await RenderAsync();
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(3)));
@@ -553,14 +553,14 @@ public class AdventurePageTests : BunitContext
 
         await cut.InvokeAsync(() => ModeButton(cut, "Book").Click());
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book-side .nornis-book-details"), Has.Count.EqualTo(1)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book-catalog .nornis-book-details"), Has.Count.EqualTo(1)));
         Assert.Multiple(() =>
         {
             Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
-            Assert.That(cut.FindAll(".nornis-prep-book-main .nornis-cover-card"), Has.Count.EqualTo(1));
-            Assert.That(cut.FindAll(".nornis-prep-book-main .nornis-handouts"), Has.Count.EqualTo(1));
-            Assert.That(cut.FindAll(".nornis-prep-book-main .nornis-adventure-documents"), Has.Count.EqualTo(1));
-            Assert.That(cut.Find(".nornis-prep-talk-column").HasAttribute("hidden"), Is.True, "Talk it through isn't on the Book tab");
+            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-cover-card"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-handouts"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-adventure-documents"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-talk-column .nornis-prep-talk"), Has.Count.EqualTo(1), "Talk it through is beside the book");
         });
     }
 
@@ -821,6 +821,25 @@ public class AdventurePageTests : BunitContext
         {
             Assert.That(sent.GetProperty("scope").GetString(), Is.EqualTo("Draft"));
             Assert.That(sent.GetProperty("sectionId").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        });
+    }
+
+    [Test]
+    public async Task OnTheBookTab_AMessageIsSentWithTheBook_NotTheSection()
+    {
+        var cut = await RenderOnBookAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-talk-empty").TextContent, Does.Contain("cover art")));
+
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-talk-input textarea").Input("Ideas for the cover?"));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-talk-send").Click());
+
+        cut.WaitForAssertion(() => Assert.That(_handler.LastSendBody, Is.Not.Null));
+        var sent = JsonDocument.Parse(_handler.LastSendBody!).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.GetProperty("scope").GetString(), Is.EqualTo("Book"));
+            Assert.That(sent.GetProperty("sectionId").ValueKind, Is.EqualTo(JsonValueKind.Null),
+                "a section is selected, but it isn't on screen");
         });
     }
 

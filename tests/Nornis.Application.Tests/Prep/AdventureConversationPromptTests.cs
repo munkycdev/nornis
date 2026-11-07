@@ -1,6 +1,8 @@
+using Nornis.Application.Models;
 using Nornis.Application.Prep;
 using Nornis.Domain.Entities;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using NUnit.Framework;
 
 namespace Nornis.Application.Tests.Prep;
@@ -69,7 +71,7 @@ public class AdventureConversationPromptTests
 
         var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
             new PrepPromptContext("Fate Accelerated", null, null, "WORLD-CONTEXT"), adventure, scene.Id, [], "THE-NEW-MESSAGE",
-            MaxSectionChars: 100, OnDraft: true));
+            MaxSectionChars: 100, Scope: ConversationScope.Draft));
 
         Assert.Multiple(() =>
         {
@@ -87,9 +89,73 @@ public class AdventureConversationPromptTests
         var adventure = AnAdventure(out _);
 
         var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
-            new PrepPromptContext(null, null, null, "WORLD-CONTEXT"), adventure, null, [], "Write it.", 100, OnDraft: true));
+            new PrepPromptContext(null, null, null, "WORLD-CONTEXT"), adventure, null, [], "Write it.", 100, Scope: ConversationScope.Draft));
 
         Assert.That(prompt, Does.Contain("The draft is empty."));
+    }
+
+    [Test]
+    public void OnTheBook_TheCoverItsBriefAndTheHandoutsRide_InPrintOrder()
+    {
+        var adventure = AnAdventure(out var scene);
+        adventure.Cover = new AdventureCover
+        {
+            BlobPath = "covers/x.png",
+            ContentType = "image/png",
+            Source = CoverSource.Generated,
+            Brief = "A-PAINTED-BRIEF",
+            Layout = CoverLayout.Framed,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        adventure.CoverBrief = "A-NEWER-BRIEF";
+        adventure.Handouts =
+        [
+            new AdventureHandout { SortOrder = 2, LibraryDocument = new LibraryDocument { Title = "SECOND-HANDOUT" } },
+            new AdventureHandout { SortOrder = 1, LibraryDocument = new LibraryDocument { Title = "FIRST-HANDOUT" } },
+        ];
+
+        var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
+            new PrepPromptContext("Fate Accelerated", null, null, "WORLD-CONTEXT"), adventure, scene.Id, [], "THE-NEW-MESSAGE",
+            MaxSectionChars: 100, Scope: ConversationScope.Book));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("## The book the GM is working on"));
+            Assert.That(prompt, Does.Contain("Layout: framed"));
+            Assert.That(prompt, Does.Contain("A-PAINTED-BRIEF"));
+            Assert.That(prompt, Does.Contain("A-NEWER-BRIEF"));
+            Assert.That(prompt.IndexOf("FIRST-HANDOUT", StringComparison.Ordinal),
+                Is.LessThan(prompt.IndexOf("SECOND-HANDOUT", StringComparison.Ordinal)));
+            Assert.That(prompt, Does.Not.Contain("## The section the GM has open"), "the Book tab shows no section");
+            Assert.That(prompt.IndexOf("## The book", StringComparison.Ordinal),
+                Is.LessThan(prompt.IndexOf("## The conversation so far", StringComparison.Ordinal)), "cache order holds");
+        });
+    }
+
+    [Test]
+    public void OnTheBook_WithNoArtOrHandouts_SaysSo()
+    {
+        var adventure = AnAdventure(out _);
+
+        var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
+            new PrepPromptContext(null, null, null, "WORLD-CONTEXT"), adventure, null, [], "Cover ideas?", 100, ConversationScope.Book));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("Art: none yet"));
+            Assert.That(prompt, Does.Contain("None yet."));
+        });
+    }
+
+    [Test]
+    public void TheSystemPrompt_KeepsHiddenTruthAndLetteringOffACover()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AdventureConversationPrompt.SystemPrompt, Does.Contain("## When the GM is working on the book"));
+            Assert.That(AdventureConversationPrompt.SystemPrompt, Does.Contain("never a Hidden"));
+            Assert.That(AdventureConversationPrompt.SystemPrompt, Does.Contain("A cover never carries words"));
+        });
     }
 
     [Test]

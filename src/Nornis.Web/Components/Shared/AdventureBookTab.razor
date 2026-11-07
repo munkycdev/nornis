@@ -1,11 +1,11 @@
-@* The Book tab of an Adventure: the booklet as an object, apart from its words. The main column
-   is what the book carries besides its sections: the cover art, the handouts printed at its
-   back, and the documents that belong to it. Beside it, what it is called and filed by. Every
-   card saves itself and raises what the API returned; the page merges it, so nothing open on
-   the other tabs is replaced. *@
+@* The Book tab of an Adventure: the booklet as an object, apart from its words, beside Talk it
+   through as every tab is. Two columns when there is room: what the book carries besides its
+   sections (the cover art, the handouts printed at its back, the documents that belong to it),
+   and what it is called and filed by. Every card saves itself and raises what the API returned;
+   the page merges it, so nothing open on the other tabs is replaced. *@
 
 <div class="nornis-prep-book">
-    <div class="nornis-prep-book-main">
+    <div class="nornis-prep-book-contents">
         <CoverCard WorldId="WorldId" AdventureId="Adventure.Id" Disabled="Disabled" OnChanged="OnCoverChanged" />
 
         <HandoutsCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnHandoutsSaved" />
@@ -13,7 +13,7 @@
         <AdventureDocumentsCard WorldId="WorldId" AdventureId="Adventure.Id" Disabled="Disabled" />
     </div>
 
-    <div class="nornis-prep-book-side">
+    <div class="nornis-prep-book-catalog">
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-about">
             <div class="d-flex align-center">
                 <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Adventure</MudText>
