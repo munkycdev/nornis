@@ -407,7 +407,10 @@
         setEditable(elementId, editable) {
             const editor = editors.get(elementId);
             if (editor) {
-                editor.setEditable(editable);
+                // No update event: TipTap emits one by default, which schedules a backup of the
+                // text as it is, and a backup taken as the Loremaster starts is put back over
+                // what it wrote when the editor remounts or the page reloads (feature 41).
+                editor.setEditable(editable, false);
             }
         },
 

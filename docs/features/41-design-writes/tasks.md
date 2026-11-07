@@ -27,6 +27,13 @@ longer answers. He approved spec, build and ship in one go.**
 
 ## Phase C — Live
 
-- [ ] C1. Dave applies `AddDraftEditOutcomes` to prod; merge; confirm the new revision serves.
+- [x] C1. Dave applies `AddDraftEditOutcomes` to prod; merge; confirm the new revision serves.
 - [ ] C2. Live walk (Dave): in Design mode, ask for a whole adventure on an empty draft, then a
       change to one scene; check the draft changes, Undo steps back, and the chat stays short.
+
+  2026-11-06 walk, first turn: both edits applied on the server, but the editor showed the old
+  draft, even after a reload. TipTap's `setEditable` emits an update by default, so locking the
+  editor for the turn scheduled a browser backup of the text from before, and the remount (and
+  every reload, with `PreferBackup`) put it back. Fixed: `setEditable` emits no update, and the
+  design panel doesn't prefer the kept copy when it remounts for a change made elsewhere. Applied
+  edits' cards read "Change", not "Suggested edit".
