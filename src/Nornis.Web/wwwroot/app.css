@@ -2,7 +2,8 @@
    Nornis theme-oriented styles.
    Colors are never hard-coded here — they read the MudBlazor palette custom
    properties generated from NornisTheme (var(--mud-palette-*)). Only fonts,
-   layout, spacing, and a couple of derived translucent tones live as locals.
+   layout, spacing, a couple of derived translucent tones, and the type colours
+   (mirrored from NornisTheme.TypeColours, held to it by a test) live as locals.
    ============================================================================ */
 
 :root {
@@ -20,6 +21,16 @@
 
     --nornis-card-shadow: 0 1px 2px rgba(28, 31, 36, 0.04), 0 6px 18px rgba(28, 31, 36, 0.04);
     --nornis-topo: radial-gradient(120% 100% at 50% 0%, rgba(139, 74, 60, 0.05) 0%, rgba(139, 74, 60, 0) 55%);
+
+    /* Feature 42: type colours, mirrored from NornisTheme.TypeColours (ThemeTests holds them to it).
+       They mark a type's icon tile and kind label only. Reach them through the type classes below. */
+    --nornis-type-character: #3F6079;
+    --nornis-type-location: #557548;
+    --nornis-type-item: #9C7330;
+    --nornis-type-faction: #6E4A6B;
+    --nornis-type-event: #3E7672;
+    --nornis-type-storyline: #A7843B;
+    --nornis-type-concept: #5E6080;
 }
 
 html, body {
@@ -360,6 +371,11 @@ h1:focus {
     height: 10px;
     border-radius: 50%;
     display: inline-block;
+}
+
+/* A legend dot for a type: the type colour by class, as the graph's nodes read it. */
+.nornis-graph-type-dot {
+    background-color: var(--nornis-type, var(--mud-palette-text-secondary));
 }
 
 /* Legend swatch for the status border drawn around each node; color and style set inline. */
@@ -1231,6 +1247,45 @@ a.nornis-tutorial-step-title:hover {
 
 .nornis-list-link:hover {
     background-color: var(--mud-palette-background);
+}
+
+/* ------------------------------------------------------- Feature 42 · type tiles -- */
+
+/* ArtifactTypeDisplay.TypeClass puts one of these on an element; the tile and the kind label read
+   --nornis-type from it. nornis-type-other (Document, unknown) falls back to secondary ink. */
+.nornis-type-character { --nornis-type: var(--nornis-type-character); }
+.nornis-type-location { --nornis-type: var(--nornis-type-location); }
+.nornis-type-item { --nornis-type: var(--nornis-type-item); }
+.nornis-type-faction { --nornis-type: var(--nornis-type-faction); }
+.nornis-type-event { --nornis-type: var(--nornis-type-event); }
+.nornis-type-storyline { --nornis-type: var(--nornis-type-storyline); }
+.nornis-type-concept { --nornis-type: var(--nornis-type-concept); }
+.nornis-type-other { --nornis-type: var(--mud-palette-text-secondary); }
+
+/* The icon in its type's colour on a 13% tint of it: a 2.1rem rounded square. */
+.nornis-type-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 10px;
+    color: var(--nornis-type, var(--mud-palette-text-secondary));
+    background-color: color-mix(in srgb, var(--nornis-type, var(--mud-palette-text-secondary)) 13%, transparent);
+}
+
+.nornis-type-tile-lg {
+    width: 2.6rem;
+    height: 2.6rem;
+}
+
+/* The small kind label ("Character") on a card: the type's colour, never on running text. */
+.nornis-type-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--nornis-type, var(--mud-palette-text-secondary));
 }
 
 .nornis-list-thumb {
@@ -4301,7 +4356,9 @@ a.nornis-cite:hover {
     text-decoration: none;
 }
 .nornis-rail-link:hover { text-decoration: underline; }
-.nornis-rail-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nornis-rail-link > span:not(.nornis-type-tile) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The rail is a dense list: the tile shrinks to sit on one 30px line. */
+.nornis-rail-link .nornis-type-tile { width: 1.6rem; height: 1.6rem; border-radius: 6px; }
 .nornis-rail-more { display: inline-block; margin-top: 4px; font-size: 0.78rem; }
 .nornis-rail-loremaster { padding: 0; border: 0; background: transparent; }
 .nornis-rail-loremaster .nornis-lm { margin: 0; }
@@ -4372,6 +4429,13 @@ a.nornis-cite:hover {
     --nornis-onside-success: #6FB98A;
     --nornis-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 18px rgba(0, 0, 0, 0.25);
     --nornis-topo: none;
+    --nornis-type-character: #7FA3BF;
+    --nornis-type-location: #8DB07E;
+    --nornis-type-item: #D2A75C;
+    --nornis-type-faction: #B48AB0;
+    --nornis-type-event: #79B5AF;
+    --nornis-type-storyline: #D6B672;
+    --nornis-type-concept: #9EA0C2;
     color-scheme: dark;
 }
 
@@ -5094,4 +5158,162 @@ a.nornis-cite:hover {
 
 .nornis-library-search {
     min-width: 12rem;
+}
+
+/* ------------------------------------------------------- Feature 42 · Prep shelf -- */
+
+/* The Prep list as a shelf of books: 2:3 covers, the booklet's own proportion. */
+.nornis-shelf {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 28px 22px;
+}
+
+.nornis-shelf-book {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.nornis-shelf-cover {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 4px 8px 8px 4px;
+    overflow: hidden;
+    box-shadow: var(--nornis-card-shadow), inset 3px 0 0 rgba(0, 0, 0, 0.12);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.nornis-shelf-book:hover .nornis-shelf-cover,
+.nornis-shelf-book:focus-visible .nornis-shelf-cover {
+    transform: translateY(-3px);
+}
+
+.nornis-shelf-book:focus-visible {
+    outline: none;
+}
+
+.nornis-shelf-book:focus-visible .nornis-shelf-cover {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 3px;
+}
+
+.nornis-shelf-cover-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* No art: the typeset cover, ink with the title set in the serif, as the booklet prints it. */
+.nornis-shelf-cover-typeset {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 18px 14px 14px;
+    background-color: var(--mud-palette-text-primary);
+    color: var(--mud-palette-background);
+}
+
+.nornis-shelf-cover-title {
+    font-family: var(--nornis-serif);
+    font-size: 1.2rem;
+    line-height: 1.2;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+    padding-bottom: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--mud-palette-background) 35%, transparent);
+}
+
+.nornis-shelf-cover-press {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+.nornis-prep-book-title {
+    font-family: var(--nornis-serif);
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.nornis-shelf-book:hover .nornis-prep-book-title {
+    text-decoration: underline;
+}
+
+.nornis-shelf-marks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    margin-top: 2px;
+}
+
+.nornis-shelf-mark {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--mud-palette-tertiary);
+}
+
+.nornis-shelf-mark-accent {
+    color: var(--mud-palette-primary);
+}
+
+/* ---------------------------------------------------- Feature 42 · Map, full width -- */
+
+/* The Map page gives the map the content width: the places panel goes beneath it, and on a wide
+   page floats over its right edge (closable, a pin reopens it). The Timeline's journey keeps the
+   side-by-side stage. */
+.nornis-places-stage {
+    grid-template-columns: minmax(0, 1fr);
+    position: relative;
+}
+
+.nornis-places-hide,
+.nornis-places-show {
+    display: none;
+}
+
+@container page (min-width: 1000px) {
+    .nornis-places-stage .nornis-journey-ledger {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 340px;
+        max-height: calc(100% - 32px);
+        overflow-y: auto;
+        z-index: 2;
+    }
+
+    .nornis-places-stage .nornis-journey-ledger.is-closed {
+        display: none;
+    }
+
+    .nornis-places-hide {
+        display: inline;
+    }
+
+    .nornis-places-show {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 2;
+        padding: 6px 12px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 6px;
+        background: var(--mud-palette-surface);
+        color: var(--mud-palette-text-primary);
+        font: inherit;
+        font-size: 0.85rem;
+        box-shadow: var(--nornis-card-shadow);
+        cursor: pointer;
+    }
 }

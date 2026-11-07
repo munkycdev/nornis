@@ -1,5 +1,16 @@
 # Design Document
 
+> **Amendment, 2026-11-07 23:40Z (Phase B as built).** The artifact graph had its own brighter
+> palette for types (orange characters, blue places), kept in two places: `ArtifactGraph.Legend`
+> and `typeColors` in `nornis-graph.js`. With type colours in the theme, that was a third copy
+> of the rule saying something different. The graph now reads the `--nornis-type-*` tokens off
+> its canvas (so dark mode takes the dark set) and its legend dots take `TypeClass`. The guard
+> test scans the Web's scripts as well as its components. Character's slate equals the palette's
+> Info role, which status marks use in their own right, so the guard skips palette colours.
+> The Prep shelf needed the cover's stamp on the list: `AdventureSummary.CoverUpdatedAt`, read
+> in the same query. `ContextRail.RailLink` now carries the entry's type instead of an icon.
+> Phase B shipped as 3.15; key art and the hero follow as 3.16.
+
 ## Overview
 
 ```

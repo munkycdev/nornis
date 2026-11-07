@@ -22,7 +22,8 @@ public record CanonEntry(
     VisibilityScope Visibility,
     DateTimeOffset UpdatedAt,
     string? ArtifactSlug = null,
-    string? OtherArtifactSlug = null);
+    string? OtherArtifactSlug = null,
+    ArtifactType? ArtifactType = null);
 
 public enum CanonEntryKind
 {

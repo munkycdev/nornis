@@ -4,9 +4,13 @@
    dated sessions that visited that place, each opening to the artifacts it touched. Shared
    verbatim by the members' Locations page and the public /w/{slug}/locations page — the host
    fetches the journey (each side has its own endpoint) and passes it in. Not time-bound like
-   the Journey view: no scrubber, no trail, a pin is simply unselected or selected. *@
+   the Journey view: no scrubber, no trail, a pin is simply unselected or selected.
 
-<div class="nornis-journey-stage">
+   Feature 42: the map takes the content width and the places panel sits beneath it; on a wide
+   page the panel floats over the map's right edge instead, and can be put away (a pin brings
+   it back). *@
+
+<div class="nornis-journey-stage nornis-places-stage">
     <div class="nornis-journey-map">
         <img src="@Journey.ImageUrl" alt="World map" />
 
@@ -27,7 +31,14 @@
         }
     </div>
 
-    <aside class="nornis-journey-ledger">
+    @if (_ledgerClosed)
+    {
+        <button type="button" class="nornis-places-show" @onclick="() => _ledgerClosed = false">
+            <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" /> Places
+        </button>
+    }
+
+    <aside class="nornis-journey-ledger @(_ledgerClosed ? "is-closed" : null)">
         @if (SelectedLocation is { } place)
         {
             <div class="nornis-journey-ledger-eye">
@@ -80,7 +91,11 @@
         }
         else
         {
-            <div class="nornis-journey-ledger-eye">Places</div>
+            <div class="nornis-journey-ledger-eye">
+                Places
+                <button type="button" class="nornis-journey-close nornis-places-hide" @onclick="() => _ledgerClosed = true"
+                        aria-label="Hide the places panel" title="Hide the places panel">&times;</button>
+            </div>
             <div class="nornis-journey-ledger-title nornis-serif">
                 @Journey.Locations.Count place@(Journey.Locations.Count == 1 ? "" : "s") on this map
             </div>
@@ -100,6 +115,9 @@
     [Parameter] public string ArtifactLinkBase { get; set; } = "/codex";
 
     private Guid? _selectedPinId;
+
+    /// <summary>The floating panel put away (wide pages only; beneath the map it always shows).</summary>
+    private bool _ledgerClosed;
     private readonly HashSet<Guid> _collapsedNotes = new();
 
     private JourneyDto? _resetKey;
@@ -144,6 +162,7 @@
         // Toggle: clicking the open place closes it. A fresh place opens with its sessions expanded.
         _selectedPinId = _selectedPinId == artifactId ? null : artifactId;
         _collapsedNotes.Clear();
+        _ledgerClosed = false;
     }
 
     private void ClearSelection() => _selectedPinId = null;

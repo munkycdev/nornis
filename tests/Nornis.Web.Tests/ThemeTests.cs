@@ -161,6 +161,99 @@ public class ThemeTests
         Assert.That(offenders, Is.Empty, "filled Secondary buttons render grey; use Color.Primary");
     }
 
+    /// <summary>Feature 42's type colour table, light then dark.</summary>
+    private static readonly (string Type, string Light, string Dark)[] TypeTable =
+    [
+        ("Character", "#3F6079", "#7FA3BF"),
+        ("Location", "#557548", "#8DB07E"),
+        ("Item", "#9C7330", "#D2A75C"),
+        ("Faction", "#6E4A6B", "#B48AB0"),
+        ("Event", "#3E7672", "#79B5AF"),
+        ("Storyline", "#A7843B", "#D6B672"),
+        ("Concept", "#5E6080", "#9EA0C2"),
+    ];
+
+    [Test]
+    public void TypeColours_AreTheDesignTable()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(NornisTheme.TypeColours.Light, Is.EquivalentTo(TypeTable.ToDictionary(t => t.Type, t => t.Light)));
+            Assert.That(NornisTheme.TypeColours.Dark, Is.EquivalentTo(TypeTable.ToDictionary(t => t.Type, t => t.Dark)));
+            Assert.That(NornisTheme.TypeColours.Light.ContainsKey("Document"), Is.False, "Document reads in secondary ink");
+        });
+    }
+
+    /// <summary>Requirement 4.3: a type colour is a non-text mark, so 3:1 on the card it sits on.</summary>
+    [Test]
+    public void EveryTypeColour_ClearsThreeToOne_OnTheCard()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (type, hex) in NornisTheme.TypeColours.Light)
+            {
+                Assert.That(Contrast(new MudBlazor.Utilities.MudColor(hex), NornisTheme.Theme.PaletteLight.Surface),
+                    Is.GreaterThanOrEqualTo(3.0), $"{type} on the light card");
+            }
+
+            foreach (var (type, hex) in NornisTheme.TypeColours.Dark)
+            {
+                Assert.That(Contrast(new MudBlazor.Utilities.MudColor(hex), NornisTheme.Theme.PaletteDark.Surface),
+                    Is.GreaterThanOrEqualTo(3.0), $"{type} on the dark card");
+            }
+        });
+    }
+
+    /// <summary>The stylesheet's light tokens sit in :root, the dark ones in .nornis-dark.</summary>
+    [Test]
+    public void StylesheetTypeTokens_MirrorTheTheme()
+    {
+        var css = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Nornis.Web", "wwwroot", "app.css"));
+
+        static Dictionary<string, string> Tokens(string css, string selector)
+        {
+            var block = Regex.Match(css, Regex.Escape(selector) + @"\s*\{([^}]*)\}").Groups[1].Value;
+            return Regex.Matches(block, @"--nornis-type-([a-z]+):\s*(#[0-9A-Fa-f]{6});")
+                .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value.ToUpperInvariant());
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Tokens(css, ":root"), Is.EquivalentTo(
+                NornisTheme.TypeColours.Light.ToDictionary(t => t.Key.ToLowerInvariant(), t => t.Value)));
+            Assert.That(Tokens(css, ".nornis-dark"), Is.EquivalentTo(
+                NornisTheme.TypeColours.Dark.ToDictionary(t => t.Key.ToLowerInvariant(), t => t.Value)));
+        });
+    }
+
+    /// <summary>
+    /// Correctness property 5: no component sets a type colour by value or reaches for its token,
+    /// and neither does the graph's script; they go through <c>ArtifactTypeDisplay.TypeClass</c>
+    /// (the script reads the tokens off the page), so the table is the one place a hue lives. The
+    /// graph had a brighter palette of its own before feature 42. Character's slate is also the
+    /// palette's Info role, which status marks use in their own right, so a hue that is a palette
+    /// colour is not counted.
+    /// </summary>
+    [Test]
+    public void NoComponentOrScript_NamesATypeColour()
+    {
+        var palette = new[] { NornisTheme.Theme.PaletteLight.Info, NornisTheme.Theme.PaletteDark.Info }.Select(Hex).ToHashSet();
+        var hexes = NornisTheme.TypeColours.Light.Values.Concat(NornisTheme.TypeColours.Dark.Values)
+            .Where(h => !palette.Contains(h))
+            .ToList();
+        var web = Path.Combine(RepoRoot(), "src", "Nornis.Web");
+        var razor = Directory.EnumerateFiles(Path.Combine(web, "Components"), "*.razor", SearchOption.AllDirectories).ToList();
+        var scripts = Directory.EnumerateFiles(Path.Combine(web, "wwwroot", "js"), "*.js", SearchOption.AllDirectories).ToList();
+
+        var offenders = razor.Where(f => File.ReadAllText(f).Contains("--nornis-type-", StringComparison.Ordinal))
+            .Concat(razor.Concat(scripts).Where(f => hexes.Any(h => File.ReadAllText(f).Contains(h, StringComparison.OrdinalIgnoreCase))))
+            .Select(Path.GetFileName)
+            .Distinct()
+            .ToList();
+
+        Assert.That(offenders, Is.Empty);
+    }
+
     [Test]
     public void FontLink_LoadsExactlyTheTwoFamilies()
     {

@@ -28,6 +28,13 @@ public static class Links
     public static string Booklet(Guid worldId, Guid adventureId, bool download = false) =>
         $"/prep-booklets/{worldId}/{adventureId}" + (download ? "?download=true" : string.Empty);
 
+    /// <summary>
+    /// An Adventure's chosen cover art through the Web's proxy (feature 38). The stamp is when the
+    /// art was set, so a new cover is a new URL and the old one may be cached.
+    /// </summary>
+    public static string PrepCover(Guid worldId, Guid adventureId, DateTimeOffset stamp) =>
+        $"/prep-covers/{worldId}/{adventureId}?v={stamp.ToUnixTimeMilliseconds()}";
+
     /// <summary>The props sheet's PDF through the Web's own route (feature 38), always downloaded.</summary>
     public static string Props(Guid worldId, Guid adventureId) => $"/prep-props/{worldId}/{adventureId}";
 

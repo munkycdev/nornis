@@ -123,6 +123,7 @@ public class CanonController : ControllerBase
             Visibility: entry.Visibility.ToString(),
             UpdatedAt: entry.UpdatedAt,
             ArtifactSlug: entry.ArtifactSlug,
-            OtherArtifactSlug: entry.OtherArtifactSlug);
+            OtherArtifactSlug: entry.OtherArtifactSlug,
+            ArtifactType: entry.ArtifactType?.ToString());
     }
 }

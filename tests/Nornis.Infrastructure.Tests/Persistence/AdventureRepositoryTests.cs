@@ -164,6 +164,30 @@ public class AdventureRepositoryTests : IntegrationTestBase
         });
     }
 
+    /// <summary>Feature 42: the shelf shows cover art by its stamp, so the list says when it was set.</summary>
+    [Test]
+    public async Task List_CarriesTheCoverStamp_AndNullWithNoArt()
+    {
+        var painted = await CreateAsync("a");
+        var plain = await CreateAsync("b");
+        await _sut.SetCoverAsync(painted.Id, new AdventureCover
+        {
+            BlobPath = $"worlds/{_world.Id}/prep/{painted.Id}/cover/x.png",
+            ContentType = "image/png",
+            Source = CoverSource.Uploaded,
+            UpdatedAt = _now,
+        }, generated: false, _now);
+        Context.ChangeTracker.Clear();
+
+        var list = await _sut.ListByWorldAsync(_world.Id, [""]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.Single(a => a.Id == painted.Id).CoverUpdatedAt, Is.EqualTo(_now));
+            Assert.That(list.Single(a => a.Id == plain.Id).CoverUpdatedAt, Is.Null);
+        });
+    }
+
     [Test]
     public async Task Details_RoundTrip_AndNoneSet_ReadsBackEmpty_NotNull()
     {

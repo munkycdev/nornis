@@ -617,7 +617,7 @@ public record CanonEntry(
     string TruthState,
     string Visibility,
     DateTimeOffset UpdatedAt,
-    string? ArtifactSlug = null, string? OtherArtifactSlug = null);
+    string? ArtifactSlug = null, string? OtherArtifactSlug = null, string? ArtifactType = null);
 
 public record ReviewProposal(
     Guid Id,
@@ -1145,7 +1145,8 @@ public record AdventureSummaryDto(
     int FilledSectionCount,
     Guid? LastPrintedDocumentId,
     DateTimeOffset UpdatedAt,
-    bool IsExported);
+    bool IsExported,
+    DateTimeOffset? CoverUpdatedAt = null);
 
 public record AdventureSectionDto(
     Guid Id,

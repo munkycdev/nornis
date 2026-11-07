@@ -1,0 +1,15 @@
+@* Feature 42: an artifact type's icon on a tint of its type colour, so a person, a place and a
+   plot read apart at a glance. The colour comes from ArtifactTypeDisplay.TypeClass; nothing here
+   names one. Decorative: the entry's name beside it says what it is. *@
+
+<span class="nornis-type-tile @ArtifactTypeDisplay.TypeClass(Type) @(Large ? "nornis-type-tile-lg" : null)" aria-hidden="true">
+    <MudIcon Icon="@ArtifactTypeDisplay.Icon(Type)" Size="@(Large ? Size.Medium : Size.Small)" />
+</span>
+
+@code {
+    /// <summary>The artifact type's name, as the API sends it ("Character"). Null reads as Document.</summary>
+    [Parameter] public string? Type { get; set; }
+
+    /// <summary>The entry page's header size.</summary>
+    [Parameter] public bool Large { get; set; }
+}

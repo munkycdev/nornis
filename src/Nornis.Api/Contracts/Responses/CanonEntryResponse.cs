@@ -14,4 +14,5 @@ public record CanonEntryResponse(
     string Visibility,
     DateTimeOffset UpdatedAt,
     string? ArtifactSlug = null,
-    string? OtherArtifactSlug = null);
+    string? OtherArtifactSlug = null,
+    string? ArtifactType = null);

@@ -618,7 +618,7 @@
         _dossier.Record.Groups
             .SelectMany(g => g.Artifacts)
             .Take(8)
-            .Select(a => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(a.Type), a.Name, Links.Artifact(a.Slug, a.Id)))
+            .Select(a => new ContextRail.RailLink(a.Type, a.Name, Links.Artifact(a.Slug, a.Id)))
             .ToList();
 
     private async Task LoadAsync()

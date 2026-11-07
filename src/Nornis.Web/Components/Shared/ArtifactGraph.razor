@@ -13,10 +13,10 @@
 @if (ShowLegend)
 {
     <div class="nornis-graph-legend mt-2">
-        @foreach (var (type, color) in Legend)
+        @foreach (var type in Legend)
         {
             <span class="nornis-graph-legend-item">
-                <span class="nornis-graph-dot" style="background:@color"></span>@type
+                <span class="nornis-graph-dot nornis-graph-type-dot @ArtifactTypeDisplay.TypeClass(type)"></span>@type
             </span>
         }
     </div>
@@ -63,13 +63,12 @@
     /// <summary>Overlay content positioned inside the graph wrap (e.g. a selected-node card).</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
-    /// <summary>Node colors per artifact type — mirrors typeColors in nornis-graph.js.</summary>
-    public static readonly (string Type, string Color)[] Legend =
-    [
-        ("Character", "#C98A4B"), ("Location", "#4B8AC9"), ("Item", "#8A6FC9"),
-        ("Faction", "#C94B6E"), ("Event", "#4BC98A"), ("Storyline", "#C9B44B"),
-        ("Concept", "#6EC9C0"), ("Document", "#9AA5B1"),
-    ];
+    /// <summary>
+    /// The types the legend names. Nodes are filled with the type colours (feature 42), which
+    /// nornis-graph.js reads from the same stylesheet tokens the legend's dots take by class.
+    /// </summary>
+    public static readonly string[] Legend =
+        ["Character", "Location", "Item", "Faction", "Event", "Storyline", "Concept", "Document"];
 
     /// <summary>Status ring around each node — mirrors statusStyles in nornis-graph.js.</summary>
     public static readonly (string Status, string Color, string BorderStyle)[] StatusLegend =

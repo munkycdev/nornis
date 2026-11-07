@@ -187,6 +187,6 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _knowledge is null ? [] :
         _knowledge.Artifacts
             .Take(8)
-            .Select(k => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(k.Type), k.Name, Links.PublicArtifact(Slug, k.Slug, k.ArtifactId)))
+            .Select(k => new ContextRail.RailLink(k.Type, k.Name, Links.PublicArtifact(Slug, k.Slug, k.ArtifactId)))
             .ToList();
 }

@@ -331,9 +331,7 @@
                                 @foreach (var a in group.Items)
                                 {
                                     <a href="@Links.Artifact(a.Slug, a.Id)" class="nornis-list-row nornis-link">
-                                        <div class="nornis-list-thumb">
-                                            <MudIcon Icon="@ArtifactTypeDisplay.Icon(a.Type)" Size="Size.Small" />
-                                        </div>
+                                        <TypeTile Type="@a.Type" />
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-center gap-2">
                                                 <span class="nornis-list-title">@a.Name</span>
@@ -689,7 +687,7 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.Characters
             .Take(8)
-            .Select(ch => new ContextRail.RailLink(Icons.Material.Outlined.Person, ch.Name, Links.Character(ch.Slug, ch.Id)))
+            .Select(ch => new ContextRail.RailLink("Character", ch.Name, Links.Character(ch.Slug, ch.Id)))
             .ToList();
 
     private async Task LoadAsync()

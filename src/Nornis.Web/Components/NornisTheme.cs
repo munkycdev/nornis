@@ -33,6 +33,40 @@ public static class NornisTheme
     public const string LinesDark = "#30343A";
     public const string AccentDark = "#C0705E";
 
+    /// <summary>
+    /// Feature 42: a muted hue per artifact type, so a person, a place and a plot can be told apart
+    /// before the label is read. They mark only a type's icon tile and its small kind label (never
+    /// running text, buttons or links: terracotta stays the one accent for action). Each clears 3:1
+    /// on the card surface of its palette, the bar for a non-text mark. Document has no hue of its
+    /// own and reads in secondary ink, as does any type not listed. app.css mirrors these as
+    /// <c>--nornis-type-{type}</c> tokens; components reach them only through
+    /// <c>ArtifactTypeDisplay.TypeClass</c>.
+    /// </summary>
+    public static class TypeColours
+    {
+        public static readonly IReadOnlyDictionary<string, string> Light = new Dictionary<string, string>
+        {
+            ["Character"] = "#3F6079",
+            ["Location"] = "#557548",
+            ["Item"] = "#9C7330",
+            ["Faction"] = "#6E4A6B",
+            ["Event"] = "#3E7672",
+            ["Storyline"] = "#A7843B",
+            ["Concept"] = "#5E6080",
+        };
+
+        public static readonly IReadOnlyDictionary<string, string> Dark = new Dictionary<string, string>
+        {
+            ["Character"] = "#7FA3BF",
+            ["Location"] = "#8DB07E",
+            ["Item"] = "#D2A75C",
+            ["Faction"] = "#B48AB0",
+            ["Event"] = "#79B5AF",
+            ["Storyline"] = "#D6B672",
+            ["Concept"] = "#9EA0C2",
+        };
+    }
+
     public static readonly string[] Serif = ["Newsreader", "Georgia", "serif"];
     public static readonly string[] Sans = ["IBM Plex Sans", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"];
 

@@ -14,8 +14,8 @@ using PrepPage = Nornis.Web.Components.Pages.Prep;
 namespace Nornis.Web.Tests.Components;
 
 /// <summary>
-/// The Prep list: its spend line (feature 29), for the GM only, and its rows, which use the
-/// list Sources and the Library use and filter by whether each was exported or published.
+/// The Prep list: its spend line (feature 29), for the GM only, and its shelf of books (feature 42),
+/// which filters by whether each was exported or published.
 /// </summary>
 [TestFixture]
 [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
@@ -84,19 +84,43 @@ public class PrepPageTests : BunitContext
     }
 
     [Test]
-    public async Task TheAdventures_AreListedAsRows_NotCards()
+    public async Task TheAdventures_AreShelvedAsBooks()
     {
         _handler.Adventures = AllFour;
 
         var cut = await RenderAsync();
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-row"), Has.Count.EqualTo(4)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(4)));
         Assert.Multiple(() =>
         {
-            Assert.That(cut.FindAll(".nornis-artifact-card"), Is.Empty);
-            Assert.That(cut.FindAll(".nornis-list-row.nornis-prep-row"), Has.Count.EqualTo(4));
+            Assert.That(cut.FindAll(".nornis-shelf .nornis-shelf-book"), Has.Count.EqualTo(4));
             Assert.That(cut.FindAll(".nornis-prep-exported"), Has.Count.EqualTo(2));
             Assert.That(cut.FindAll(".nornis-prep-published"), Has.Count.EqualTo(2));
+        });
+    }
+
+    /// <summary>
+    /// Requirement 5.1: the cover art through the Cover card's own proxy, stamped so a new cover is
+    /// a new URL; an adventure with no art gets the typeset cover and asks for no image at all.
+    /// </summary>
+    [Test]
+    public async Task ABookWithArt_ShowsItsCover_AndOneWithout_IsTypeset()
+    {
+        var stamp = DateTimeOffset.Parse("2026-11-07T20:00:00Z");
+        _handler.Adventures = "[" + Row("Painted", exported: false, printed: false, coverUpdatedAt: stamp) + ","
+            + Row("Plain", exported: false, printed: false) + "]";
+
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(2)));
+        var painted = cut.FindAll(".nornis-prep-book")[0];
+        var plain = cut.FindAll(".nornis-prep-book")[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(painted.QuerySelector(".nornis-shelf-cover-art img")!.GetAttribute("src"),
+                Does.StartWith("/prep-covers/").And.EndWith($"?v={stamp.ToUnixTimeMilliseconds()}"));
+            Assert.That(plain.QuerySelector("img"), Is.Null);
+            Assert.That(plain.QuerySelector(".nornis-shelf-cover-typeset")!.TextContent, Does.Contain("Plain"));
         });
     }
 
@@ -108,12 +132,12 @@ public class PrepPageTests : BunitContext
     {
         _handler.Adventures = AllFour;
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-row"), Has.Count.EqualTo(4)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(4)));
 
         cut.FindAll(".nornis-prep-filters .mud-chip").Single(c => c.TextContent.Trim() == chip).Click();
 
         cut.WaitForAssertion(() => Assert.That(
-            string.Join(",", cut.FindAll(".nornis-prep-row .nornis-list-title").Select(t => t.TextContent.Trim())),
+            string.Join(",", cut.FindAll(".nornis-prep-book .nornis-prep-book-title").Select(t => t.TextContent.Trim())),
             Is.EqualTo(expected)));
     }
 
@@ -122,12 +146,12 @@ public class PrepPageTests : BunitContext
     {
         _handler.Adventures = $"[{Row("Untouched", exported: false, printed: false)}]";
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-row"), Has.Count.EqualTo(1)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(1)));
 
         cut.FindAll(".nornis-prep-filters .mud-chip").Single(c => c.TextContent.Trim() == "Exported").Click();
 
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("No adventures have been exported to Nornis.")));
-        Assert.That(cut.FindAll(".nornis-prep-row"), Is.Empty);
+        Assert.That(cut.FindAll(".nornis-prep-book"), Is.Empty);
     }
 
     private static readonly string AllFour = "[" + string.Join(",",
@@ -136,13 +160,14 @@ public class PrepPageTests : BunitContext
         Row("Published only", exported: false, printed: true),
         Row("Both", exported: true, printed: true)) + "]";
 
-    private static string Row(string title, bool exported, bool printed)
+    private static string Row(string title, bool exported, bool printed, DateTimeOffset? coverUpdatedAt = null)
     {
         var print = printed ? $"\"{Guid.NewGuid()}\"" : "null";
+        var cover = coverUpdatedAt is { } stamp ? $"\"{stamp:O}\"" : "null";
         return $$"""
             {"id":"{{Guid.NewGuid()}}","title":"{{title}}","slug":null,"campaignId":null,"sectionCount":3,
              "filledSectionCount":1,"lastPrintedDocumentId":{{print}},"updatedAt":"2026-11-03T00:00:00Z",
-             "isExported":{{(exported ? "true" : "false")}}}
+             "isExported":{{(exported ? "true" : "false")}},"coverUpdatedAt":{{cover}}}
             """;
     }
 

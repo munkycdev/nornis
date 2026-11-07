@@ -32,7 +32,7 @@
             @foreach (var link in Related)
             {
                 <a href="@link.Href" class="nornis-rail-link">
-                    <MudIcon Icon="@link.Icon" Size="Size.Small" Color="Color.Secondary" />
+                    <TypeTile Type="@link.Type" />
                     <span>@link.Label</span>
                 </a>
             }
@@ -60,8 +60,8 @@
     /// <summary>A counted row: "Sources — 12". The label links when there is somewhere to go.</summary>
     public sealed record RailRow(string Label, string Value, string? Href = null);
 
-    /// <summary>A related thing, with the icon of its kind.</summary>
-    public sealed record RailLink(string Icon, string Label, string Href);
+    /// <summary>A related entry, shown with its type's tile.</summary>
+    public sealed record RailLink(string? Type, string Label, string Href);
 
     [Parameter] public string RowsTitle { get; set; } = "Mentioned in";
     [Parameter] public IReadOnlyList<RailRow> Rows { get; set; } = [];

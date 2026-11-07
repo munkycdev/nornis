@@ -39,7 +39,7 @@
         <EntityPage>
         <Header>
         <div class="nornis-detail-head">
-            <div class="nornis-list-thumb"><MudIcon Icon="@ArtifactTypeDisplay.Icon(_detail.Type)" /></div>
+            <TypeTile Type="@_detail.Type" Large="true" />
             <div class="nornis-detail-title">
                 <div class="d-flex align-center gap-1">
                     <MudText Typo="Typo.h4" Class="nornis-serif">@_detail.Name</MudText>
@@ -52,7 +52,7 @@
                     }
                 </div>
                 <div class="nornis-detail-chips">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_detail.Type</MudChip>
+                    <span class="nornis-type-label @ArtifactTypeDisplay.TypeClass(_detail.Type)">@_detail.Type</span>
                     @if (Worlds.IsGm)
                     {
                         <MudMenu Dense="true" @ref="_statusMenu">
@@ -748,7 +748,7 @@
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.ConnectedArtifacts
             .Take(8)
-            .Select(c => new ContextRail.RailLink(ArtifactTypeDisplay.Icon(c.Type), c.Name, Links.Artifact(c.Slug, c.Id)))
+            .Select(c => new ContextRail.RailLink(c.Type, c.Name, Links.Artifact(c.Slug, c.Id)))
             .ToList();
 
     private async Task LoadAsync()

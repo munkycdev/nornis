@@ -1,4 +1,5 @@
 ﻿using MudBlazor;
+using Nornis.Web.Components;
 
 namespace Nornis.Web.Services;
 
@@ -19,6 +20,18 @@ public static class ArtifactTypeDisplay
         "Concept" => Icons.Material.Outlined.Lightbulb,
         _ => Icons.Material.Outlined.Description,
     };
+
+    /// <summary>
+    /// The CSS class that gives an element its type's colour (feature 42), as the
+    /// <c>--nornis-type</c> custom property that <c>.nornis-type-tile</c> and
+    /// <c>.nornis-type-label</c> read. A type with no hue of its own (Document, or one this
+    /// build doesn't know) gets <c>nornis-type-other</c>, which is secondary ink. Components never
+    /// name a type colour; they ask for this class.
+    /// </summary>
+    public static string TypeClass(string? type) =>
+        type is not null && NornisTheme.TypeColours.Light.ContainsKey(type)
+            ? $"nornis-type-{type.ToLowerInvariant()}"
+            : "nornis-type-other";
 
     /// <summary>
     /// The type as a group heading. Every <c>ArtifactType</c> pluralizes with a bare "s";
