@@ -97,7 +97,23 @@ else if (_adventure is not null && Worlds.Current is { } world)
         <MudAlert Severity="Severity.Error" Dense="true" Class="nornis-booklet-toolbar nornis-booklet-file-error">@_fileError</MudAlert>
     }
 
-    <iframe class="nornis-booklet-frame" src="@Links.Booklet(world.Id, _adventure.Id)" title="@_adventure.Title"></iframe>
+    @* The API lays the booklet out while the frame waits, which can take a while for a long
+       adventure with art, so the frame wears a "working" overlay until it loads. The overlay
+       says what to do if a browser never reports the load (one that downloads PDFs instead). *@
+    <div class="nornis-booklet-stage">
+        <iframe class="nornis-booklet-frame" src="@Links.Booklet(world.Id, _adventure.Id)" title="@_adventure.Title"
+                @onload="OnBookletLoaded"></iframe>
+        @if (!_bookletLoaded)
+        {
+            <div class="nornis-booklet-working" role="status" aria-live="polite">
+                <MudProgressCircular Indeterminate="true" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6" Class="nornis-serif mt-3">Laying out the booklet…</MudText>
+                <MudText Typo="Typo.body2" Class="nornis-booklet-working-hint">
+                    A long adventure with art can take a minute. If nothing appears, use Open the PDF below.
+                </MudText>
+            </div>
+        }
+    </div>
     <div class="nornis-booklet-open">
         <a href="@Links.Booklet(world.Id, _adventure.Id)" target="_blank" rel="noopener" class="nornis-link">Open the PDF</a>
         if your browser doesn't show it above.
@@ -116,6 +132,7 @@ else if (_adventure is not null && Worlds.Current is { } world)
     private LibraryDocumentDto? _filed;
     private string? _fileError;
     private bool _showWebNotice;
+    private bool _bookletLoaded;
 
     /// <summary>Why Print props is off: the sheet is the Adventure's prop boxes, and it has none.</summary>
     public const string NoPropsReason = "No prop boxes yet. Add one with the Prop button in a section, and Print props makes a page of each to cut out.";
@@ -149,6 +166,7 @@ else if (_adventure is not null && Worlds.Current is { } world)
         _adventure = null;
         _filed = null;
         _fileError = null;
+        _bookletLoaded = false;
         if (Worlds.Current is null || !Worlds.IsGm)
         {
             StateHasChanged();
@@ -219,6 +237,9 @@ else if (_adventure is not null && Worlds.Current is { } world)
             // A browser that can't store it shows the reminder again next time, which is harmless.
         }
     }
+
+    /// <summary>The frame has the PDF (or the API's error page): the overlay comes off either way.</summary>
+    private void OnBookletLoaded() => _bookletLoaded = true;
 
     private async Task FileToLibraryAsync()
     {
