@@ -4356,12 +4356,50 @@ a.nornis-cite:hover {
 
 /* ------------------------------------------------------------------ Prep --- */
 
-/* The Adventure page: the outline beside the section being written. The outline is a fixed
-   column so long titles wrap rather than squeezing the editor; below the breakpoint the
-   outline sits above the editor. */
-/* Outline, editor, and the side conversation (Talk it through). Three columns when the page is
-   wide; below that the conversation goes under the editor, and on a narrow page everything
-   stacks. */
+/* The Adventure page (Nornis 3.13): three tabs over one grid. Design is the draft with Talk it
+   through as a right rail; Sections adds the outline as a fixed left column, so long titles wrap
+   rather than squeezing the editor; Book is one column holding its own grid. Below the
+   breakpoints the rail goes under the editor, and on a narrow page everything stacks. */
+.nornis-prep-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.nornis-prep-tab {
+    padding: 8px 16px;
+    margin-bottom: -1px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--mud-palette-text-secondary);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+}
+
+.nornis-prep-tab:hover:not(:disabled) {
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-prep-tab:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+}
+
+.nornis-prep-tab:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.nornis-prep-tab-active {
+    color: var(--mud-palette-text-primary);
+    border-bottom-color: var(--mud-palette-text-primary);
+}
+
 .nornis-prep-layout {
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr) 360px;
@@ -4369,20 +4407,39 @@ a.nornis-cite:hover {
     align-items: start;
 }
 
-/* Beside a long section, Talk it through stays in view as the page scrolls, as the
-   Loremaster rail does: sticky at top:16px and capped at the window, with the message list
-   taking the room left over and scrolling on its own, so the box and Send stay in reach. */
+.nornis-prep-layout-design {
+    grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.nornis-prep-layout-book {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* Beside a long section or draft, the rail stays in view as the page scrolls, as the
+   Loremaster rail does: sticky at top:16px and capped at the window. What the Loremaster reads
+   takes its own height (scrolling past a cap when open), and Talk it through the room left,
+   its message list scrolling on its own, so the box and Send stay in reach. */
 .nornis-prep-talk-column {
     position: sticky;
     top: 16px;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+    max-height: calc(100vh - 32px);
+}
+
+.nornis-prep-talk-column[hidden] {
+    display: none;
 }
 
 .nornis-prep-talk-column .nornis-prep-talk {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    max-height: calc(100vh - 32px);
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .nornis-prep-talk-column .nornis-prep-talk-messages {
@@ -4391,33 +4448,136 @@ a.nornis-cite:hover {
     max-height: none;
 }
 
-/* Under the editor it comes after the section, so it scrolls with the page again. */
+/* What the Loremaster reads: a one-line fold above Talk it through, the two cards under it. */
+.nornis-prep-reads {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.nornis-prep-reads-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--mud-default-borderradius);
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    font: inherit;
+    font-size: 0.8125rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.nornis-prep-reads-toggle:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.nornis-prep-reads-label {
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.nornis-prep-reads-summary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mud-palette-text-secondary);
+    text-align: right;
+}
+
+.nornis-prep-reads-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+    max-height: 45vh;
+    overflow-y: auto;
+}
+
+/* The Book tab: the cover, handouts and documents as the main column, the book's names and
+   details beside it, the cover's art and options shown larger than they fit in a side column. */
+.nornis-prep-book {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 20px;
+    align-items: start;
+}
+
+.nornis-prep-book-main,
+.nornis-prep-book-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.nornis-prep-book-main .nornis-cover-thumb {
+    width: 220px;
+}
+
+.nornis-prep-book-main .nornis-cover-options {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.nornis-prep-about-row + .nornis-prep-about-row {
+    margin-top: 8px;
+}
+
+.nornis-prep-about-title {
+    font-weight: 500;
+}
+
+.nornis-prep-about-pitch {
+    white-space: pre-wrap;
+}
+
+.nornis-prep-about-none {
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
+/* On Sections the rail goes under the editor and scrolls with the page again; Design keeps
+   it beside the draft down to the narrow breakpoint. */
 @container page (max-width: 1300px) {
-    .nornis-prep-layout {
+    .nornis-prep-layout-sections {
         grid-template-columns: 300px minmax(0, 1fr);
     }
 
-    .nornis-prep-talk-column {
+    .nornis-prep-layout-sections .nornis-prep-talk-column {
         grid-column: 2;
         position: static;
-    }
-
-    .nornis-prep-talk-column .nornis-prep-talk {
         max-height: none;
     }
 
-    .nornis-prep-talk-column .nornis-prep-talk-messages {
+    .nornis-prep-layout-sections .nornis-prep-talk-column .nornis-prep-talk-messages {
         max-height: 60vh;
     }
 }
 
 @container page (max-width: 900px) {
-    .nornis-prep-layout {
+    .nornis-prep-layout,
+    .nornis-prep-layout-design,
+    .nornis-prep-layout-sections,
+    .nornis-prep-book {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .nornis-prep-talk-column {
+    .nornis-prep-talk-column,
+    .nornis-prep-layout-sections .nornis-prep-talk-column {
         grid-column: auto;
+        position: static;
+        max-height: none;
+    }
+
+    .nornis-prep-talk-column .nornis-prep-talk-messages {
+        max-height: 60vh;
     }
 }
 
@@ -4627,7 +4787,7 @@ a.nornis-cite:hover {
     flex: 0 0 auto;
 }
 
-/* Book details (feature 32): the left column's second card, under the outline. */
+/* The Sections tab's left column, which holds the outline. */
 .nornis-prep-side {
     display: flex;
     flex-direction: column;

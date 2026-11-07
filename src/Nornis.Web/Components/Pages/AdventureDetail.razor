@@ -47,10 +47,6 @@ else if (_adventure is not null)
             </MudText>
         </div>
         <div class="nornis-page-head-actions">
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Outlined.Edit" OnClick="EditDetailsAsync" Disabled="_busy">
-                Details
-            </MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-print"
                        StartIcon="@Icons.Material.Outlined.Print" OnClick="PrintAsync" Disabled="_busy">
                 Print
@@ -66,77 +62,77 @@ else if (_adventure is not null)
         </div>
     </div>
 
-    <div class="nornis-prep-layout">
-        <div class="nornis-prep-side">
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
-                @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
-                {
-                    var sectionId = row.Id;
-                    var position = index;
-                    @* dragover carries preventDefault with no handler, as on the import backlog: a
-                       .NET callback per dragover event would re-render the outline continuously. *@
-                    <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
-                         draggable="@(_busy ? "false" : "true")"
-                         @ondragstart="() => _dragId = sectionId"
-                         @ondragenter="() => OnDragEnter(sectionId)"
-                         @ondragover:preventDefault="true"
-                         @ondrop="() => OnDropAsync(sectionId)"
-                         @ondragend="OnDragEnd">
-                        <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
-                                 Class="nornis-drag-grip" title="Drag to reorder" />
-                        <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
-                                 Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
-                                 title="@PrepDisplay.Label(row.Kind)" />
-                        <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
-                                @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
-                            @row.Title
-                        </button>
-                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
-                                       Disabled="@(_busy || position == 0)" aria-label="Move up"
-                                       OnClick="() => MoveAsync(sectionId, -1)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
-                                       Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
-                                       OnClick="() => MoveAsync(sectionId, 1)" />
-                    </div>
-                }
-                <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
-                         Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
-                    @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
+    @* The three tabs (Nornis 3.13): Design, Sections and Book, in the order a GM works. The tab is
+       kept in the URL; moving between tabs saves what was typed on the one being left, and no
+       tab changes while a Talk it through turn runs. *@
+    <div class="nornis-prep-mode nornis-prep-tabs" role="tablist" aria-label="Adventure">
+        @foreach (var mode in Modes)
+        {
+            var tab = mode;
+            <button type="button" role="tab" class="nornis-prep-tab @(tab == _mode ? "nornis-prep-tab-active" : null)"
+                    aria-selected="@(tab == _mode ? "true" : "false")" disabled="@(_busy || _talkRunning)"
+                    @onclick="() => SwitchModeAsync(tab)">
+                @tab
+            </button>
+        }
+    </div>
+
+    <div class="nornis-prep-layout nornis-prep-layout-@_mode.ToLowerInvariant()">
+        @if (_mode == SectionsMode)
+        {
+            <div class="nornis-prep-side">
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
+                    <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
+                    @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
                     {
-                        <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
+                        var sectionId = row.Id;
+                        var position = index;
+                        @* dragover carries preventDefault with no handler, as on the import backlog: a
+                           .NET callback per dragover event would re-render the outline continuously. *@
+                        <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
+                             draggable="@(_busy ? "false" : "true")"
+                             @ondragstart="() => _dragId = sectionId"
+                             @ondragenter="() => OnDragEnter(sectionId)"
+                             @ondragover:preventDefault="true"
+                             @ondrop="() => OnDropAsync(sectionId)"
+                             @ondragend="OnDragEnd">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
+                                     Class="nornis-drag-grip" title="Drag to reorder" />
+                            <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
+                                     Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
+                                     title="@PrepDisplay.Label(row.Kind)" />
+                            <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
+                                    @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
+                                @row.Title
+                            </button>
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                           Disabled="@(_busy || position == 0)" aria-label="Move up"
+                                           OnClick="() => MoveAsync(sectionId, -1)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                           Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
+                                           OnClick="() => MoveAsync(sectionId, 1)" />
+                        </div>
                     }
-                </MudMenu>
-            </MudPaper>
-
-            <BookDetailsCard Adventure="_adventure" Disabled="_busy" OnSaved="OnBookDetailsSaved" />
-
-            @if (Worlds.Current is { } coverWorld)
-            {
-                <CoverCard WorldId="coverWorld.Id" AdventureId="_adventure.Id" Disabled="_busy" OnChanged="OnCoverChangedAsync" />
-            }
-
-            <TableBriefCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
-
-            <SourceBooksCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
-
-            <HandoutsCard Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
-
-            @if (Worlds.Current is { } world)
-            {
-                <AdventureDocumentsCard WorldId="world.Id" AdventureId="_adventure.Id" Disabled="_busy" />
-            }
-        </div>
+                    <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
+                             Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
+                        @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
+                        {
+                            <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
+                        }
+                    </MudMenu>
+                </MudPaper>
+            </div>
+        }
 
         <div class="nornis-prep-editor">
             @* Design (feature 37) works on the one draft; Sections on the outline's sections. *@
-            <MudToggleGroup T="string" Value="_mode" ValueChanged="SwitchModeAsync" SelectionMode="SelectionMode.SingleSelection"
-                            Color="Color.Primary" Size="Size.Small" Class="nornis-prep-mode mb-3" Disabled="@(_busy || _talkRunning)">
-                <MudToggleItem Value="@DesignMode">Design</MudToggleItem>
-                <MudToggleItem Value="@SectionsMode">Sections</MudToggleItem>
-            </MudToggleGroup>
-
-            @if (_mode == DesignMode)
+            @if (_mode == BookMode)
+            {
+                <AdventureBookTab WorldId="Worlds.Current.Id" Adventure="_adventure" Campaigns="_campaigns" Disabled="_busy"
+                                  OnEditDetails="EditDetailsAsync" OnCoverChanged="OnCoverChangedAsync"
+                                  OnBookDetailsSaved="OnBookDetailsSaved" OnHandoutsSaved="Merge" />
+            }
+            else if (_mode == DesignMode)
             {
                 @* Read-only while a Design turn runs: its edits land in the draft as it ends (feature 41). *@
                 <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy" Locked="_talkRunning"
@@ -261,7 +257,10 @@ else if (_adventure is not null)
             }
         </div>
 
-        <div class="nornis-prep-talk-column">
+        @* One rail for Design and Sections, so the conversation (and anything typed in its box)
+           stays put across them; hidden, not unmounted, on Book. *@
+        <div class="nornis-prep-talk-column" hidden="@(_mode == BookMode)">
+            <LoremasterReadsPanel Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
             <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
                                         Sections="_adventure.Sections" SelectedSectionId="_selectedId"
                                         PutInSection="PutAnswerAsync" DraftMode="@(_mode == DesignMode)"
@@ -274,6 +273,9 @@ else if (_adventure is not null)
 
 @code {
     [Parameter] public string Key { get; set; } = string.Empty;
+
+    /// <summary>The tab in the URL (<c>?tab=book</c>), read when the page opens: a link can name it.</summary>
+    [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
 
     private bool _loading;
     private bool _notFound;
@@ -305,14 +307,22 @@ else if (_adventure is not null)
 
     public const string DesignMode = "Design";
     public const string SectionsMode = "Sections";
+    public const string BookMode = "Book";
+
+    /// <summary>The tabs, in the order a GM works: the draft, then its sections, then the book they make.</summary>
+    public static readonly IReadOnlyList<string> Modes = [DesignMode, SectionsMode, BookMode];
+
+    /// <summary>The tab a URL names, whatever its case; null for none or one that isn't a tab.</summary>
+    public static string? ModeFromQuery(string? tab) =>
+        Modes.FirstOrDefault(m => string.Equals(m, tab?.Trim(), StringComparison.OrdinalIgnoreCase));
 
     private string _mode = SectionsMode;
     private Guid? _modeFor;
     private AdventureDesignPanel? _designPanel;
 
     /// <summary>
-    /// The tab an Adventure opens on: Sections once any section is written, otherwise Design,
-    /// where a new adventure is worked out as one document first.
+    /// The tab an Adventure opens on when the URL names none: Sections once any section is
+    /// written, otherwise Design, where a new adventure is worked out as one document first.
     /// </summary>
     public static string OpeningMode(AdventureDto adventure) =>
         adventure.Sections.Any(s => s.IsFilled) ? SectionsMode : DesignMode;
@@ -366,13 +376,13 @@ else if (_adventure is not null)
             if (_modeFor != _adventure!.Id)
             {
                 _modeFor = _adventure.Id;
-                SetMode(OpeningMode(_adventure));
+                SetMode(ModeFromQuery(Tab) ?? OpeningMode(_adventure));
             }
 
             if (!Links.IsCanonical(Key, _adventure!.Slug))
             {
                 _loadedKey = _adventure.Slug;
-                Nav.NavigateTo(Links.Adventure(_adventure.Slug, _adventure.Id), replace: true);
+                Nav.NavigateTo(AdventureUrl(_adventure), replace: true);
             }
 
             _campaigns = (await Api.GetCampaignsAsync(worldId)).Value ?? [];
@@ -427,13 +437,27 @@ else if (_adventure is not null)
     private void SetMode(string mode)
     {
         _mode = mode;
-        if (mode == DesignMode)
+        if (mode != SectionsMode)
         {
             _editor = null;
         }
-        else
+
+        if (mode != DesignMode)
         {
             _designPanel = null;
+        }
+    }
+
+    /// <summary>The page's own address on the tab shown, so a reload or a shared link opens it again.</summary>
+    private string AdventureUrl(AdventureDto adventure) =>
+        $"{Links.Adventure(adventure.Slug, adventure.Id)}?tab={_mode.ToLowerInvariant()}";
+
+    /// <summary>Puts the tab shown in the address bar, replacing the entry rather than adding one.</summary>
+    private void ShowTabInUrl()
+    {
+        if (_adventure is not null)
+        {
+            Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", _mode.ToLowerInvariant()), replace: true);
         }
     }
 
@@ -445,9 +469,12 @@ else if (_adventure is not null)
             return;
         }
 
-        var saved = _mode == DesignMode
-            ? _designPanel is null || await _designPanel.SaveIfDirtyAsync()
-            : await SaveBeforeLeavingEditorAsync();
+        var saved = _mode switch
+        {
+            DesignMode => _designPanel is null || await _designPanel.SaveIfDirtyAsync(),
+            SectionsMode => await SaveBeforeLeavingEditorAsync(),
+            _ => true,
+        };
         if (saved)
         {
             SetMode(mode);
@@ -456,6 +483,8 @@ else if (_adventure is not null)
                 // The section editor mounts fresh, from the section's saved text.
                 _editorVersion++;
             }
+
+            ShowTabInUrl();
         }
     }
 
@@ -504,6 +533,7 @@ else if (_adventure is not null)
         _selectedId = null;
         Show(updated, remountEditor: true);
         SetMode(SectionsMode);
+        ShowTabInUrl();
         Snackbar.Add($"Split into {updated.Sections.Count} sections. Your draft is still on the Design tab.", Severity.Success);
     }
 
@@ -585,11 +615,11 @@ else if (_adventure is not null)
             return;
         }
 
-        if (_mode == DesignMode)
+        if (_mode != SectionsMode)
         {
-            // Choosing a section from the outline opens it on the Sections tab.
+            // Choosing a section opens it on the Sections tab.
             await SwitchModeAsync(SectionsMode);
-            if (_mode == DesignMode)
+            if (_mode != SectionsMode)
             {
                 return;
             }
@@ -1053,7 +1083,7 @@ else if (_adventure is not null)
             if (!Links.IsCanonical(Key, updated.Slug))
             {
                 _loadedKey = updated.Slug;
-                Nav.NavigateTo(Links.Adventure(updated.Slug, updated.Id), replace: true);
+                Nav.NavigateTo(AdventureUrl(updated), replace: true);
             }
         }
     }
