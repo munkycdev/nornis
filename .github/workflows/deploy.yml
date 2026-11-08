@@ -141,7 +141,7 @@ jobs:
           done
           for pid in "${pids[@]}"; do wait "$pid"; done
 
-      # Part of O1 (see docs/plans/operational-hardening.md): until this existed, the job
+      # Part of O1 (the August operational-hardening plan): until this existed, the job
       # ended the moment `az containerapp update` returned and nothing confirmed the new
       # revision came up. On 2026-08-01 a broken image build left four commits undeployed
       # while the run summary still looked half-green.

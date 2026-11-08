@@ -52,8 +52,9 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 39 | Bring your own AI keys, with a trial (Nornis 3.10) | 2026-11-04 (Phases A to C; the eval, the trial cutover and the live walk are still to do) | Keys per world; paying Nornis instead of bringing a key; tool use; embeddings after the cutover |
 | 40 | Web research in Prep (Nornis 3.11) | 2026-11-06 (Phases A to C; the live walk is Dave's) | Search in Draft and Revise; search on the trial or OpenAI-compatible keys; fetching a page by URL; a Nornis-paid search vendor |
 | 41 | Talk it through writes into the design draft (Nornis 3.12) | 2026-11-06 (Phases A and B; the migration and live walk are Dave's) | Streaming text live into the editor; Section mode writing on its own; a "suggest only" switch |
-| 42 | World as hero: key art, the Home hero, type colours (Nornis 3.15) | Specified 2026-11-07 (Phase A); the surface fixes from the same review shipped as 3.14 | An image per codex entry; an accent derived from the art; the Loremaster writing a key-art brief |
+| 42 | World as hero: key art, the Home hero, type colours (Nornis 3.15, 3.16) | 2026-11-08 (Phase B as 3.15, Phases C and D as 3.16); the surface fixes from the same review shipped as 3.14 | An image per codex entry; an accent derived from the art; the Loremaster writing a key-art brief |
 
-Work sequenced outside this folder — the August operations and test-quality backlog — lives in
-[`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page
-(2026-08-09) and the world digest were built from plan items rather than numbered features.
+Some work was sequenced outside this folder: the August operations and test-quality backlog
+lived in `docs/plans/` until 2026-09-10, when the finished plans were removed (they remain in
+git history). Campaigns' first-tier page (2026-08-09) and the world digest were built from plan
+items rather than numbered features.
