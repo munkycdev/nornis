@@ -2643,22 +2643,6 @@ a.nornis-cite:hover {
     margin: 0 auto;
 }
 
-.nornis-landing-cta {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    margin-top: 32px;
-    flex-wrap: wrap;
-}
-
-.nornis-landing-tagline {
-    margin-top: 26px;
-    font-family: var(--nornis-serif);
-    font-style: italic;
-    font-size: 1.05rem;
-    color: var(--nornis-gold);
-}
-
 /* Sample extraction demo. */
 .nornis-landing-demo {
     max-width: 720px;
@@ -2740,85 +2724,6 @@ a.nornis-cite:hover {
     margin: 0 0 34px 0;
 }
 
-.nornis-landing-how {
-    padding: 48px 0;
-    scroll-margin-top: 24px;
-}
-
-.nornis-landing-steps {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 20px;
-}
-
-.nornis-landing-step {
-    background-color: var(--mud-palette-surface);
-    border: 1px solid var(--mud-palette-divider);
-    border-radius: 10px;
-    box-shadow: var(--nornis-card-shadow);
-    padding: 24px;
-    text-align: center;
-}
-
-.nornis-landing-step-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 46px;
-    height: 46px;
-    border-radius: 8px;
-    background-color: var(--mud-palette-text-primary);
-    color: var(--nornis-gold);
-    margin-bottom: 12px;
-}
-
-.nornis-landing-step h3 {
-    font-family: var(--nornis-serif);
-    font-size: 1.2rem;
-    margin: 0 0 8px 0;
-    color: var(--mud-palette-text-primary);
-}
-
-.nornis-landing-step p,
-.nornis-landing-card p {
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: var(--mud-palette-text-secondary);
-    margin: 0;
-}
-
-.nornis-landing-features {
-    padding: 48px 0;
-}
-
-.nornis-landing-cards {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-}
-
-.nornis-landing-card {
-    background-color: var(--mud-palette-surface);
-    border: 1px solid var(--mud-palette-divider);
-    border-radius: 10px;
-    box-shadow: var(--nornis-card-shadow);
-    padding: 26px 28px;
-}
-
-.nornis-landing-card h3 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--nornis-serif);
-    font-size: 1.25rem;
-    margin: 0 0 10px 0;
-    color: var(--mud-palette-text-primary);
-}
-
-.nornis-landing-card .mud-icon-root {
-    color: var(--mud-palette-text-secondary);
-}
-
 .nornis-landing-more {
     text-align: center;
     margin-top: 26px;
@@ -2831,6 +2736,217 @@ a.nornis-cite:hover {
 
 .nornis-landing-final .nornis-landing-sub {
     margin-bottom: 26px;
+}
+
+/* ---------------------------------------------------------- Welcome hero -- */
+/* The welcome page opens on the demo world's key art (feature 42's rule: the picture sits to the
+   right and fades into the page leftwards and downwards, so the words are always on paper). It
+   bleeds to the window's edges and, on a desktop window, fills the first screen under the nav,
+   so the picture and the one button are what a visitor sees. A phone gets the picture as a strip
+   above the words and scrolls as before. Sized on the viewport, not the pane, because the public
+   site is not the member app's fixed-height shell. */
+.nornis-welcome-hero {
+    position: relative;
+    margin: 0 -40px;
+    /* The words start under the logo: the nav is 1120px wide with 40px of padding. */
+    padding: 0 40px 0 max(40px, calc((100% - 1040px) / 2));
+    min-height: clamp(520px, calc(100svh - 76px), 860px);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.nornis-welcome-picture {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 64%;
+}
+
+.nornis-welcome-picture img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* The lighthouse sits right of centre; keep it in frame as the window narrows. */
+    object-position: 72% 50%;
+    animation: nornis-heroband-in 0.8s ease-out both;
+}
+
+/* Faded with a mask rather than a paper-coloured overlay: the public page's paper carries a soft
+   tint (--nornis-topo), so an overlay in the flat page colour showed as a pale band at the
+   picture's edge. A mask fades the picture into whatever is behind it. */
+.nornis-welcome-picture {
+    -webkit-mask-image:
+        linear-gradient(to right, transparent 0%, transparent 4%, #000 50%),
+        linear-gradient(to top, transparent 0%, #000 22%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+        linear-gradient(to right, transparent 0%, transparent 4%, #000 50%),
+        linear-gradient(to top, transparent 0%, #000 22%);
+    mask-composite: intersect;
+}
+
+.nornis-welcome-copy {
+    position: relative;
+    max-width: 500px;
+    padding: 48px 0 64px 0;
+}
+
+.nornis-welcome-title {
+    font-family: var(--nornis-serif);
+    font-size: clamp(2.8rem, 5.4vw, 4.6rem);
+    font-weight: 600;
+    line-height: 1.02;
+    color: var(--mud-palette-text-primary);
+    margin: 14px 0 20px 0;
+}
+
+.nornis-welcome-sub {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--mud-palette-text-secondary);
+    margin: 0;
+}
+
+.nornis-welcome-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 32px;
+}
+
+.nornis-landing-final .nornis-welcome-cta {
+    justify-content: center;
+}
+
+.nornis-welcome-promise {
+    margin: 18px 0 0 0;
+    max-width: 440px;
+    font-family: var(--nornis-serif);
+    font-style: italic;
+    font-size: 1.02rem;
+    line-height: 1.5;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Your first ten minutes: three numbered steps, read across on a desktop, down on a phone. */
+.nornis-welcome-first {
+    padding: 40px 0 48px 0;
+    scroll-margin-top: 24px;
+}
+
+.nornis-welcome-steps {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    max-width: 1040px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.nornis-welcome-step {
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 10px;
+    box-shadow: var(--nornis-card-shadow);
+    padding: 24px;
+}
+
+/* The step's icon on a soft tint of ink, as the app's type tiles sit on a tint of their colour:
+   filled glyphs, which stay crisp at one pixel per point where thin outlines smear, and ink
+   rather than terracotta, which the theme keeps for the one action. */
+.nornis-welcome-step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    color: var(--mud-palette-text-primary);
+    background-color: color-mix(in srgb, var(--mud-palette-text-primary) 8%, transparent);
+    margin-bottom: 14px;
+}
+
+.nornis-welcome-step-icon .mud-icon-root {
+    font-size: 1.6rem;
+}
+
+.nornis-welcome-step h3 {
+    font-family: var(--nornis-serif);
+    font-size: 1.25rem;
+    margin: 0 0 8px 0;
+    color: var(--mud-palette-text-primary);
+}
+
+.nornis-welcome-step p {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--mud-palette-text-secondary);
+    margin: 0;
+}
+
+.nornis-landing-final .nornis-rule-short {
+    margin-top: 48px;
+}
+
+/* The page's width, not the window's: the public frame is a container (see .nornis-page). */
+@container page (max-width: 820px) {
+    .nornis-welcome-steps {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 560px;
+    }
+}
+
+@container page (max-width: 720px) {
+    .nornis-welcome-hero {
+        flex-direction: column;
+        align-items: stretch;
+        min-height: 0;
+    }
+
+    .nornis-welcome-picture {
+        position: relative;
+        width: auto;
+        height: 260px;
+        margin: 0 -40px;
+    }
+
+    .nornis-welcome-picture {
+        -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 50%);
+        mask-image: linear-gradient(to top, transparent 0%, #000 50%);
+    }
+
+    .nornis-welcome-copy {
+        max-width: none;
+        padding: 0 0 40px 0;
+        margin-top: -24px;
+    }
+
+    .nornis-welcome-promise {
+        max-width: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .nornis-welcome-hero {
+        margin: 0 -18px;
+        padding: 0 18px;
+    }
+
+    .nornis-welcome-picture {
+        margin: 0 -18px;
+        height: 220px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nornis-welcome-picture img {
+        animation: none;
+    }
 }
 
 /* ------------------------------------------------------------- Stonemark -- */
@@ -2988,16 +3104,6 @@ a.nornis-cite:hover {
 
 /* ------------------------------------------------------- Public responsive -- */
 
-@media (max-width: 1000px) {
-    .nornis-landing-steps {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .nornis-landing-cards {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
 @media (max-width: 600px) {
     .nornis-public-nav,
     .nornis-public-footer {
@@ -3022,11 +3128,7 @@ a.nornis-cite:hover {
         padding-top: 56px;
     }
 
-    .nornis-landing-steps {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .nornis-public-footer-links {
+ {
         margin-left: 0;
     }
 }

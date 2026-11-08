@@ -166,6 +166,57 @@ public class DemoWorldTests
     }
 
     [Test]
+    public async Task CreateDemo_FromATemplateWithKeyArt_OpensOnThatPicture()
+    {
+        // The welcome page shows the demo world's key art and promises that is what opens:
+        // the template's picture must arrive as the new world's own key art, in its own folder.
+        WriteTemplateZip(_templatePath, keyArt: TinyPng);
+        var client = CreateClientWithTemplate();
+
+        var response = await client.PostAsJsonAsync("/api/worlds/demo", new CreateDemoWorldRequest(Tutorial: true));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created), await response.Content.ReadAsStringAsync());
+        var world = (await response.Content.ReadFromJsonAsync<WorldResponse>())!;
+
+        var image = await client.GetAsync($"/api/worlds/{world.Id}/key-art/image");
+        Assert.That(image.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(image.Content.Headers.ContentType?.MediaType, Is.EqualTo("image/png"));
+        Assert.That(await image.Content.ReadAsByteArrayAsync(), Is.EqualTo(TinyPng));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NornisDbContext>();
+        var keyArt = db.Worlds.Single(w => w.Id == world.Id).KeyArt;
+        Assert.That(keyArt, Is.Not.Null);
+        Assert.That(keyArt!.BlobPath, Does.StartWith($"worlds/{world.Id}/key-art/"));
+        Assert.That(keyArt.Source, Is.EqualTo(Nornis.Domain.Enums.CoverSource.Uploaded));
+    }
+
+    [Test]
+    public async Task CreateDemo_FromATemplateWithoutKeyArt_HasNone()
+    {
+        var client = CreateClientWithTemplate();
+
+        var response = await client.PostAsJsonAsync("/api/worlds/demo", new CreateDemoWorldRequest(Tutorial: true));
+        var world = (await response.Content.ReadFromJsonAsync<WorldResponse>())!;
+
+        var image = await client.GetAsync($"/api/worlds/{world.Id}/key-art/image");
+        Assert.That(image.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task CreateDemo_TemplateKeyArtThatIsNotAnImage_FailsCleanly()
+    {
+        WriteTemplateZip(_templatePath, keyArt: "not a picture"u8.ToArray());
+        var client = CreateClientWithTemplate();
+
+        var response = await client.PostAsJsonAsync("/api/worlds/demo", new CreateDemoWorldRequest(Tutorial: true));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.InternalServerError));
+        var worlds = await client.GetFromJsonAsync<JsonElement>("/api/worlds");
+        Assert.That(worlds.GetArrayLength(), Is.EqualTo(0));
+    }
+
+    [Test]
 
     [Category("Authorization")]
     public async Task KillSwitch_BlocksEnablingPublicAccessOnDemoWorlds()
@@ -216,8 +267,16 @@ public class DemoWorldTests
     private static readonly Guid RelationshipId = Guid.NewGuid();
     private static readonly Guid AdventureId = Guid.NewGuid();
 
+    /// <summary>The smallest bytes ImageFile reads as a PNG: signature and an IHDR of 2×1.</summary>
+    private static readonly byte[] TinyPng =
+    [
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x00, 0x00, 0x00, 0x0D, (byte)'I', (byte)'H', (byte)'D', (byte)'R',
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01,
+    ];
+
     /// <summary>A minimal but complete template package in the world-export zip format.</summary>
-    private static void WriteTemplateZip(string path, bool danglingPin = false, bool withPrep = false)
+    private static void WriteTemplateZip(string path, bool danglingPin = false, bool withPrep = false, byte[]? keyArt = null)
     {
         using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
         using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
@@ -288,6 +347,13 @@ public class DemoWorldTests
                "artifactBId":"{{Artifact2Id}}","type":"ProtectedBy","description":null,
                "confidence":0.8,"truthState":"Confirmed","visibility":"PartyVisible"}]}
             """);
+
+        if (keyArt is not null)
+        {
+            var keyArtEntry = zip.CreateEntry("key-art.png");
+            using var keyArtStream = keyArtEntry.Open();
+            keyArtStream.Write(keyArt);
+        }
 
         var pinArtifact = danglingPin ? Guid.NewGuid() : Artifact1Id;
         WriteEntry(zip, "map-pins.json", $$"""

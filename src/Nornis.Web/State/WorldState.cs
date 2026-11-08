@@ -289,6 +289,32 @@ public class WorldState
     }
 
     /// <summary>
+    /// Opens the member's demo world: the one they run if they have it, otherwise a new one with
+    /// the guided tour. Then selects it. One rule for "the demo world", so the welcome page's
+    /// start link and the first-login prompt can't disagree about whether to make a second.
+    /// </summary>
+    public async Task<ApiResult<WorldSummary>> OpenDemoAsync(CancellationToken ct = default)
+    {
+        await EnsureLoadedAsync(ct);
+
+        var demo = Worlds.FirstOrDefault(w => w.IsDemo && w.MyRole == WorldRoles.Gm);
+        if (demo is null)
+        {
+            var created = await _api.CreateDemoWorldAsync(tutorial: true, ct);
+            if (!created.IsSuccess)
+            {
+                return created;
+            }
+
+            await ReloadAsync(ct);
+            demo = Worlds.FirstOrDefault(w => w.Id == created.Value!.Id) ?? created.Value!;
+        }
+
+        await SelectAsync(demo.Id);
+        return ApiResult<WorldSummary>.Ok(demo);
+    }
+
+    /// <summary>
     /// Replaces the cached assessment with a fresher copy (e.g. after Home runs an assessment
     /// or dismisses a finding), then notifies so the sidebar ring stays in sync. Also marks the
     /// cache satisfied so a later <see cref="EnsureContinuityLoadedAsync"/> doesn't refetch.

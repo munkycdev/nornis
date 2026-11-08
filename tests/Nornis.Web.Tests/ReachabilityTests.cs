@@ -41,6 +41,8 @@ public class ReachabilityTests
         "/shelf/{Code}/read/{DocumentId:guid}",
         // Bibliotaph's Send to Nornis (feature 31): only Bibliotaph links here.
         "/bibliotaph/excerpt",
+        // The welcome page's call to action: a visitor arrives here through sign-in, from outside the app.
+        "/start/demo",
     };
 
     private static string ComponentsRoot()

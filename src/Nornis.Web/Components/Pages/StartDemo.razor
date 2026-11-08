@@ -1,0 +1,52 @@
+@page "/start/demo"
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject OnboardingState Onboarding
+@inject NavigationManager Nav
+
+@* Where the welcome page's "explore a ready-made world" button lands. Inherits [Authorize]
+   from Pages/_Imports, so a visitor signs in (or signs up) at Auth0 and comes back here; then
+   their demo world is opened, made first if need be, and they go Home to it with the tour on.
+   The first-login prompt would offer the same world, so it is marked seen rather than asked. *@
+
+<PageTitle>Opening the demo world — Nornis</PageTitle>
+
+<div class="nornis-start">
+    @if (_error is null)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Medium" />
+        <MudText Typo="Typo.h6" Class="nornis-serif mt-4">Opening your demo world…</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+            Five sessions, a map and a guided tour. This takes a few seconds the first time.
+        </MudText>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">@_error</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard">Go to Home</MudButton>
+    }
+</div>
+
+@code {
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A prerender must not make a world: the interactive render that follows would make another.
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        var result = await Worlds.OpenDemoAsync();
+        if (!result.IsSuccess)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        await Api.MarkOnboardingPromptSeenAsync();
+        Onboarding.Invalidate();
+        Nav.NavigateTo("/dashboard", replace: true);
+    }
+}
