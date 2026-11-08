@@ -1223,6 +1223,28 @@ public record CoverStateDto(
 /// <summary>Source is Generated or Uploaded; Layout is FullBleed, Framed or ClassicModule.</summary>
 public record CoverDto(string Source, string Layout, string ContentType, DateTimeOffset UpdatedAt);
 
+/// <summary>The Key art card's state (feature 42). Mirrors the API's <c>KeyArtStateResponse</c>.</summary>
+public record KeyArtStateDto(
+    KeyArtDto? KeyArt, string? Brief, IReadOnlyList<Guid> Options, Guid? ChosenOptionId,
+    int ImagesThisMonth, int ImagesCap, bool CanGenerate, string? GenerateBlocker, string? Warning);
+
+/// <summary>Source is Generated or Uploaded; Anchor is Centre, Top or Bottom; FocusY is the anchor as 0 to 100.</summary>
+public record KeyArtDto(string Source, string Anchor, string ContentType, DateTimeOffset UpdatedAt, int FocusY = 50);
+
+public record KeyArtBriefRequest(string? Brief);
+
+public record ChooseKeyArtRequest(Guid OptionId);
+
+public record SetKeyArtAnchorRequest(string? Anchor);
+
+/// <summary>The top of Home (feature 42). Mirrors the API's <c>WorldHeroResponse</c>.</summary>
+public record WorldHeroDto(
+    Guid WorldId, string Name, string? GameSystem, int SessionCount, DateTimeOffset? LastSessionAt, int EntryCount,
+    HeroPictureDto Picture);
+
+/// <summary>Kind is KeyArt, Map or None. Key art carries its stamp; a map, its URL. FocusY is 0 to 100.</summary>
+public record HeroPictureDto(string Kind, DateTimeOffset? KeyArtStamp, string? MapUrl, int FocusY);
+
 public record CoverBriefRequest(string? Brief);
 
 public record ChooseCoverRequest(Guid OptionId);

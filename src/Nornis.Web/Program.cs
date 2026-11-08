@@ -358,14 +358,32 @@ if (authEnabled)
     prepCovers.RequireAuthorization();
 }
 
-static IResult CoverImage((byte[] Bytes, string ContentType)? image, HttpContext context)
+// A world's key art (feature 42): the art for any member (the API checks membership), and the
+// generated options for the GM's card. The art's URL carries its stamp and an option never
+// changes, so both may be cached.
+var worldArt = app.MapGroup("/world-art/{worldId:guid}");
+worldArt.MapGet("", async (Guid worldId, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    CoverImage(await api.GetKeyArtImageAsync(worldId, ct), context));
+worldArt.MapGet("/options/{optionId:guid}", async (Guid worldId, Guid optionId, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    CoverImage(await api.GetKeyArtOptionAsync(worldId, optionId, ct), context));
+if (authEnabled)
+{
+    worldArt.RequireAuthorization();
+}
+
+// A public world's key art, anonymously: the API serves it only while public access is on.
+app.MapGet("/w/{slug}/art", async (string slug, NornisApiClient api, HttpContext context, CancellationToken ct) =>
+    CoverImage(await api.GetPublicKeyArtImageAsync(slug, ct), context, shared: true))
+    .AllowAnonymous();
+
+static IResult CoverImage((byte[] Bytes, string ContentType)? image, HttpContext context, bool shared = false)
 {
     if (image is not { } found)
     {
         return Results.NotFound();
     }
 
-    context.Response.Headers.CacheControl = "private, max-age=86400";
+    context.Response.Headers.CacheControl = shared ? "public, max-age=86400" : "private, max-age=86400";
     return Results.File(found.Bytes, found.ContentType);
 }
 

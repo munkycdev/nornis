@@ -226,6 +226,7 @@ builder.Services.AddDbContext<NornisDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserSignInRepository, UserSignInRepository>();
 builder.Services.AddScoped<IWorldRepository, WorldRepository>();
+builder.Services.AddScoped<IWorldKeyArtRepository, WorldKeyArtRepository>();
 builder.Services.AddScoped<IWorldMemberRepository, WorldMemberRepository>();
 builder.Services.AddScoped<IWorldInviteRepository, WorldInviteRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
@@ -311,6 +312,12 @@ builder.Services.AddSingleton<Nornis.Application.Bibliotaph.IBibliotaphAuthoriza
 builder.Services.AddScoped<AdventurePrintDetails>();
 builder.Services.AddScoped<AdventureBookletPrinter>();
 builder.Services.AddScoped<Nornis.Application.Prep.Covers.AdventureCoverService>();
+builder.Services.AddOptions<KeyArtOptions>()
+    .Bind(builder.Configuration.GetSection(KeyArtOptions.SectionName))
+    .Validate(o => o.FirstNonPositiveBound() is null, "Every key-art bound must be greater than zero; none means unbounded.")
+    .ValidateOnStart();
+builder.Services.AddScoped<Nornis.Application.KeyArt.WorldKeyArtService>();
+builder.Services.AddScoped<Nornis.Application.Hero.WorldHeroService>();
 builder.Services.AddSingleton<IBookletPdfRenderer, QuestPdfBookletRenderer>();
 builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDesignService, AdventureDesignService>();

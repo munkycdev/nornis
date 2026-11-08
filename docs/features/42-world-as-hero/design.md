@@ -1,5 +1,32 @@
 # Design Document
 
+> **Amendment, 2026-11-08 (Phases C and D as built, Nornis 3.16).** Where the build differs:
+>
+> - **Uploads are PNG or JPEG**, not WebP (requirement 1.1): the upload reuses the cover's header
+>   reader (`ImageFile`, moved to `Application/Art` with the generator), which reads the format
+>   and size from the bytes without a decoder. WebP can follow if a GM asks for it.
+> - **The hero's shape** is `{ worldId, name, gameSystem, sessionCount, lastSessionAt, entryCount,
+>   picture: { kind, keyArtStamp, mapUrl, focusY } }`. Key art carries its stamp rather than a URL,
+>   because the address is the Web's own image route (`/world-art/{w}?v=`, or `/w/{slug}/art?v=`
+>   in public); `HeroDisplay.PictureUrl` is the one place it's spelled. `KeyArtResponse` carries
+>   `focusY` too, so the card's preview crops as the hero does.
+> - **The band is an `<img>`** with `object-fit: cover` and `object-position: center {focusY}%`
+>   in a frame of fixed height, faded in by CSS rather than a JS `onload` helper. The fixed frame is
+>   what keeps a slow image from moving the page, and a CSS fade can't miss a load event that
+>   fired before the circuit attached. The name, facts and Ask box sit beside and below the
+>   picture, on the faded paper. A map fallback is shown softer, so it reads as the world's
+>   shape rather than as art.
+> - **The switcher thumbnail is key art only** (requirement 3.1 said "or fallback art"): at 34px
+>   a map is noise, and its SAS address changes on every read, so the browser could never keep it.
+> - **The public page opens on its picture** when it has key art or a map the party has seen (the
+>   Observer's journey map, as the public Locations page shows); requirement 3.2 asked for key art
+>   only, and the map is no more than that page already shows anonymously.
+> - **Cover options and key-art options share `CoverSource`** (Uploaded or Generated); no new enum.
+> - **"Cover art" on Profile's Models card reads "Pictures"**, since the one image task now paints
+>   covers and key art.
+> - Writes go through `IWorldKeyArtRepository`, targeted at the key-art columns, so a key-art
+>   change never races a settings save on the world's row version.
+
 > **Amendment, 2026-11-07 23:40Z (Phase B as built).** The artifact graph had its own brighter
 > palette for types (orange characters, blue places), kept in two places: `ArtifactGraph.Legend`
 > and `typeColors` in `nornis-graph.js`. With type colours in the theme, that was a third copy

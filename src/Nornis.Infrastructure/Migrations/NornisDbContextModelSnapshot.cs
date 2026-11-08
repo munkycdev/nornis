@@ -2046,6 +2046,22 @@ namespace Nornis.Infrastructure.Migrations
                     b.Property<bool>("IsTemplate")
                         .HasColumnType("bit");
 
+                    b.Property<string>("KeyArtBrief")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("KeyArtImagesGenerated")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KeyArtImagesMonth")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.PrimitiveCollection<string>("KeyArtOptionIds")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -3056,9 +3072,51 @@ namespace Nornis.Infrastructure.Migrations
                         .HasForeignKey("CurrentCampaignId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.OwnsOne("Nornis.Domain.Models.WorldKeyArt", "KeyArt", b1 =>
+                        {
+                            b1.Property<Guid>("WorldId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Anchor")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<string>("BlobPath")
+                                .IsRequired()
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("Brief")
+                                .HasMaxLength(2000)
+                                .HasColumnType("nvarchar(2000)");
+
+                            b1.Property<string>("ContentType")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<string>("Source")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<DateTimeOffset>("UpdatedAt")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.HasKey("WorldId");
+
+                            b1.ToTable("Worlds");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WorldId");
+                        });
+
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("CurrentCampaign");
+
+                    b.Navigation("KeyArt");
                 });
 
             modelBuilder.Entity("Nornis.Domain.Entities.WorldDigest", b =>

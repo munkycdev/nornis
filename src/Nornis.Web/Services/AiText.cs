@@ -1,4 +1,4 @@
-namespace Nornis.Web.Services;
+﻿namespace Nornis.Web.Services;
 
 /// <summary>
 /// How the Web names AI providers, kinds of AI work and refusals (feature 39). The API sends enum
@@ -60,7 +60,7 @@ public static class AiText
         "Extraction" => "Reading sources",
         "Prep" => "Prep",
         "Chores" => "Small jobs",
-        "CoverArt" => "Cover art",
+        "CoverArt" => "Pictures",
         _ => task,
     };
 
@@ -70,7 +70,7 @@ public static class AiText
         "Extraction" => "Turning sources, maps and images into proposals. The most demanding work.",
         "Prep" => "Drafting adventures and talking them through.",
         "Chores" => "Short jobs such as naming and narrating threads.",
-        "CoverArt" => "Generating an adventure's cover. Needs your own OpenAI key.",
+        "CoverArt" => "Generating adventure covers and a world's key art. Needs your own OpenAI key.",
         _ => string.Empty,
     };
 

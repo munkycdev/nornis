@@ -10,7 +10,14 @@
     <ActivatorContent>
         <div class="nornis-world @(Worlds.ViewingAsPlayer ? "nornis-world-viewas" : null)"
              @onclick="OpenWorldMenuAsync">
-            <MudIcon Icon="@Icons.Material.Outlined.Terrain" Class="nornis-world-icon" />
+            @if (_thumb is { } thumb)
+            {
+                <img src="@thumb" alt="" class="nornis-world-thumb" style="object-position: center @(_thumbFocusY)%;" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.Terrain" Class="nornis-world-icon" />
+            }
             <div class="flex-grow-1">
                 <div class="nornis-world-name">@(Worlds.Current?.Name ?? "No world")</div>
                 @if (Worlds.Current is null)
@@ -216,6 +223,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldsChanged;
+        Worlds.HeroChanged += OnHeroChanged;
         WorldMenu.OpenRequested += OnWorldMenuRequested;
 
         // The two things that used to leave the badges stale: a change this browser made, and
@@ -240,8 +248,28 @@ else
 
         await Worlds.EnsureLoadedAsync();
         await RefreshActivityAsync();
+        await RefreshThumbAsync();
         _ = PollActivityAsync();
     }
+
+    // The switcher's thumbnail (feature 42) is the world's key art only. The map fallback is the
+    // hero's, not the switcher's: at 34px a map is noise, and its address changes on every read,
+    // so the browser could never keep it.
+    private string? _thumb;
+    private int _thumbFocusY = 50;
+
+    private async Task RefreshThumbAsync()
+    {
+        var hero = Worlds.Current is null ? null : await Worlds.GetHeroAsync();
+        _thumb = hero is { Picture.Kind: "KeyArt" } ? HeroDisplay.PictureUrl(hero) : null;
+        _thumbFocusY = hero?.Picture.FocusY ?? 50;
+    }
+
+    private void OnHeroChanged() => InvokeAsync(async () =>
+    {
+        await RefreshThumbAsync();
+        StateHasChanged();
+    });
 
     // A signal means this browser just wrote something, so the counts are known to be stale —
     // never let the freshness window swallow it.
@@ -505,6 +533,7 @@ else
     private void OnWorldsChanged() => InvokeAsync(async () =>
     {
         await RefreshActivityAsync();
+        await RefreshThumbAsync();
         StateHasChanged();
     });
 
@@ -543,6 +572,7 @@ else
         Nav.LocationChanged -= OnLocationChanged;
         AuthSession.Changed -= OnAuthSessionChanged;
         Worlds.Changed -= OnWorldsChanged;
+        Worlds.HeroChanged -= OnHeroChanged;
         WorldMenu.OpenRequested -= OnWorldMenuRequested;
 
         if (_visibilityToken is { } token)

@@ -35,6 +35,16 @@ public static class Links
     public static string PrepCover(Guid worldId, Guid adventureId, DateTimeOffset stamp) =>
         $"/prep-covers/{worldId}/{adventureId}?v={stamp.ToUnixTimeMilliseconds()}";
 
+    /// <summary>A world's key art through the Web's proxy (feature 42), stamped as a cover is.</summary>
+    public static string WorldArt(Guid worldId, DateTimeOffset stamp) => $"/world-art/{worldId}?v={stamp.ToUnixTimeMilliseconds()}";
+
+    /// <summary>A generated key-art option, for the GM's card.</summary>
+    public static string WorldArtOption(Guid worldId, Guid optionId) => $"/world-art/{worldId}/options/{optionId}";
+
+    /// <summary>A public world's key art, anonymously.</summary>
+    public static string PublicWorldArt(string worldSlug, DateTimeOffset stamp) =>
+        $"/w/{Uri.EscapeDataString(worldSlug)}/art?v={stamp.ToUnixTimeMilliseconds()}";
+
     /// <summary>The props sheet's PDF through the Web's own route (feature 38), always downloaded.</summary>
     public static string Props(Guid worldId, Guid adventureId) => $"/prep-props/{worldId}/{adventureId}";
 

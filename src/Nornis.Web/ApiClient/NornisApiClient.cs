@@ -680,6 +680,51 @@ public class NornisApiClient
         Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
         GetImageAsync($"{CoverUri(worldId, adventureId)}/options/{optionId}", ct);
 
+    // ---------------------------------------------------------- Key art (feature 42) --
+
+    private static string KeyArtUri(Guid worldId) => $"/api/worlds/{worldId}/key-art";
+
+    public Task<ApiResult<KeyArtStateDto>> GetKeyArtAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<KeyArtStateDto>(KeyArtUri(worldId), ct);
+
+    public Task<ApiResult<KeyArtStateDto>> SaveKeyArtBriefAsync(Guid worldId, string? brief, CancellationToken ct = default) =>
+        PutAsync<KeyArtBriefRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/brief", new KeyArtBriefRequest(brief), ct);
+
+    public Task<ApiResult<KeyArtStateDto>> GenerateKeyArtAsync(Guid worldId, string brief, CancellationToken ct = default) =>
+        PostAsync<KeyArtBriefRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/generate", new KeyArtBriefRequest(brief), ct);
+
+    public Task<ApiResult<KeyArtStateDto>> ChooseKeyArtAsync(Guid worldId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseKeyArtRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/choose", new ChooseKeyArtRequest(optionId), ct);
+
+    /// <summary>The GM's own picture as the request body; the API reads its type from its bytes.</summary>
+    public Task<ApiResult<KeyArtStateDto>> UploadKeyArtAsync(Guid worldId, byte[] image, CancellationToken ct = default) =>
+        SendForAsync<KeyArtStateDto>(HttpMethod.Put, $"{KeyArtUri(worldId)}/image", new ByteArrayContent(image), ct);
+
+    public Task<ApiResult<KeyArtStateDto>> SetKeyArtAnchorAsync(Guid worldId, string anchor, CancellationToken ct = default) =>
+        PutAsync<SetKeyArtAnchorRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/anchor", new SetKeyArtAnchorRequest(anchor), ct);
+
+    public Task<ApiResult<KeyArtStateDto>> RemoveKeyArtAsync(Guid worldId, CancellationToken ct = default) =>
+        SendForAsync<KeyArtStateDto>(HttpMethod.Delete, KeyArtUri(worldId), null, ct);
+
+    /// <summary>The key art, for the Web's proxy; null when there is none or the caller isn't a member.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetKeyArtImageAsync(Guid worldId, CancellationToken ct = default) =>
+        GetImageAsync($"{KeyArtUri(worldId)}/image", ct);
+
+    /// <summary>A generated option, for the Web's proxy; the API answers only the GM.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetKeyArtOptionAsync(Guid worldId, Guid optionId, CancellationToken ct = default) =>
+        GetImageAsync($"{KeyArtUri(worldId)}/options/{optionId}", ct);
+
+    /// <summary>A public world's key art, anonymously; null unless the world has public access on and key art.</summary>
+    public Task<(byte[] Bytes, string ContentType)?> GetPublicKeyArtImageAsync(string slug, CancellationToken ct = default) =>
+        GetImageAsync($"/api/public/worlds/{Uri.EscapeDataString(slug)}/key-art", ct);
+
+    /// <summary>The top of Home: the world's facts and its picture, as the caller's role sees them.</summary>
+    public Task<ApiResult<WorldHeroDto>> GetWorldHeroAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<WorldHeroDto>($"/api/worlds/{worldId}/hero", ct);
+
+    public Task<ApiResult<WorldHeroDto>> GetPublicWorldHeroAsync(string slug, CancellationToken ct = default) =>
+        GetAsync<WorldHeroDto>($"/api/public/worlds/{Uri.EscapeDataString(slug)}/hero", ct);
+
     private async Task<(byte[] Bytes, string ContentType)?> GetImageAsync(string uri, CancellationToken ct)
     {
         try

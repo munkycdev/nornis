@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Art;
 using Nornis.Application.Configuration;
 using Nornis.Application.Models;
 using Nornis.Application.Prep;
@@ -25,7 +26,7 @@ public class AdventureCoverServiceTests
 
     private InMemoryAdventureRepository _adventures = null!;
     private FakePrepAiClient _ai = null!;
-    private FakeCoverArtGenerator _generator = null!;
+    private FakeImageArtGenerator _generator = null!;
     private FakeBlobStorageService _blobs = null!;
     private FakeAiBudgetGuard _budget = null!;
     private InMemoryAiUsageRecordRepository _ledger = null!;
@@ -40,7 +41,7 @@ public class AdventureCoverServiceTests
     {
         _adventures = new InMemoryAdventureRepository();
         _ai = new FakePrepAiClient();
-        _generator = new FakeCoverArtGenerator();
+        _generator = new FakeImageArtGenerator();
         _blobs = new FakeBlobStorageService();
         _budget = new FakeAiBudgetGuard();
         _ledger = new InMemoryAiUsageRecordRepository();
@@ -172,7 +173,7 @@ public class AdventureCoverServiceTests
     [Test]
     public async Task ASafetySystemBlock_AsksTheGmToReword()
     {
-        _generator.Throw = new CoverArtRejectedException(moderation: true, "Your request was rejected by our safety system.");
+        _generator.Throw = new ImageArtRejectedException(moderation: true, "Your request was rejected by our safety system.");
 
         var result = await GenerateAsync();
 
@@ -188,7 +189,7 @@ public class AdventureCoverServiceTests
     [Test]
     public async Task ARejectionThatIsntModeration_ShowsOpenAisReason_NotReword()
     {
-        _generator.Throw = new CoverArtRejectedException(moderation: false, "The model 'gpt-image-1' does not exist.");
+        _generator.Throw = new ImageArtRejectedException(moderation: false, "The model 'gpt-image-1' does not exist.");
 
         var result = await GenerateAsync();
 

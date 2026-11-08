@@ -1,4 +1,4 @@
-using Nornis.Application.Ai;
+﻿using Nornis.Application.Ai;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
 
@@ -34,6 +34,7 @@ public class AiTasksTests
     [TestCase(AiOperationType.AdventureConversation, AiTask.Prep)]
     [TestCase(AiOperationType.CoverArtBrief, AiTask.Prep)]
     [TestCase(AiOperationType.CoverArt, AiTask.CoverArt)]
+    [TestCase(AiOperationType.KeyArt, AiTask.CoverArt)]
     [TestCase(AiOperationType.WorldNaming, AiTask.Chores)]
     public void Operation_BelongsToItsTask(AiOperationType operation, AiTask task)
     {

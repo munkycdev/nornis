@@ -42,5 +42,9 @@ public enum AiOperationType
 
     /// <summary>Generating cover images from a brief (feature 38), on the key holder's image model,
     /// against the monthly Prep pool.</summary>
-    CoverArt
+    CoverArt,
+
+    /// <summary>Generating a world's key art from the GM's brief (feature 42), on the key holder's
+    /// image model, against the monthly Prep pool, where the GM already sees creative spend.</summary>
+    KeyArt
 }

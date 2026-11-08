@@ -30,16 +30,16 @@ surface fixes from the same review shipped separately as 3.14 (PR #123).**
 
 ## Phase C: Key art
 
-- [ ] C1. Domain: `World.KeyArt` (owned), the working columns; migration `AddWorldKeyArt`.
-- [ ] C2. `IImageArtGenerator` with `ImageShape`; covers moved onto it unchanged. Tests.
-- [ ] C3. `WorldKeyArtService`, `TryCountKeyArtImagesAsync`, `AiOperationType.KeyArt`. Tests.
-- [ ] C4. API: `/key-art` endpoints, role matrix tests.
-- [ ] C5. Web: `KeyArtCard` in Settings, `/world-art` proxy. bUnit tests.
+- [x] C1. Domain: `World.KeyArt` (owned), the working columns; migration `AddWorldKeyArt`.
+- [x] C2. `IImageArtGenerator` with `ImageShape`; covers moved onto it unchanged. Tests.
+- [x] C3. `WorldKeyArtService`, `TryCountKeyArtImagesAsync`, `AiOperationType.KeyArt`. Tests.
+- [x] C4. API: `/key-art` endpoints, role matrix tests.
+- [x] C5. Web: `KeyArtCard` in Settings, `/world-art` proxy. bUnit tests.
 
 ## Phase D: The hero
 
-- [ ] D1. `WorldHeroService` and `GET /hero` (members) and the public variant. Tests.
-- [ ] D2. `HeroBand` on Home; the switcher thumbnail; the public world page. bUnit tests.
+- [x] D1. `WorldHeroService` and `GET /hero` (members) and the public variant. Tests.
+- [x] D2. `HeroBand` on Home; the switcher thumbnail; the public world page. bUnit tests.
 
 ## Phase E: Ship
 

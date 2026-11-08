@@ -1,12 +1,15 @@
 using Nornis.Application.Ai;
-using Nornis.Application.Prep.Covers;
+using Nornis.Application.Art;
 
 namespace Nornis.Application.Tests.Fakes;
 
 /// <summary>Makes tiny PNGs on demand, or throws; records every prompt.</summary>
-public sealed class FakeCoverArtGenerator : ICoverArtGenerator
+public sealed class FakeImageArtGenerator : IImageArtGenerator
 {
     public List<(AiCallScope Scope, string Prompt, int Count)> Calls { get; } = [];
+
+    /// <summary>The shape and operation of every call, in order.</summary>
+    public List<(ImageShape Shape, string Operation)> Shapes { get; } = [];
 
     public bool HasKey { get; set; } = true;
 
@@ -15,23 +18,25 @@ public sealed class FakeCoverArtGenerator : ICoverArtGenerator
     /// <summary>How many images it returns, when not the count asked for.</summary>
     public int? Deliver { get; set; }
 
-    public Task<CoverArtGeneration> GenerateAsync(AiCallScope scope, string prompt, int count, int timeoutSeconds, CancellationToken ct)
+    public Task<ImageArtGeneration> GenerateAsync(
+        AiCallScope scope, string prompt, ImageShape shape, int count, int timeoutSeconds, string operation, CancellationToken ct)
     {
         Calls.Add((scope, prompt, count));
+        Shapes.Add((shape, operation));
         if (Throw is not null)
         {
             throw Throw;
         }
 
-        var images = Enumerable.Range(0, Deliver ?? count).Select(i => new GeneratedCoverImage(TestImages.Png(1024, 1536, (byte)i), null)).ToList();
+        var images = Enumerable.Range(0, Deliver ?? count).Select(i => new GeneratedImage(TestImages.Png(1024, 1536, (byte)i), null)).ToList();
         var usage = new AiUsage { Model = "image-model", InputTokens = 50, OutputTokens = 1_000 * images.Count, TotalTokens = 50 + 1_000 * images.Count, DurationMs = 0 };
-        return Task.FromResult(new CoverArtGeneration(images, usage));
+        return Task.FromResult(new ImageArtGeneration(images, usage));
     }
 
     public Task<bool> CanGenerateAsync(AiCallScope scope, CancellationToken ct) => Task.FromResult(HasKey);
 }
 
-/// <summary>Image headers that <see cref="CoverImageFile"/> reads; the pixels are never decoded.</summary>
+/// <summary>Image headers that <see cref="ImageFile"/> reads; the pixels are never decoded.</summary>
 public static class TestImages
 {
     public static byte[] Png(int width, int height, byte salt = 0)

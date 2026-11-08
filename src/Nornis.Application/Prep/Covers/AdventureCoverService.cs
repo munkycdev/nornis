@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Art;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Services;
@@ -27,12 +28,15 @@ public class AdventureCoverService
     /// <summary>The ledger's model name for a generation that failed before a model was bound.</summary>
     public const string UnboundModel = "cover-art";
 
+    /// <summary>A cover this many pixels or more on its short side prints sharp on a page.</summary>
+    public const int SharpShortSide = 1_000;
+
     private const int EstimatedCharsPerToken = 4;
 
     private readonly IAdventureRepository _adventures;
     private readonly AdventurePrintDetails _printDetails;
     private readonly IAdventureDraftingAiClient _ai;
-    private readonly ICoverArtGenerator _generator;
+    private readonly IImageArtGenerator _generator;
     private readonly IBlobStorageService _blobs;
     private readonly IAiBudgetGuard _budget;
     private readonly IAiUsageRecorder _usage;
@@ -45,7 +49,7 @@ public class AdventureCoverService
         IAdventureRepository adventures,
         AdventurePrintDetails printDetails,
         IAdventureDraftingAiClient ai,
-        ICoverArtGenerator generator,
+        IImageArtGenerator generator,
         IBlobStorageService blobs,
         IAiBudgetGuard budget,
         IAiUsageRecorder usage,
@@ -173,10 +177,11 @@ public class AdventureCoverService
         var brief = command.Brief.Trim();
         var scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId);
         var stopwatch = Stopwatch.StartNew();
-        CoverArtGeneration generation;
+        ImageArtGeneration generation;
         try
         {
-            generation = await _generator.GenerateAsync(scope, CoverArtPrompt.ImagePrompt(brief), count, _options.CoverTimeoutSeconds, ct);
+            generation = await _generator.GenerateAsync(
+                scope, CoverArtPrompt.ImagePrompt(brief), ImageShape.Portrait, count, _options.CoverTimeoutSeconds, nameof(AiOperationType.CoverArt), ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -279,7 +284,7 @@ public class AdventureCoverService
                 $"A cover can be at most {_options.MaxCoverUploadBytes / (1024 * 1024)} MB."));
         }
 
-        if (CoverImageFile.Read(command.Bytes) is not { } info)
+        if (ImageFile.Read(command.Bytes) is not { } info)
         {
             return Fail(new AppError(400, "invalid_image", "A cover must be a PNG or JPEG image."));
         }
@@ -300,8 +305,8 @@ public class AdventureCoverService
         };
         await ReplaceCoverAsync(adventure, cover, generated: false, ct);
 
-        var warning = Math.Min(info.Width, info.Height) < CoverImageFile.SharpShortSide
-            ? $"This image is {info.Width} × {info.Height} pixels, so it may print soft. Covers print sharp at {CoverImageFile.SharpShortSide} pixels or more on the short side."
+        var warning = Math.Min(info.Width, info.Height) < SharpShortSide
+            ? $"This image is {info.Width} × {info.Height} pixels, so it may print soft. Covers print sharp at {SharpShortSide} pixels or more on the short side."
             : null;
         var state = await StateAsync(await ReloadAsync(adventure.Id, ct), command.ActingUserId, ct);
         return AppResult<CoverState>.Success(state with { Warning = warning });
@@ -487,34 +492,15 @@ public class AdventureCoverService
         return new AiUsage { Model = request.Model, InputTokens = input, OutputTokens = output, TotalTokens = input + output, DurationMs = 0 };
     }
 
-    private static (string Code, AppError Error) Classify(Exception ex) => ex switch
-    {
-        AiRefusalException refusal => (refusal.Category, refusal.ToAppError()),
-        CoverArtRejectedException { Moderation: true } =>
-            ("ContentRefused", new AppError(422, "cover_refused",
-                "The image model's safety check turned this brief down. Try rewording it, or upload your own art.")),
-        // Not the brief: the provider names a problem rewording won't fix (billing, the account,
-        // the request), so the GM is told what it said rather than to reword.
-        CoverArtRejectedException rejected =>
-            ("Rejected", new AppError(422, "cover_rejected",
-                $"OpenAI didn't accept the request: {RejectionReason(rejected.Reason)} Nothing was charged against this adventure's images.")),
-        AiHttpException { StatusCode: 429 } =>
-            ("RateLimited", new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")),
-        AiTimeoutException or OperationCanceledException => ("Timeout", Unavailable),
-        _ => ("ServiceError", Unavailable),
-    };
+    private static (string Code, AppError Error) Classify(Exception ex) => ImageArtFailures.Classify(ex, Words);
 
-    private const int MaxReasonChars = 300;
-
-    private static string RejectionReason(string? reason)
-    {
-        var text = string.IsNullOrWhiteSpace(reason) ? "it gave no reason." : reason.Trim();
-        text = text.Length > MaxReasonChars ? text[..MaxReasonChars].TrimEnd() + "…" : text;
-        return text.EndsWith('.') || text.EndsWith('…') ? text : text + ".";
-    }
-
-    private static readonly AppError Unavailable =
-        new(503, "service_unavailable", "Cover art is temporarily unavailable. Nothing was changed. Please try again.");
+    /// <summary>The Cover card's words for a failed generation (or brief).</summary>
+    private static readonly ImageArtWords Words = new(
+        RefusedCode: "cover_refused",
+        Refused: "The image model's safety check turned this brief down. Try rewording it, or upload your own art.",
+        RejectedCode: "cover_rejected",
+        RejectedTail: "Nothing was charged against this adventure's images.",
+        Unavailable: "Cover art is temporarily unavailable. Nothing was changed. Please try again.");
 
     private AppError CapReached() => new(409, "cover_cap",
         $"This adventure has used its {_options.MaxCoverImagesPerAdventure} generated images. You can still upload your own art.");

@@ -16,41 +16,38 @@
 }
 else
 {
+    <HeroBand Title="@Worlds.Current.Name" Hero="_hero" PictureUrl="@(_hero is null ? null : HeroDisplay.PictureUrl(_hero))"
+              Caption="Ask the Loremaster">
+        <div class="nornis-ask">
+            <MudTextField T="string"
+                          @bind-Value="_question"
+                          Immediate="true"
+                          Class="nornis-ask-input"
+                          Placeholder="What should I remember before tonight?"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          OnKeyUp="GoAskKeyUp" />
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="nornis-ask-send"
+                           OnClick="GoAsk"
+                           aria-label="Ask" />
+        </div>
+
+        <div class="nornis-suggestions">
+            @foreach (var s in _suggestions)
+            {
+                <button type="button" class="nornis-suggestion" @onclick="() => GoAskWith(s)">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
+                    <span>@s</span>
+                </button>
+            }
+        </div>
+    </HeroBand>
+
     <div class="nornis-dashboard">
         <div class="nornis-dashboard-main">
-
-            <MudPaper Elevation="0" Class="nornis-card nornis-hero">
-                <img src="images/mini-logo.png" alt="" class="nornis-hero-mark nornis-logo-ink" />
-                <div class="nornis-hero-title">@Worlds.Current.Name</div>
-                <div class="nornis-hero-sub">Ask the Loremaster</div>
-
-                <div class="nornis-ask">
-                    <MudTextField T="string"
-                                  @bind-Value="_question"
-                                  Immediate="true"
-                                  Class="nornis-ask-input"
-                                  Placeholder="What should I remember before tonight?"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  OnKeyUp="GoAskKeyUp" />
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
-                                   Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Class="nornis-ask-send"
-                                   OnClick="GoAsk"
-                                   aria-label="Ask" />
-                </div>
-
-                <div class="nornis-suggestions">
-                    @foreach (var s in _suggestions)
-                    {
-                        <button type="button" class="nornis-suggestion" @onclick="() => GoAskWith(s)">
-                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Small" />
-                            <span>@s</span>
-                        </button>
-                    }
-                </div>
-            </MudPaper>
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-capture-head">
@@ -179,6 +176,11 @@ else
 
     private Guid _dashboardWorldId;
 
+    // The top of Home: the world's picture and facts, read fresh so the counts are current. Kept
+    // with the role it was read for, since a GM viewing as a player sees the player's picture.
+    private WorldHeroDto? _hero;
+    private string? _heroRole;
+
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldChanged;
@@ -225,6 +227,11 @@ else
         {
             await LoadDashboardAsync();
         }
+        else if (Worlds.EffectiveRole != _heroRole)
+        {
+            await LoadHeroAsync();
+            StateHasChanged();
+        }
         else
         {
             StateHasChanged();
@@ -242,6 +249,7 @@ else
 
         var id = Worlds.Current.Id;
         _dashboardWorldId = id;
+        _hero = Worlds.CachedHero;
         StateHasChanged();
 
         // Only the relationships are rendered now that the Canon Updates card is gone, but the
@@ -251,7 +259,8 @@ else
         var canonTask = Api.GetCanonAsync(id, factLimit: 3, relationshipLimit: 3);
         var reviewTask = Api.GetReviewQueueAsync(id);
         var suggestionsTask = Api.GetAskSuggestionsAsync(id);
-        await Task.WhenAll(canonTask, reviewTask, suggestionsTask);
+        var heroTask = LoadHeroAsync();
+        await Task.WhenAll(canonTask, reviewTask, suggestionsTask, heroTask);
 
         var suggestions = suggestionsTask.Result.Value;
         _suggestions = suggestions is { Count: > 0 }
@@ -265,6 +274,12 @@ else
         _proposals = reviewTask.Result.Value?.Proposals ?? [];
 
         StateHasChanged();
+    }
+
+    private async Task LoadHeroAsync()
+    {
+        _heroRole = Worlds.EffectiveRole;
+        _hero = await Worlds.GetHeroAsync(refresh: true);
     }
 
     private static string ProposalName(ReviewProposal p)
