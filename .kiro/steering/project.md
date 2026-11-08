@@ -1,5 +1,10 @@
 # Nornis - AI-First World Memory
 
+> **Amendment (2026-11-08):** `docs/plans/` was removed on 2026-09-10 and the empty
+> `.kiro/specs/` on 2026-11-08. Design decisions live in `docs/features/` only, one numbered
+> folder per feature; the "Document design decisions in `.kiro/specs/`" convention below and
+> the mention of `docs/plans/` in the next note are kept as written but no longer describe the tree.
+>
 > **Amendment (2026-09-09):** four lines of the Tech Stack below name tools the system does
 > not use, and the Build & Run section was never filled in. Hosting is **Azure Container Apps**
 > (`ca-nornis-{api,web,worker}`), not AKS; images live in **GitHub Container Registry**

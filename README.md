@@ -229,9 +229,8 @@ there to the production server and database with `Authentication=Active Director
 no password: your `az login` is then the credential, and it must be the SQL server's Entra admin
 (or a contained user). If Visual Studio is signed in as a different account it sits ahead of the
 CLI in the credential chain and the login fails — pin the chain with
-`AZURE_TOKEN_CREDENTIALS=AzureCliCredential`, which `.claude/launch.json` already does for the
-local API. Since 2026-09-08 the deployed apps reach SQL, Blob Storage and Service Bus the same
-way, as their managed identities — see `.kiro/steering/azure-hosting.md`.
+`AZURE_TOKEN_CREDENTIALS=AzureCliCredential`. Since 2026-09-08 the deployed apps reach SQL, Blob
+Storage and Service Bus the same way, as their managed identities — see `.kiro/steering/azure-hosting.md`.
 
 Miss that step and `/health` returns 503 until it is run — see
 [`docs/runbooks/migration-missed.md`](docs/runbooks/migration-missed.md).
@@ -263,7 +262,6 @@ src/            Application source (see the table above)
 tests/          One test project per source project
 ci/pages/       The static engineering dashboard published to status.nornis.app
 docs/features/  Per-feature design docs, numbered in build order (index in its README)
-docs/plans/     Backlog specs; docs/future-features.md holds the execution order
 docs/runbooks/  One doc per nameable failure mode, linked from every Azure alert
 docs/           Images
 scripts/        Local stack, provisioning, note import, coverage, CRAP, dead-letter queue
