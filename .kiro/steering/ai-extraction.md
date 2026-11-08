@@ -92,6 +92,32 @@ All accepted artifact, fact, and relationship changes must come from user review
 
 ## Extraction Goal
 
+> **Amendment (2026-11-08) — extraction judges significance, and a Storyline needs intent and
+> a resolution.** Feature 43 (`docs/features/43-reduce-noise`). Symbaroum's record after two
+> years showed the prompt below tuned for recall: 1,962 proposals accepted against 31 rejected,
+> 65 Storylines created and 56 of them closed by hand, and confidence unable to tell the piles
+> apart (25 of the 31 rejections sat at 0.9 or above). Three things changed:
+>
+> - **Every proposal carries a `significance`** of Core, Supporting or Incidental at the
+>   proposal level (beside `confidence` and `quote`, never inside `proposedValue`, whose
+>   sixteen fields the Anthropic adapter counts). It answers "what will the table do with this",
+>   which confidence does not. `ExtractionTriage` drops Incidental before any ReviewProposal is
+>   written, keeping only an Incidental CreateArtifact that a kept proposal names. A response
+>   triage empties completes as an empty batch. Absent means Supporting; nothing is stored.
+> - **A Storyline is an arc the table is pursuing**: an actor with intent and a conceivable
+>   resolution, both required. A character's development or nature, the world reacting to a
+>   character, mood, foreshadowing and one-off warnings are facts and relationships on the
+>   Character or Faction. A source rarely opens more than one Storyline, never more than two.
+>   The line "an Event that matters almost always belongs to an arc" is gone. Open questions
+>   need the party pursuing the answer.
+> - **Retired storylines are shown as such.** `ArtifactContext.Status` renders as
+>   `Status: Dormant` or `Status: Resolved` under the artifact in the Existing World Artifacts
+>   list (Active renders nothing), and the prompt says never to open a twin or add open
+>   questions to one; a source that plainly reopens it proposes UpdateArtifact to Active.
+>
+> The "Product Language" section below still reads as the storyline trigger it was; the
+> prompt's definition is now the stricter one above.
+
 Given a source, extract proposed updates to the world knowledge graph.
 
 Input:

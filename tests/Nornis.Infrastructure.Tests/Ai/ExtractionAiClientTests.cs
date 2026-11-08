@@ -84,6 +84,71 @@ public class ExtractionAiClientTests
 
     #endregion
 
+    #region Significance (feature 43)
+
+    [TestCase("Core", ProposalSignificance.Core)]
+    [TestCase("Supporting", ProposalSignificance.Supporting)]
+    [TestCase("Incidental", ProposalSignificance.Incidental)]
+    public async Task ExtractAsync_Significance_IsParsed(string sent, ProposalSignificance expected)
+    {
+        SetupMockToReturn(ResponseWith("significance", $"\"{sent}\""));
+
+        var result = await _client.ExtractAsync(DefaultRequest, CancellationToken.None);
+
+        Assert.That(result.Proposals.Single().Significance, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task ExtractAsync_SignificanceAbsentOrNull_IsSupporting()
+    {
+        // A model that did not say has not called it incidental; a non-strict endpoint that
+        // ignores the schema must not lose every proposal to triage.
+        SetupMockToReturn(ResponseWithout("significance"));
+        var absent = (await _client.ExtractAsync(DefaultRequest, CancellationToken.None)).Proposals.Single();
+
+        SetupMockToReturn(ResponseWith("significance", "null"));
+        var sentNull = (await _client.ExtractAsync(DefaultRequest, CancellationToken.None)).Proposals.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(absent.Significance, Is.EqualTo(ProposalSignificance.Supporting));
+            Assert.That(sentNull.Significance, Is.EqualTo(ProposalSignificance.Supporting));
+        });
+    }
+
+    [TestCase("\"Trivial\"", Description = "not one of the three")]
+    [TestCase("\"core\"", Description = "the schema's enum is case-sensitive")]
+    [TestCase("\"1\"", Description = "a numeric string Enum.TryParse would have taken")]
+    [TestCase("2", Description = "a number")]
+    public async Task ExtractAsync_SignificanceOutsideTheEnum_ThrowsParseExceptionNamingIt(string rawJson)
+    {
+        SetupMockToReturn(ResponseWith("significance", rawJson));
+
+        // NUnit 5: ThrowsAsync returns a Task and must be awaited, or it silently never asserts.
+        var ex = await Assert.ThrowsAsync<AiParseException>(() => _client.ExtractAsync(DefaultRequest, CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain("significance"));
+    }
+
+    [Test]
+    public void StructuredOutputSchema_RequiresSignificance_AtTheProposalLevel_NotInThePayload()
+    {
+        var schema = JsonNode.Parse(ExtractionAiClient.GetStructuredOutputSchema())!;
+        var proposal = schema["properties"]!["proposals"]!["items"]!;
+        var payload = proposal["properties"]!["proposedValue"]!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(proposal["properties"]!["significance"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()),
+                Is.EquivalentTo(["Core", "Supporting", "Incidental"]));
+            Assert.That(proposal["required"]!.AsArray().Select(n => n!.GetValue<string>()), Does.Contain("significance"));
+            Assert.That(payload["properties"]!["significance"], Is.Null,
+                "significance describes the proposal, not the thing proposed; the payload's sixteen fields are counted by the Anthropic fit");
+        });
+    }
+
+    #endregion
+
     #region Valid Response Tests
 
     [Test]

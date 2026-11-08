@@ -150,6 +150,10 @@ public static class ExtractionPromptReader
                         {
                             artifact.PartOfName = line["Part of: ".Length..];
                         }
+                        else if (line.StartsWith("Status: ", StringComparison.Ordinal))
+                        {
+                            artifact.Status = line["Status: ".Length..];
+                        }
                         else if (FactLine.Match(line) is { Success: true } fact)
                         {
                             artifact.Facts.Add(new ParsedFact
@@ -192,6 +196,9 @@ public sealed class ParsedArtifact
     public required string Type { get; init; }
     public string? Summary { get; set; }
     public string? PartOfName { get; set; }
+
+    /// <summary>Rendered only for a retired artifact, so null here means Active or unknown.</summary>
+    public string? Status { get; set; }
     public List<ParsedFact> Facts { get; } = [];
 }
 

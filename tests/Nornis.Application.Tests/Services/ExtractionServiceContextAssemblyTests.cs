@@ -649,4 +649,31 @@ public class ExtractionServiceContextAssemblyTests
         Assert.That(childContext.PartOfName, Is.EqualTo("Kastor Crisis"));
         Assert.That(parentContext.PartOfName, Is.Null);
     }
+
+    [Test]
+    public async Task Context_RetiredStoryline_CarriesItsStatus_ActiveOneCarriesNone()
+    {
+        // Feature 43: a Dormant storyline used to read exactly like an Active one, so the next
+        // note could re-animate it or open a twin.
+        var retired = CreateArtifact("Missing Caravan");
+        retired.Type = ArtifactType.Storyline;
+        retired.Status = ArtifactStatus.Dormant;
+        var live = CreateArtifact("Kastor Crisis");
+        live.Type = ArtifactType.Storyline;
+        live.Status = ArtifactStatus.Active;
+        _artifactRepository.Seed(retired, live);
+
+        var source = CreateQueuedSource(body: "The Missing Caravan and the Kastor Crisis both came up.");
+        _sourceRepository.Seed(source);
+        ConfigureSuccessfulAiResponse();
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var prompt = Prompt();
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt.ExistingArtifacts.Single(a => a.Name == "Missing Caravan").Status, Is.EqualTo("Dormant"));
+            Assert.That(prompt.ExistingArtifacts.Single(a => a.Name == "Kastor Crisis").Status, Is.Null);
+        });
+    }
 }
