@@ -55,7 +55,7 @@ public class RailNarrowerThanPageTests
     {
         var source = File.ReadAllText(Path.Combine(PagesRoot(), page)).Replace("\r\n", "\n");
 
-        Assert.That(source, Does.Contain("<EntityPage>"), $"{page} is not on the template");
+        Assert.That(source, Does.Match(@"<EntityPage[\s>]"), $"{page} is not on the template");
         Assert.That(source, Does.Contain("<ContextRail "), $"{page} has no rail");
 
         var members = Member.Matches(source);

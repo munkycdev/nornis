@@ -55,6 +55,20 @@ public class EntityPageTests : BunitContext
     }
 
     [Test]
+    public void APageBeingEdited_IsAWorkspace_AndOnlyThen()
+    {
+        var reading = Render<EntityPage>(p => p.Add(e => e.Body, Text("a body")));
+        var editing = Render<EntityPage>(p => p.Add(e => e.Body, Text("a body")).Add(e => e.Workspace, true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reading.Find(".nornis-entity").ClassList, Does.Not.Contain("nornis-workspace"));
+            Assert.That(editing.Find(".nornis-entity").ClassList, Does.Contain("nornis-workspace"),
+                "a workspace fills the window and its editor takes the room the other fields leave");
+        });
+    }
+
+    [Test]
     public void Rail_RendersRowsAndLinks()
     {
         var cut = Render<ContextRail>(p => p

@@ -7,6 +7,9 @@
 > footer) is what scrolls. The pane is a size container, so anything that must fit what can be
 > seen sizes to `100cqh` rather than `100vh`; a sticky rail sticks inside the pane. An editable
 > notes editor never grows taller than the pane, scrolling its text under a toolbar that stays.
+> A page being edited (Capture, a source or character sheet in edit mode; `EntityPage
+> Workspace`) is a workspace too: its columns scroll on their own and a `nornis-fill` chain gives
+> the editor the height its fields and buttons leave, so they stay on screen.
 > A page that is a workspace (`.nornis-workspace`, Prep today) fills the pane on a window at least
 > 1200px by 600px: nothing on it scrolls but its columns, and the footer steps aside. A phone, or
 > a window too short for a fixed frame, scrolls as a page, as before. The public site is

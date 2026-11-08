@@ -5021,11 +5021,25 @@ a.nornis-cite:hover {
         display: none;
     }
 
+    /* A page's own wrapper around its workspace passes the height down. */
+    .nornis-pane:has(.nornis-workspace) > .nornis-page > :has(.nornis-workspace) {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
     .nornis-workspace {
         flex: 1 1 auto;
         min-height: 0;
         display: flex;
         flex-direction: column;
+        /* The pane no longer scrolls; when stacked columns are taller than the window, this does. */
+        overflow-y: auto;
+    }
+
+    .nornis-workspace > * {
+        flex-shrink: 0;
     }
 
     .nornis-prep-workspace > .nornis-page-head,
@@ -5094,6 +5108,104 @@ a.nornis-cite:hover {
         height: auto;
         min-height: 240px;
         max-height: none;
+    }
+
+    /* Editing fills the window (3.19): on an edit page (Capture, a source or a character sheet
+       being edited) the columns fill the workspace and scroll on their own, and a chain of
+       nornis-fill elements from the column down to the notes editor gives the editor the
+       height the other fields leave, so the fields and buttons under it stay on screen. The
+       editor is size-contained, so it asks for no more than its minimum and only grows into
+       what is left; if the fields alone are taller than the window, the column scrolls. When
+       the columns stack, the workspace scrolls instead and the editor keeps its usual cap. */
+    @container page (min-width: 761px) {
+        .nornis-entity.nornis-workspace > .nornis-entity-columns {
+            flex: 1 1 auto;
+            min-height: 0;
+            grid-template-rows: minmax(0, 1fr);
+            align-items: stretch;
+        }
+
+        .nornis-entity.nornis-workspace > .nornis-entity-columns > .nornis-entity-body {
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nornis-entity.nornis-workspace > .nornis-entity-columns > .nornis-entity-rail {
+            min-height: 0;
+            overflow-y: auto;
+            position: static;
+        }
+
+        .nornis-entity.nornis-workspace .nornis-entity-body > * {
+            flex-shrink: 0;
+        }
+
+        .nornis-entity.nornis-workspace .nornis-fill {
+            flex: 1 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nornis-entity.nornis-workspace .nornis-fill > :not(.nornis-fill) {
+            flex-shrink: 0;
+        }
+
+        .nornis-entity.nornis-workspace .nornis-fill > .nornis-editor:not(.nornis-editor-max) {
+            flex: 1 1 auto;
+            contain: size;
+            min-height: 240px;
+            max-height: none;
+        }
+
+        .nornis-entity.nornis-workspace .nornis-fill > .nornis-editor:not(.nornis-editor-max) > .nornis-editor-content {
+            min-height: 0;
+        }
+    }
+
+    @container page (min-width: 961px) {
+        .nornis-capture-workspace > .nornis-dashboard {
+            flex: 1 1 auto;
+            min-height: 0;
+            grid-template-rows: minmax(0, 1fr);
+            align-items: stretch;
+        }
+
+        .nornis-capture-workspace > .nornis-dashboard > .nornis-dashboard-main,
+        .nornis-capture-workspace > .nornis-dashboard > .nornis-rail {
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .nornis-capture-workspace > .nornis-dashboard > .nornis-dashboard-main > * {
+            flex-shrink: 0;
+        }
+
+        .nornis-capture-workspace .nornis-capture-rail {
+            position: static;
+        }
+
+        .nornis-capture-workspace .nornis-fill {
+            flex: 1 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nornis-capture-workspace .nornis-fill > :not(.nornis-fill) {
+            flex-shrink: 0;
+        }
+
+        .nornis-capture-workspace .nornis-fill > .nornis-editor:not(.nornis-editor-max) {
+            flex: 1 1 auto;
+            contain: size;
+            min-height: 240px;
+            max-height: none;
+        }
+
+        .nornis-capture-workspace .nornis-fill > .nornis-editor:not(.nornis-editor-max) > .nornis-editor-content {
+            min-height: 0;
+        }
     }
 }
 

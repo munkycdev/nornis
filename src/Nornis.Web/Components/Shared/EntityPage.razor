@@ -2,9 +2,10 @@
    then the body beside a context rail. The rail is the backlinks panel — what cites this,
    what connects to it, what changed — and the Loremaster's handle, in the same place on every
    page; under the tablet breakpoint it drops beneath the body as a strip. Pages fill the three
-   slots and never rebuild the frame. *@
+   slots and never rebuild the frame. While a page is being edited it is a Workspace (3.19):
+   see "Editing fills the window" in app.css. *@
 
-<div class="nornis-entity">
+<div class="nornis-entity @(Workspace ? "nornis-workspace" : null)">
     @if (Header is not null)
     {
         <div class="nornis-entity-header">@Header</div>
@@ -23,4 +24,10 @@
     [Parameter] public RenderFragment? Header { get; set; }
     [Parameter] public RenderFragment? Body { get; set; }
     [Parameter] public RenderFragment? Rail { get; set; }
+
+    /// <summary>
+    /// The page is being edited: on a wide window it fills the pane, the body and the rail
+    /// scroll on their own, and an editor in a <c>nornis-fill</c> chain takes the room left.
+    /// </summary>
+    [Parameter] public bool Workspace { get; set; }
 }

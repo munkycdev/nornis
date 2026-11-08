@@ -8,259 +8,263 @@
 
 <PageTitle>Capture — Nornis</PageTitle>
 
-<div class="d-flex align-center gap-3 flex-wrap">
-    <MudText Typo="Typo.h4" Class="nornis-serif flex-grow-1">Tell Nornis what happened</MudText>
-    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-               StartIcon="@Icons.Material.Outlined.DriveFolderUpload" Href="/import">
-        Import a whole vault
-    </MudButton>
-</div>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Add a source. Nornis reads it and proposes updates to your world record.
-</MudText>
+@* On a wide window Capture is a workspace (3.19): the form and the Loremaster each scroll in
+   their column and the notes editor takes the height the other fields leave. *@
+<div class="nornis-workspace nornis-capture-workspace">
+    <div class="d-flex align-center gap-3 flex-wrap">
+        <MudText Typo="Typo.h4" Class="nornis-serif flex-grow-1">Tell Nornis what happened</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.DriveFolderUpload" Href="/import">
+            Import a whole vault
+        </MudButton>
+    </div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Add a source. Nornis reads it and proposes updates to your world record.
+    </MudText>
 
-@if (Worlds.Current is null)
-{
-    <NoWorld />
-}
-else
-{
-    <div class="nornis-dashboard">
-        <div class="nornis-dashboard-main">
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                @if (_keptAt is { } keptAt)
-                {
-                    @* What was here when the page was last left, put back. Said once, with the way
-                       out beside it — the alternative to a banner is a GM wondering whose notes
-                       these are. *@
-                    <KeptNotesNotice KeptAt="keptAt" Message="Picked up where you left off"
-                                     DiscardLabel="Start fresh" OnDiscard="StartFreshAsync" Disabled="_busy" />
-                }
-
-                <MudTextField @bind-Value="_title"
-                              Label="Title"
-                              Required="true"
-                              Immediate="true"
-                              MaxLength="200"
-                              Variant="Variant.Outlined"
-                              Class="mb-3" />
-
-                <div class="d-flex gap-3 mb-3">
-                    <MudSelect @bind-Value="SelectedType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
-                        @foreach (var (value, label) in SourceTypeDisplay.CaptureOptionsFor(Worlds.IsGm))
-                        {
-                            <MudSelectItem Value="@value">@label</MudSelectItem>
-                        }
-                    </MudSelect>
-                    <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
-                        @foreach (var vis in VisibilityDisplay.Scopes)
-                        {
-                            <MudSelectItem Value="@vis">@vis</MudSelectItem>
-                        }
-                    </MudSelect>
-                </div>
-
-                @if (FilePlanForType is { } plan)
-                {
-                    @* Files go straight to blob via the SAS handshake; the worker derives
-                       text (transcription / vision read / PDF text) before extraction. *@
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                        @plan.Hint
-                    </MudText>
-
-                    @if (_transcribed)
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else
+    {
+        <div class="nornis-dashboard">
+            <div class="nornis-dashboard-main">
+                <MudPaper Elevation="0" Class="@($"nornis-card nornis-card-pad{(ShowEditor ? " nornis-fill" : "")}")">
+                    @if (_keptAt is { } keptAt)
                     {
-                        @* Photographs are done with: the reading is in the editor below, and
-                           picking new ones now would leave the source carrying page images
-                           the text no longer came from. Retake is the way back. *@
-                        <MudAlert Severity="Severity.Success" Dense="true" Class="mb-3">
-                            <div class="d-flex align-center justify-space-between gap-3">
-                                <span>@($"Read {_pageFiles.Count} {(_pageFiles.Count == 1 ? "page" : "pages")}. Check the text below before saving.")</span>
-                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
-                                           StartIcon="@Icons.Material.Filled.Replay"
-                                           OnClick="RetakeAsync" Disabled="_busy">
-                                    Retake
-                                </MudButton>
-                            </div>
-                        </MudAlert>
+                        @* What was here when the page was last left, put back. Said once, with the way
+                           out beside it — the alternative to a banner is a GM wondering whose notes
+                           these are. *@
+                        <KeptNotesNotice KeptAt="keptAt" Message="Picked up where you left off"
+                                         DiscardLabel="Start fresh" OnDiscard="StartFreshAsync" Disabled="_busy" />
                     }
-                    else
+
+                    <MudTextField @bind-Value="_title"
+                                  Label="Title"
+                                  Required="true"
+                                  Immediate="true"
+                                  MaxLength="200"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
+
+                    <div class="d-flex gap-3 mb-3">
+                        <MudSelect @bind-Value="SelectedType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
+                            @foreach (var (value, label) in SourceTypeDisplay.CaptureOptionsFor(Worlds.IsGm))
+                            {
+                                <MudSelectItem Value="@value">@label</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
+                            @foreach (var vis in VisibilityDisplay.Scopes)
+                            {
+                                <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    @if (FilePlanForType is { } plan)
                     {
-                        @* Choosing photos is the same button on every device; only the camera
-                           is device-specific, because `capture` is advertised by desktop
-                           browsers and ignored by them — a camera button on a laptop opens the
-                           ordinary file dialog under a label that cannot deliver on it.
+                        @* Files go straight to blob via the SAS handshake; the worker derives
+                           text (transcription / vision read / PDF text) before extraction. *@
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                            @plan.Hint
+                        </MudText>
 
-                           These are LABELS, not buttons that call into script. A file picker
-                           may only open while the user's gesture is still live, and on Blazor
-                           Server a click handler answers from the other end of a SignalR round
-                           trip — by which point Safari has stopped listening, so the button did
-                           nothing at all on iOS. A label opens its own input natively, in the
-                           gesture, before any of that. *@
-                        @if (IsHandwritten)
+                        @if (_transcribed)
                         {
-                            @* Three ways to hand over the same thing, so they read as peers:
-                               one style, one size, side by side where there is room and stacked
-                               full-width on a phone where there is not. Writing by hand is
-                               offered on every device; the two picker routes belong to touch. *@
-                            <div class="nornis-pick-row mb-3">
-                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                                           StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
-                                    Write by hand
-                                </MudButton>
-                                <MudButton HtmlTag="label" for="@_cameraInputId"
-                                           Class="nornis-pick-touch"
-                                           Variant="Variant.Outlined" Color="Color.Primary"
-                                           StartIcon="@Icons.Material.Filled.PhotoCamera" Disabled="_busy">
-                                    Take a photo
-                                </MudButton>
-                                <MudButton HtmlTag="label" for="@_libraryInputId"
-                                           Variant="Variant.Outlined" Color="Color.Primary"
-                                           StartIcon="@Icons.Material.Filled.PhotoLibrary" Disabled="_busy">
-                                    Choose photos
-                                </MudButton>
-                            </div>
-
-                            @* Camera-only, and never the visible control — its label is. The
-                               `capture` hint lives in the markup because that is the only way it
-                               can be set before the picker opens. *@
-                            <InputFile id="@_cameraInputId" multiple capture="environment"
-                                       OnChange="@(e => OnPagesSelected(e, _cameraInputId))"
-                                       class="nornis-pick-offscreen" accept="@plan.Accept" />
-                        }
-                        @if (plan.Multiple)
-                        {
-                            <InputFile id="@_libraryInputId" OnChange="@(e => OnPagesSelected(e, _libraryInputId))"
-                                       multiple class="@FilePickerClass" accept="@plan.Accept" />
+                            @* Photographs are done with: the reading is in the editor below, and
+                               picking new ones now would leave the source carrying page images
+                               the text no longer came from. Retake is the way back. *@
+                            <MudAlert Severity="Severity.Success" Dense="true" Class="mb-3">
+                                <div class="d-flex align-center justify-space-between gap-3">
+                                    <span>@($"Read {_pageFiles.Count} {(_pageFiles.Count == 1 ? "page" : "pages")}. Check the text below before saving.")</span>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit"
+                                               StartIcon="@Icons.Material.Filled.Replay"
+                                               OnClick="RetakeAsync" Disabled="_busy">
+                                        Retake
+                                    </MudButton>
+                                </div>
+                            </MudAlert>
                         }
                         else
                         {
-                            <InputFile id="@_libraryInputId" OnChange="@(e => OnPagesSelected(e, _libraryInputId))"
-                                       class="@FilePickerClass" accept="@plan.Accept" />
-                        }
-                    }
+                            @* Choosing photos is the same button on every device; only the camera
+                               is device-specific, because `capture` is advertised by desktop
+                               browsers and ignored by them — a camera button on a laptop opens the
+                               ordinary file dialog under a label that cannot deliver on it.
 
-                    @if (_pageFiles.Count > 0)
-                    {
-                        <div class="mb-3">
-                            @for (var i = 0; i < _pageFiles.Count; i++)
+                               These are LABELS, not buttons that call into script. A file picker
+                               may only open while the user's gesture is still live, and on Blazor
+                               Server a click handler answers from the other end of a SignalR round
+                               trip — by which point Safari has stopped listening, so the button did
+                               nothing at all on iOS. A label opens its own input natively, in the
+                               gesture, before any of that. *@
+                            @if (IsHandwritten)
                             {
-                                @* Local copies: MudText's child content renders after the
-                                   loop finishes, so referencing i directly is off-by-N. *@
-                                var fileNumber = i + 1;
-                                var page = _pageFiles[i];
-                                <MudText Typo="Typo.body2">@($"File {fileNumber}: {page.Name} ({DisplayText.FormatSize(page.Size)})")</MudText>
-                            }
-                        </div>
-                    }
-                    @if (_busy && _pageFiles.Count > 0 && !_reading)
-                    {
-                        <MudProgressLinear Value="@_uploadProgress" Color="Color.Primary" Class="mb-2" />
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                            Uploading file @(_uploadingIndex + 1) of @_pageFiles.Count…
-                        </MudText>
-                    }
+                                @* Three ways to hand over the same thing, so they read as peers:
+                                   one style, one size, side by side where there is room and stacked
+                                   full-width on a phone where there is not. Writing by hand is
+                                   offered on every device; the two picker routes belong to touch. *@
+                                <div class="nornis-pick-row mb-3">
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.Draw" Href="/capture/ink">
+                                        Write by hand
+                                    </MudButton>
+                                    <MudButton HtmlTag="label" for="@_cameraInputId"
+                                               Class="nornis-pick-touch"
+                                               Variant="Variant.Outlined" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.PhotoCamera" Disabled="_busy">
+                                        Take a photo
+                                    </MudButton>
+                                    <MudButton HtmlTag="label" for="@_libraryInputId"
+                                               Variant="Variant.Outlined" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.PhotoLibrary" Disabled="_busy">
+                                        Choose photos
+                                    </MudButton>
+                                </div>
 
-                    @if (_type == "HandwrittenNotes" && !_transcribed && _pageFiles.Count > 0)
-                    {
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-3"
-                                   StartIcon="@Icons.Material.Filled.AutoAwesome"
-                                   OnClick="TranscribeAsync" Disabled="_busy">
-                            @(_reading ? "Reading the handwriting…" : "Read the handwriting")
-                        </MudButton>
-                        @if (_reading)
+                                @* Camera-only, and never the visible control — its label is. The
+                                   `capture` hint lives in the markup because that is the only way it
+                                   can be set before the picker opens. *@
+                                <InputFile id="@_cameraInputId" multiple capture="environment"
+                                           OnChange="@(e => OnPagesSelected(e, _cameraInputId))"
+                                           class="nornis-pick-offscreen" accept="@plan.Accept" />
+                            }
+                            @if (plan.Multiple)
+                            {
+                                <InputFile id="@_libraryInputId" OnChange="@(e => OnPagesSelected(e, _libraryInputId))"
+                                           multiple class="@FilePickerClass" accept="@plan.Accept" />
+                            }
+                            else
+                            {
+                                <InputFile id="@_libraryInputId" OnChange="@(e => OnPagesSelected(e, _libraryInputId))"
+                                           class="@FilePickerClass" accept="@plan.Accept" />
+                            }
+                        }
+
+                        @if (_pageFiles.Count > 0)
                         {
-                            <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-2" />
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
-                                This takes a moment — Nornis is reading every page before you check it.
+                            <div class="mb-3">
+                                @for (var i = 0; i < _pageFiles.Count; i++)
+                                {
+                                    @* Local copies: MudText's child content renders after the
+                                       loop finishes, so referencing i directly is off-by-N. *@
+                                    var fileNumber = i + 1;
+                                    var page = _pageFiles[i];
+                                    <MudText Typo="Typo.body2">@($"File {fileNumber}: {page.Name} ({DisplayText.FormatSize(page.Size)})")</MudText>
+                                }
+                            </div>
+                        }
+                        @if (_busy && _pageFiles.Count > 0 && !_reading)
+                        {
+                            <MudProgressLinear Value="@_uploadProgress" Color="Color.Primary" Class="mb-2" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                                Uploading file @(_uploadingIndex + 1) of @_pageFiles.Count…
                             </MudText>
                         }
-                    }
-                }
 
-                @if (ShowEditor)
-                {
-                    @if (_transcribed && _transcriptionWasBlank)
-                    {
-                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
-                            Nornis found no readable handwriting on those pages. Type the notes
-                            yourself, or retake the photos in better light.
-                        </MudAlert>
-                    }
-                    <div class="mb-3">
-                        <NotesEditor @ref="_editor" InitialMarkdown="@_transcription"
-                                     Placeholder="@EditorPlaceholder" AllowMaximize="true"
-                                     BackupKey="@NotesBackupKey" Restored="OnNotesRestored" />
-                    </div>
-                }
-
-                @* A Web Link source is the one whose subject IS a URL. On every other type the
-                   field asked for something the extraction pipeline never reads, which is worth
-                   fewer inputs between a GM and a saved note. *@
-                @if (IsWebLink)
-                {
-                    <MudTextField @bind-Value="_uri"
-                                  Label="Link"
-                                  Placeholder="https://…"
-                                  Variant="Variant.Outlined"
-                                  Class="mb-3" />
-                }
-
-                <MudDatePicker @bind-Date="_occurredAt"
-                               Label="When it happened (optional)"
-                               Variant="Variant.Outlined"
-                               Clearable="true"
-                               Class="mb-3" />
-
-                @if (_campaigns.Count > 0)
-                {
-                    <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
-                               Variant="Variant.Outlined" Class="mb-3"
-                               HelperText="Which campaign these events happened in. Leave empty for world lore or prep.">
-                        <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
-                        @foreach (var c in _campaigns)
+                        @if (_type == "HandwrittenNotes" && !_transcribed && _pageFiles.Count > 0)
                         {
-                            <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-3"
+                                       StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                       OnClick="TranscribeAsync" Disabled="_busy">
+                                @(_reading ? "Reading the handwriting…" : "Read the handwriting")
+                            </MudButton>
+                            @if (_reading)
+                            {
+                                <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="mb-2" />
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                                    This takes a moment — Nornis is reading every page before you check it.
+                                </MudText>
+                            }
                         }
-                    </MudSelect>
-                }
+                    }
 
-                <MudCheckBox T="bool" @bind-Value="_extractionEnabled" Color="Color.Secondary" Dense="true" Class="mb-1"
-                             Label="Extract knowledge from this source" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
-                    @(_extractionEnabled
-                        ? "Nornis will read it and propose artifacts, facts, and relationships for review."
-                        : "Stored in the record as-is — no proposals, no changes to canon.")
-                </MudText>
+                    @if (ShowEditor)
+                    {
+                        @if (_transcribed && _transcriptionWasBlank)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                                Nornis found no readable handwriting on those pages. Type the notes
+                                yourself, or retake the photos in better light.
+                            </MudAlert>
+                        }
+                        <div class="mb-3 nornis-fill">
+                            <NotesEditor @ref="_editor" InitialMarkdown="@_transcription"
+                                         Placeholder="@EditorPlaceholder" AllowMaximize="true"
+                                         BackupKey="@NotesBackupKey" Restored="OnNotesRestored" />
+                        </div>
+                    }
 
-                @if (_error is not null)
-                {
-                    <AiErrorAlert Error="ShownError(_error)" Class="mb-3" />
-                }
+                    @* A Web Link source is the one whose subject IS a URL. On every other type the
+                       field asked for something the extraction pipeline never reads, which is worth
+                       fewer inputs between a GM and a saved note. *@
+                    @if (IsWebLink)
+                    {
+                        <MudTextField @bind-Value="_uri"
+                                      Label="Link"
+                                      Placeholder="https://…"
+                                      Variant="Variant.Outlined"
+                                      Class="mb-3" />
+                    }
 
-                <div class="d-flex gap-2">
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Primary"
-                               OnClick="() => SaveAsync(process: false)"
-                               Disabled="_busy">
-                        Save draft
-                    </MudButton>
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@(_extractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
-                               OnClick="() => SaveAsync(process: true)"
-                               Disabled="_busy">
-                        @(_extractionEnabled ? "Save & process" : "Save to record")
-                    </MudButton>
-                </div>
-            </MudPaper>
+                    <MudDatePicker @bind-Date="_occurredAt"
+                                   Label="When it happened (optional)"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Class="mb-3" />
+
+                    @if (_campaigns.Count > 0)
+                    {
+                        <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
+                                   Variant="Variant.Outlined" Class="mb-3"
+                                   HelperText="Which campaign these events happened in. Leave empty for world lore or prep.">
+                            <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
+                            @foreach (var c in _campaigns)
+                            {
+                                <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    }
+
+                    <MudCheckBox T="bool" @bind-Value="_extractionEnabled" Color="Color.Secondary" Dense="true" Class="mb-1"
+                                 Label="Extract knowledge from this source" />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                        @(_extractionEnabled
+                            ? "Nornis will read it and propose artifacts, facts, and relationships for review."
+                            : "Stored in the record as-is — no proposals, no changes to canon.")
+                    </MudText>
+
+                    @if (_error is not null)
+                    {
+                        <AiErrorAlert Error="ShownError(_error)" Class="mb-3" />
+                    }
+
+                    <div class="d-flex gap-2">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   OnClick="() => SaveAsync(process: false)"
+                                   Disabled="_busy">
+                            Save draft
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@(_extractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
+                                   OnClick="() => SaveAsync(process: true)"
+                                   Disabled="_busy">
+                            @(_extractionEnabled ? "Save & process" : "Save to record")
+                        </MudButton>
+                    </div>
+                </MudPaper>
+            </div>
+
+            <div class="nornis-rail nornis-capture-rail">
+                <LoremasterPanel />
+            </div>
         </div>
-
-        <div class="nornis-rail nornis-capture-rail">
-            <LoremasterPanel />
-        </div>
-    </div>
-}
+    }
+</div>
 
 @code {
 
