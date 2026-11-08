@@ -11,4 +11,11 @@ public class ExtractionProposal
 
     /// <summary>Short verbatim excerpt from the source supporting this proposal.</summary>
     public string? Quote { get; init; }
+
+    /// <summary>
+    /// What the table will do with this (feature 43). Supporting when the model did not say: a
+    /// model that is silent has not called the proposal incidental, so an endpoint that ignores
+    /// the schema loses nothing to triage.
+    /// </summary>
+    public ProposalSignificance Significance { get; init; } = ProposalSignificance.Supporting;
 }

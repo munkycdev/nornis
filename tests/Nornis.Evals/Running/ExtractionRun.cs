@@ -100,7 +100,10 @@ public sealed class ExtractionRunner(IAiCallBinder binder, ILoggerFactory loggin
                     continue;
                 }
 
-                return new CaseRecord(world.Id, evalCase.Id, pass, known.Count, Proposals(response.Proposals), failures, usages);
+                // The Worker drops Incidental proposals before filing (feature 43); the eval
+                // counts what would have reached the queue, not what the model typed.
+                var kept = ExtractionTriage.Apply(response.Proposals).Kept;
+                return new CaseRecord(world.Id, evalCase.Id, pass, known.Count, Proposals(kept), failures, usages);
             }
             catch (AiParseException ex)
             {

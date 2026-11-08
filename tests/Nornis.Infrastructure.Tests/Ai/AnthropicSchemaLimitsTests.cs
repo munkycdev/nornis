@@ -61,7 +61,7 @@ public class AnthropicSchemaLimitsTests
             Assert.That(proposal["properties"]!["quote"]!["type"]!.GetValue<string>(), Is.EqualTo("string"));
             Assert.That(payload["properties"]!["confidence"]!["type"]!.GetValue<string>(), Is.EqualTo("number"));
             Assert.That(proposalRequired,
-                Is.EquivalentTo(["changeType", "targetType", "proposedValue", "rationale", "confidence"]));
+                Is.EquivalentTo(["changeType", "targetType", "proposedValue", "rationale", "confidence", "significance"]));
             Assert.That(payload["required"]!.AsArray(), Is.Empty);
             Assert.That(payload["additionalProperties"]!.GetValue<bool>(), Is.False);
             Assert.That(AnthropicSchemaLimits.Count(fitted).UnionProperties, Is.Zero);
