@@ -53,6 +53,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 40 | Web research in Prep (Nornis 3.11) | 2026-11-06 (Phases A to C; the live walk is Dave's) | Search in Draft and Revise; search on the trial or OpenAI-compatible keys; fetching a page by URL; a Nornis-paid search vendor |
 | 41 | Talk it through writes into the design draft (Nornis 3.12) | 2026-11-06 (Phases A and B; the migration and live walk are Dave's) | Streaming text live into the editor; Section mode writing on its own; a "suggest only" switch |
 | 42 | World as hero: key art, the Home hero, type colours (Nornis 3.15) | Specified 2026-11-07 (Phase A); the surface fixes from the same review shipped as 3.14 | An image per codex entry; an accent derived from the art; the Loremaster writing a key-art brief |
+| 43 | Reduce noise: significance at extraction, a stricter Storyline, retired storylines seen (Nornis 3.21) | 2026-11-08 (Phase A; the measure on Symbaroum is Dave's) | A server-side cap on Storyline creates; significance stored on the proposal for queue tiering; the check-in and editorial brief (feature 44) |
 
 Work sequenced outside this folder — the August operations and test-quality backlog — lives in
 [`../future-features.md`](../future-features.md) and `../plans/`. Campaigns' first-tier page

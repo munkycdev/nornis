@@ -510,7 +510,8 @@ public class ExtractionService : IExtractionService
                     Value = f.Value
                 }).ToList()
                 : [],
-            PartOfName = parentNameByChild.GetValueOrDefault(a.Id)
+            PartOfName = parentNameByChild.GetValueOrDefault(a.Id),
+            Status = a.Status.ToString()
         }).ToList();
     }
 
@@ -562,8 +563,8 @@ public class ExtractionService : IExtractionService
                 var validationError = ValidateResponse(response);
                 if (validationError is null)
                 {
-                    // Success — create proposals and track usage
-                    return await HandleSuccessfulResponseAsync(source, worldId, response, ct);
+                    // Success — triage, then create proposals and track usage
+                    return await HandleSuccessfulResponseAsync(source, worldId, Triage(source, response), ct);
                 }
 
                 lastError = validationError;
@@ -652,6 +653,27 @@ public class ExtractionService : IExtractionService
         await TrackUsageAsync(source, worldId, lastResponse, false, ErrorCategories.ParseFailure, ct);
         return ExtractionOutcome.NonTransient(ErrorCategories.ParseFailure,
             $"AI response validation failed after {_options.MaxParseRetryAttempts} retries: {lastError}");
+    }
+
+    /// <summary>
+    /// Feature 43: what the model itself called Incidental never reaches the queue. Runs on a
+    /// validated, already-paid-for response, so the usage rides through unchanged and a response
+    /// triage empties takes the same zero-proposal path as a model that proposed nothing. Map
+    /// extraction does not pass through here; its proposals carry no significance.
+    /// </summary>
+    private AiExtractionResponse Triage(Source source, AiExtractionResponse response)
+    {
+        var triage = ExtractionTriage.Apply(response.Proposals);
+        if (triage.DroppedCount == 0)
+        {
+            return response;
+        }
+
+        _logger.LogInformation(
+            "Triage dropped {DroppedCount} incidental proposal(s) of {ProposalCount}. SourceId={SourceId}, DroppedCreates={DroppedCreates}",
+            triage.DroppedCount, response.Proposals.Count, source.Id, string.Join("; ", triage.DroppedCreateNames));
+
+        return new AiExtractionResponse { Proposals = triage.Kept, Usage = response.Usage };
     }
 
     private async Task<ExtractionOutcome> HandleSuccessfulResponseAsync(

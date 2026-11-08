@@ -263,6 +263,161 @@ public class ExtractionPromptBuilderTests
         Assert.That(message, Does.Contain("Part of: Kastor Crisis"));
     }
 
+    #region Feature 43 — significance, storylines, retired storylines
+
+    [Test]
+    public void BuildSystemPrompt_DefinesSignificance_AndSaysIncidentalIsDiscarded()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("## Significance"));
+            Assert.That(prompt, Does.Contain("\"Core\""));
+            Assert.That(prompt, Does.Contain("\"Supporting\""));
+            Assert.That(prompt, Does.Contain("\"Incidental\""));
+            // The raw string literal strips the source indentation, so assertions stay on one line.
+            Assert.That(prompt, Does.Contain("Incidental proposals are discarded before anyone sees them"));
+            Assert.That(prompt, Does.Contain("texture may produce nothing, and that is a correct reading"));
+            Assert.That(prompt, Does.Contain("for it is at least Supporting"));
+            Assert.That(prompt, Does.Contain("significance (\"Core\", \"Supporting\" or \"Incidental\""));
+        });
+    }
+
+    [Test]
+    public void BuildSystemPrompt_DefinesAStorylineByIntentAndResolution_WithTheWitchAsTheCounterExample()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("## Storylines"));
+            Assert.That(prompt, Does.Contain("intends something, and there is a conceivable moment at which it resolves"));
+            Assert.That(prompt, Does.Contain("Both halves are"));
+            Assert.That(prompt, Does.Contain("a witch warning that someone is"));
+            Assert.That(prompt, Does.Contain("never an arc of its own"));
+            Assert.That(prompt, Does.Contain("never propose more than two"));
+            Assert.That(prompt, Does.Contain("Prefer advancing an existing Storyline to creating a new one"));
+        });
+    }
+
+    [Test]
+    public void BuildSystemPrompt_NoLongerSaysEveryEventBelongsToAnArc()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Not.Contain("almost always belongs to an arc"));
+            Assert.That(prompt, Does.Not.Contain("first-class"));
+            Assert.That(prompt, Does.Contain("arc behind it is fine left unlinked"));
+        });
+    }
+
+    [Test]
+    public void BuildSystemPrompt_OpenQuestions_NeedThePartyPursuingThem()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("When the party is pursuing a question the record cannot yet answer"));
+            Assert.That(prompt, Does.Contain("nobody has taken up is not an open question"));
+        });
+    }
+
+    [Test]
+    public void BuildSystemPrompt_ExplainsRetiredStorylines()
+    {
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(DefaultRequest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("## Retired Storylines"));
+            Assert.That(prompt, Does.Contain("\"Status: Dormant\" or \"Status: Resolved\""));
+            Assert.That(prompt, Does.Contain("Never propose a new Storyline about the same matter"));
+            Assert.That(prompt, Does.Contain("propose UpdateArtifact on it setting status \"Active\""));
+        });
+    }
+
+    [Test]
+    public void BuildSystemPrompt_ImportedNotes_LinkedTermsAreAtLeastSupporting()
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "[[Captain Voss]] was seen.",
+            SourceTitle = "Old note",
+            SourceType = "ImportedNote",
+            SourceVisibility = "PartyVisible"
+        };
+
+        var prompt = ExtractionPromptBuilder.BuildSystemPrompt(request);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("Supporting rather than Incidental: the user already decided it matters"));
+            Assert.That(prompt, Does.Not.Contain("dropped as incidental detail"));
+        });
+    }
+
+    [TestCase("Dormant")]
+    [TestCase("Resolved")]
+    public void BuildUserMessage_RetiredArtifact_ShowsStatusLine(string status)
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            ExistingArtifacts =
+            [
+                new ArtifactContext
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Missing Caravan",
+                    Type = "Storyline",
+                    Status = status
+                }
+            ]
+        };
+
+        var message = ExtractionPromptBuilder.BuildUserMessage(request);
+
+        Assert.That(message, Does.Contain($"Status: {status}"));
+        Assert.That(ExtractionPromptReader.Parse(message).ExistingArtifacts.Single().Status, Is.EqualTo(status));
+    }
+
+    [TestCase("Active")]
+    [TestCase(null)]
+    public void BuildUserMessage_ActiveOrUnknownStatus_ShowsNoStatusLine(string? status)
+    {
+        var request = new ExtractionRequest
+        {
+            SourceBody = "Test body",
+            SourceTitle = "Test",
+            SourceType = "SessionNote",
+            SourceVisibility = "PartyVisible",
+            ExistingArtifacts =
+            [
+                new ArtifactContext
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Missing Caravan",
+                    Type = "Storyline",
+                    Status = status
+                }
+            ]
+        };
+
+        var message = ExtractionPromptBuilder.BuildUserMessage(request);
+
+        Assert.That(message, Does.Not.Contain("Status: "));
+        Assert.That(ExtractionPromptReader.Parse(message).ExistingArtifacts.Single().Status, Is.Null);
+    }
+
+    #endregion
+
     [Test]
     public void BuildSystemPrompt_IncludesLiterarySourceInstructions()
     {

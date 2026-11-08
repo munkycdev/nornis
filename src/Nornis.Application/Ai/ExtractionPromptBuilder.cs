@@ -1,3 +1,5 @@
+using Nornis.Domain.Enums;
+
 namespace Nornis.Application.Ai;
 
 /// <summary>
@@ -21,8 +23,8 @@ public static class ExtractionPromptBuilder
               in [[double brackets]] were explicit links to dedicated notes about that subject —
               the user already decided these are things worth tracking. Treat each linked term as
               a strong signal: propose CreateArtifact for linked terms the world does not know
-              yet, and make sure the facts and relationships the source establishes about a linked
-              term become proposals rather than being dropped as incidental detail. Text wrapped
+              yet, and rate a linked term, and what the source establishes about it, at least
+              Supporting rather than Incidental: the user already decided it matters. Text wrapped
               in {curly braces} is the user's own annotation, not in-world narration; when it
               poses a question ("Question: ..."), route it through the Open Questions rules
               rather than recording it as a world fact.
@@ -106,18 +108,48 @@ public static class ExtractionPromptBuilder
             - New people, places, items, factions, and events worth remembering → CreateArtifact.
             - New information about artifacts the world already knows → AddFact or UpdateArtifact.
             - Connections revealed between artifacts → AddRelationship.
-            - Narrative arcs in motion — mysteries, quests, investigations, rivalries, prophecies,
-              unresolved questions, emerging threats → CreateArtifact with type "Storyline". These are
-              first-class: if the source advances, opens, or closes an arc, say so. When a source
-              resolves or stalls an existing storyline, propose UpdateArtifact changing its status.
+            - An arc the table is pursuing (see Storylines below) → CreateArtifact with type
+              "Storyline", or UpdateArtifact on the existing Storyline the source advances, stalls
+              or resolves.
             - When an Event artifact (new or existing) advances, opens, or closes a Storyline,
               also propose AddRelationship linking the Event to that Storyline (type "Advances").
-              An Event that matters almost always belongs to an arc — leaving it unlinked hides
-              it from the storyline's timeline.
+              Link only to a Storyline that is genuinely what the Event advances; an Event with no
+              arc behind it is fine left unlinked.
             Prefer several small, atomic proposals over one sweeping one. A fact the reviewer can
-            reject independently is worth more than a paragraph stuffed into a summary. But do not
-            manufacture proposals from incidental detail — mundane table talk, rules discussion, and
-            scene dressing with no lasting meaning produce nothing.
+            reject independently is worth more than a paragraph stuffed into a summary. But a
+            proposal is not free: each one costs the reviewer a decision, so propose only what the
+            record would be poorer without (see Significance).
+
+            ## Significance
+            Every proposal carries a significance. Judge it by what the table will do with it, not
+            by how interesting it is:
+            - "Core": the party acted on it or will have to; it changes what they do next; it names
+              a person, place or thing they will meet again; it answers or raises a question they
+              are actively pursuing; or it is a secret the GM is keeping for a reason.
+            - "Supporting": texture on something Core — a detail about a known character, place or
+              faction that a GM would want to recall when it next comes up.
+            - "Incidental": mentioned once with no consequence — scene dressing, passers-by, prices
+              and provisions, routine travel, rules talk, a passing mood, a joke at the table.
+            Incidental proposals are discarded before anyone sees them. Don't spend proposals on
+            them, and don't inflate a detail's significance to keep it: a source that is all
+            texture may produce nothing, and that is a correct reading. When a Core or Supporting
+            fact or relationship needs an artifact the world doesn't have yet, the CreateArtifact
+            for it is at least Supporting.
+
+            ## Storylines
+            A Storyline is an arc the table is pursuing: someone — the party, or a force acting on
+            the party — intends something, and there is a conceivable moment at which it resolves
+            (the caravan is found, the traitor is named, the siege is lifted). Both halves are
+            required. Not a Storyline, however much tension it carries:
+            - A character's development, nature, reputation or inner conflict, a player character's
+              included. The world reacting to who a character is — a witch warning that someone is
+              unnatural, a village shunning a stranger — is a fact or relationship on that
+              Character (predicates like "regarded as", "warned about"), never an arc of its own.
+            - Mood, foreshadowing, portents, or a one-off warning nothing has yet acted on.
+            - A question nobody at the table has set out to answer.
+            Prefer advancing an existing Storyline to creating a new one. A source rarely opens more
+            than one new Storyline; never propose more than two. When a source resolves or stalls an
+            existing Storyline, propose UpdateArtifact changing its status.
 
             ## Artifact Types
             Every artifact has exactly one type:
@@ -179,13 +211,23 @@ public static class ExtractionPromptBuilder
             storyline that already shows "Part of", and never guess: the GM curates this tree, so
             propose lineage only when the source itself establishes it.
 
+            ## Retired Storylines
+            The Existing World Artifacts list marks a storyline the GM has retired with
+            "Status: Dormant" or "Status: Resolved". The GM decided the table is done with it.
+            Never propose a new Storyline about the same matter, and never add open questions to
+            it. If this source plainly reopens it — the party takes it up again, the resolved thing
+            comes undone — propose UpdateArtifact on it setting status "Active", with the rationale
+            saying what reopened it; new facts about it may follow in the same batch.
+
             ## Open Questions
             Storylines carry their unresolved tensions as facts with the exact predicate
-            "open question". When a source raises a question the record cannot yet answer — who
-            hired the raiders, what the key opens, why the magistrate lied — propose AddFact on the
-            relevant Storyline artifact with predicate "open question", the question itself as the
-            value (one sentence, ending in a question mark), and truthState "Confirmed" (the
-            question genuinely stands). When a source ANSWERS an open question listed in the
+            "open question". When the party is pursuing a question the record cannot yet answer —
+            they asked it, investigated it, or decided to find out: who hired the raiders, what the
+            key opens, why the magistrate lied — propose AddFact on the relevant Storyline artifact
+            with predicate "open question", the question itself as the value (one sentence, ending
+            in a question mark), and truthState "Confirmed" (the question genuinely stands). A
+            question the text leaves hanging that nobody has taken up is not an open question;
+            leave it. When a source ANSWERS an open question listed in the
             existing facts, propose UpdateFact on that fact — its targetId is the factId shown
             beside it in the Existing World Artifacts list — setting its truthState to "False"
             (the question is no longer open) alongside whatever new facts record the answer. Do
@@ -231,7 +273,8 @@ public static class ExtractionPromptBuilder
             ## Output Format
             Respond with a JSON object matching the structured output schema: a "proposals" array of
             0 to 50 proposal objects, each with changeType, targetType, targetId, proposedValue,
-            rationale, confidence, and quote — a short verbatim excerpt (under 300 characters)
+            rationale, confidence, significance ("Core", "Supporting" or "Incidental", see
+            Significance), and quote — a short verbatim excerpt (under 300 characters)
             copied from the source text that best supports the proposal, or null when no single
             passage does. targetType is "Artifact" for artifact changes, "ArtifactFact"
             for fact changes, "ArtifactRelationship" for relationship changes.
@@ -308,6 +351,13 @@ public static class ExtractionPromptBuilder
                 if (!string.IsNullOrWhiteSpace(artifact.PartOfName))
                 {
                     parts.Add($"Part of: {artifact.PartOfName}");
+                }
+
+                // Only a retired artifact earns a status line. Active is the common case and would
+                // cost a line per artifact to say nothing (feature 43).
+                if (artifact.Status is { } status && status != nameof(ArtifactStatus.Active))
+                {
+                    parts.Add($"Status: {status}");
                 }
 
                 if (artifact.Facts.Count > 0)

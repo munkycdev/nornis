@@ -44,6 +44,9 @@ public class ExtractionAiClient : IAiExtractionClient
         "Artifact", "ArtifactFact", "ArtifactRelationship"
     ];
 
+    /// <summary>The schema's enum, exactly; Enum.TryParse alone would also accept "1".</summary>
+    private static readonly string[] SignificanceNames = Enum.GetNames<ProposalSignificance>();
+
     public ExtractionAiClient(
         IAiCallBinder binder,
         ILogger<ExtractionAiClient> logger)
@@ -134,11 +137,15 @@ public class ExtractionAiClient : IAiExtractionClient
                       "confidence": {
                         "type": "number"
                       },
+                      "significance": {
+                        "type": "string",
+                        "enum": ["Core", "Supporting", "Incidental"]
+                      },
                       "quote": {
                         "type": ["string", "null"]
                       }
                     },
-                    "required": ["changeType", "targetType", "targetId", "proposedValue", "rationale", "confidence", "quote"],
+                    "required": ["changeType", "targetType", "targetId", "proposedValue", "rationale", "confidence", "significance", "quote"],
                     "additionalProperties": false
                   }
                 }
@@ -238,6 +245,22 @@ public class ExtractionAiClient : IAiExtractionClient
         var proposedValueNode = node["proposedValue"]
             ?? throw new AiParseException($"Proposal at index {index} missing required 'proposedValue' field.");
 
+        // Absent or null is Supporting: a model that did not say has not called the proposal
+        // incidental (feature 43). A value outside the enum is a bad answer like a bad changeType.
+        var significance = ProposalSignificance.Supporting;
+        var significanceNode = node["significance"];
+        if (significanceNode is not null && significanceNode.GetValueKind() != JsonValueKind.Null)
+        {
+            var raw = significanceNode.GetValueKind() == JsonValueKind.String ? significanceNode.GetValue<string>() : significanceNode.ToJsonString();
+            if (!SignificanceNames.Contains(raw))
+            {
+                throw new AiParseException(
+                    $"Proposal at index {index} has invalid significance '{raw}' (expected Core, Supporting or Incidental).");
+            }
+
+            significance = Enum.Parse<ProposalSignificance>(raw);
+        }
+
         string? quote = null;
         var quoteNode = node["quote"];
         if (quoteNode is not null && quoteNode.GetValueKind() == JsonValueKind.String)
@@ -283,7 +306,8 @@ public class ExtractionAiClient : IAiExtractionClient
             ProposedValue = proposedValue,
             Rationale = rationale,
             Confidence = confidence,
-            Quote = quote
+            Quote = quote,
+            Significance = significance
         };
     }
 
