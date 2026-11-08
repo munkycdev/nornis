@@ -205,6 +205,22 @@ public class AdventureRepositoryTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task Typography_RoundTrips_AndNoneChosen_ReadsBackEmpty_NotNull()
+    {
+        var adventure = await CreateAsync("a");
+
+        var fresh = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(fresh!.Typography, Is.EqualTo(new BookTypography()));
+
+        fresh.Typography = new BookTypography { Font = BookFont.SourceSerif, Size = 10.5m, LineSpacing = 1.35m };
+        await _sut.UpdateAsync(fresh);
+        Context.ChangeTracker.Clear();
+
+        var stored = await _sut.GetWithSectionsAsync(adventure.Id);
+        Assert.That(stored!.Typography, Is.EqualTo(fresh.Typography));
+    }
+
+    [Test]
     public async Task Details_UpdatedTwiceInOneScope_Succeeds()
     {
         // The second LoadForUpdate would meet the first's owned entry if it stayed tracked.

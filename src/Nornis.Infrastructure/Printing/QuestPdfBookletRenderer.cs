@@ -1,5 +1,6 @@
 using Nornis.Application.Prep;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -31,7 +32,6 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// <summary>A paragraph or list up to this many characters is kept whole, and kept with the heading above it.</summary>
     internal const int KeepWholeTextChars = 500;
 
-    internal const string Serif = "Newsreader";
     internal const string Sans = "IBM Plex Sans";
     internal const string Mono = "IBM Plex Mono";
     internal const string Fallback = "DejaVu Sans";
@@ -86,19 +86,20 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         // pages) render with the booklet, and each PDF handout is merged in after its place, so
         // the GM's order holds across both kinds.
         var runs = Runs(handouts);
+        var type = Typeset.Of(booklet.Typography);
         var bytes = Document.Create(document =>
             {
-                document.Page(page => Cover(page, booklet.Cover));
-                document.Page(page => Rights(page, booklet.Rights));
+                document.Page(page => Cover(page, booklet.Cover, type));
+                document.Page(page => Rights(page, booklet.Rights, type));
                 foreach (var chapter in booklet.Chapters)
                 {
-                    document.Page(page => Chapter(page, booklet.Cover.Title, chapter));
+                    document.Page(page => Chapter(page, booklet.Cover.Title, chapter, type));
                 }
 
                 if (handouts.Count > 0)
                 {
-                    document.Page(page => HandoutsOpener(page, handouts));
-                    DrawnHandouts(document, runs[0].Drawn);
+                    document.Page(page => HandoutsOpener(page, handouts, type));
+                    DrawnHandouts(document, runs[0].Drawn, type);
                 }
             })
             .WithMetadata(Metadata(booklet.Cover.Title, booklet.Cover.AuthorLine))
@@ -106,7 +107,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
         if (runs.Any(r => r.Pdf is not null))
         {
-            bytes = Merge(bytes, runs);
+            bytes = Merge(bytes, runs, type);
         }
 
         using var pdf = PdfDocument.Open(bytes);
@@ -119,16 +120,17 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// </summary>
     public BookletPdf RenderProps(BookletProps props)
     {
+        var type = Typeset.Of(props.Typography);
         var bytes = Document.Create(document =>
             {
                 foreach (var prop in props.Props)
                 {
                     document.Page(page =>
                     {
-                        Setup(page);
-                        page.DefaultTextStyle(s => s.FontFamily(Serif, Fallback).FontSize(16).LineHeight(1.35f).FontColor(Ink));
+                        Setup(page, type);
+                        page.DefaultTextStyle(s => s.FontFamily(type.Face, Fallback).FontSize(16).LineHeight(1.35f).FontColor(Ink));
                         page.Content().AlignMiddle().Background(Parchment).Border(1).BorderColor(ParchmentEdge).Padding(28)
-                            .Column(col => Blocks(col, prop.Blocks, 10));
+                            .Column(col => Blocks(col, prop.Blocks, 10, type));
                     });
                 }
             })
@@ -149,30 +151,34 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     // ---------------------------------------------------------------------- Pages --
 
-    private static void Setup(PageDescriptor page)
+    /// <summary>
+    /// A page in the book's face at the default size: the cover, rights and handout pages keep
+    /// their own sizes whatever the GM chose. A chapter page sets the body's size over it.
+    /// </summary>
+    private static void Setup(PageDescriptor page, Typeset type)
     {
         page.Size(PageSizes.Letter);
         page.Margin(Margin);
         page.PageColor(Colors.White);
-        page.DefaultTextStyle(s => s.FontFamily(Serif, Fallback).FontSize(10).LineHeight(1.3f).FontColor(Ink));
+        page.DefaultTextStyle(s => s.FontFamily(type.Face, Fallback).FontSize(Typeset.DefaultSize).LineHeight(Typeset.DefaultLineHeight).FontColor(Ink));
     }
 
-    private static void Cover(PageDescriptor page, BookletCover cover)
+    private static void Cover(PageDescriptor page, BookletCover cover, Typeset type)
     {
         switch (cover.Art)
         {
             case { Layout: CoverLayout.FullBleed } art when CoverArtImage.Fit(art.Image, PageSizes.Letter.Width, PageSizes.Letter.Height) is { } image:
-                FullBleedCover(page, cover, image);
+                FullBleedCover(page, cover, image, type);
                 return;
             case { Layout: CoverLayout.Framed } art when CoverArtImage.Fit(art.Image, FrameArtWidth, FrameArtHeight) is { } image:
-                FramedCover(page, cover, image);
+                FramedCover(page, cover, image, type);
                 return;
             case { Layout: CoverLayout.ClassicModule } art when CoverArtImage.Fit(art.Image, ContentWidth, ModuleArtHeight) is { } image:
-                ClassicModuleCover(page, cover, image);
+                ClassicModuleCover(page, cover, image, type);
                 return;
         }
 
-        TypesetCover(page, cover);
+        TypesetCover(page, cover, type);
     }
 
     // Feature 38's layouts. Every box the art fills has a fixed size, so the art is cropped to it
@@ -194,9 +200,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     internal const int ModulePitchLines = 4;
 
     /// <summary>The art fills the page; the title sits on a solid band across the top, the author on one across the foot.</summary>
-    private static void FullBleedCover(PageDescriptor page, BookletCover cover, byte[] art)
+    private static void FullBleedCover(PageDescriptor page, BookletCover cover, byte[] art, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Margin(0);
         page.Background().Image(art).FitUnproportionally();
         page.Header().Background(Ink).PaddingVertical(28).PaddingHorizontal(56).Column(band =>
@@ -217,9 +223,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     /// <summary>The title and its lines above, the art in a ruled frame, the author below.</summary>
-    private static void FramedCover(PageDescriptor page, BookletCover cover, byte[] art)
+    private static void FramedCover(PageDescriptor page, BookletCover cover, byte[] art, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Content().PaddingTop(12).Column(col =>
         {
             col.Spacing(6);
@@ -241,9 +247,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     /// <summary>A coloured title band at the top, the art across the middle, the details and pitch below, as the old modules did.</summary>
-    private static void ClassicModuleCover(PageDescriptor page, BookletCover cover, byte[] art)
+    private static void ClassicModuleCover(PageDescriptor page, BookletCover cover, byte[] art, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Content().Column(col =>
         {
             col.Item().Background(Accent).PaddingVertical(22).PaddingHorizontal(28).AlignCenter()
@@ -278,9 +284,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     /// <summary>The cover with no art (feature 34): type only.</summary>
-    private static void TypesetCover(PageDescriptor page, BookletCover cover)
+    private static void TypesetCover(PageDescriptor page, BookletCover cover, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Content().PaddingTop(150).Column(col =>
         {
             col.Spacing(8);
@@ -310,9 +316,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// published book's is, under the Nornis Press mark, the credits above a hairline and the
     /// notices below it.
     /// </summary>
-    private static void Rights(PageDescriptor page, BookletRights rights)
+    private static void Rights(PageDescriptor page, BookletRights rights, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Content().AlignBottom().PaddingHorizontal(72).Column(col =>
         {
             col.Spacing(3);
@@ -341,15 +347,16 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         });
     }
 
-    private static void Chapter(PageDescriptor page, string adventureTitle, BookletChapter chapter)
+    private static void Chapter(PageDescriptor page, string adventureTitle, BookletChapter chapter, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
+        page.DefaultTextStyle(s => s.FontFamily(type.Face, Fallback).FontSize(type.Size).LineHeight(type.LineHeight).FontColor(Ink));
 
         if (chapter.Title is { } title)
         {
             page.Header().ShowOnce().PaddingBottom(12).Column(header =>
             {
-                header.Item().Text(title).FontSize(20).SemiBold().LineHeight(1.15f);
+                header.Item().Text(title).FontSize(type.Pt(20)).SemiBold().LineHeight(1.15f);
                 header.Item().PaddingTop(4).LineHorizontal(1).LineColor(Accent);
             });
         }
@@ -360,7 +367,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             columns.Spacing(Gutter);
             columns.BalanceHeight(false);
             columns.Spacer().AlignCenter().LineVertical(0.5f).LineColor(Hairline);
-            columns.Content().Column(col => Blocks(col, chapter.Blocks, BlockSpacing));
+            columns.Content().Column(col => Blocks(col, chapter.Blocks, BlockSpacing, type));
         });
 
         page.Footer().PaddingTop(8).AlignCenter().Text(t =>
@@ -419,7 +426,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// The booklet, then each run's PDF and drawn pages in order, through QuestPDF's merge (the D1
     /// spike: Community licence, files only, so the parts go through a temporary folder).
     /// </summary>
-    private static byte[] Merge(byte[] booklet, IReadOnlyList<HandoutRun> runs)
+    private static byte[] Merge(byte[] booklet, IReadOnlyList<HandoutRun> runs, Typeset type)
     {
         var folder = Directory.CreateTempSubdirectory("nornis-booklet-");
         try
@@ -445,7 +452,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 var next = i + 1 < runs.Count ? runs[i + 1].Drawn : [];
                 if (next.Count > 0)
                 {
-                    Write(Document.Create(document => DrawnHandouts(document, next)).GeneratePdf());
+                    Write(Document.Create(document => DrawnHandouts(document, next, type)).GeneratePdf());
                 }
             }
 
@@ -466,9 +473,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     /// <summary>The appendix's first page: its title and what follows, in order.</summary>
-    private static void HandoutsOpener(PageDescriptor page, IReadOnlyList<BookletHandout> handouts)
+    private static void HandoutsOpener(PageDescriptor page, IReadOnlyList<BookletHandout> handouts, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Header().PaddingBottom(12).Column(header =>
         {
             header.Item().Text("Handouts and maps").FontSize(20).SemiBold().LineHeight(1.15f);
@@ -490,18 +497,18 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     }
 
     /// <summary>Images on their own pages, and the pages naming what couldn't be printed.</summary>
-    private static void DrawnHandouts(IDocumentContainer document, IReadOnlyList<BookletHandout> handouts)
+    private static void DrawnHandouts(IDocumentContainer document, IReadOnlyList<BookletHandout> handouts, Typeset type)
     {
         foreach (var handout in handouts)
         {
             if (handout is BookletHandoutImage image && ImageSize(image.Image) is { } size)
             {
-                document.Page(page => ImageHandout(page, image, landscape: size.Width > size.Height));
+                document.Page(page => ImageHandout(page, image, landscape: size.Width > size.Height, type));
             }
             else
             {
                 var reason = handout is BookletHandoutMissing missing ? missing.Reason : "the image couldn't be read";
-                document.Page(page => MissingHandout(page, handout.Title, reason));
+                document.Page(page => MissingHandout(page, handout.Title, reason, type));
             }
         }
     }
@@ -514,17 +521,17 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         return codec is null ? null : (codec.Info.Width, codec.Info.Height);
     }
 
-    private static void ImageHandout(PageDescriptor page, BookletHandoutImage image, bool landscape)
+    private static void ImageHandout(PageDescriptor page, BookletHandoutImage image, bool landscape, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Size(landscape ? PageSizes.Letter.Landscape() : PageSizes.Letter);
         page.Header().PaddingBottom(8).Text(image.Title).FontFamily(Sans, Fallback).FontSize(9).FontColor(Muted);
         page.Content().AlignCenter().AlignMiddle().Image(image.Image).FitArea();
     }
 
-    private static void MissingHandout(PageDescriptor page, string title, string reason)
+    private static void MissingHandout(PageDescriptor page, string title, string reason, Typeset type)
     {
-        Setup(page);
+        Setup(page, type);
         page.Content().AlignMiddle().Column(col =>
         {
             col.Spacing(6);
@@ -546,14 +553,14 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// QuestPDF's <c>EnsureSpace</c> only acts on content that doesn't fit entirely, so it guards
     /// the group (which holds the large block), never a heading by itself.
     /// </remarks>
-    private static void Blocks(ColumnDescriptor col, IReadOnlyList<BookletBlock> blocks, float spacing)
+    private static void Blocks(ColumnDescriptor col, IReadOnlyList<BookletBlock> blocks, float spacing, Typeset type)
     {
         col.Spacing(spacing);
         for (var i = 0; i < blocks.Count; i++)
         {
             if (!IsHeading(blocks[i]))
             {
-                Block(col.Item(), blocks[i]);
+                Block(col.Item(), blocks[i], type);
                 continue;
             }
 
@@ -563,11 +570,11 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 group.Add(blocks[i++]);
             }
 
-            var room = group.Count * HeadingRoomPt;
+            var room = group.Count * type.Pt(HeadingRoomPt);
             var keepWhole = true;
             if (i < blocks.Count)
             {
-                room += FirstPiecePt(blocks[i]);
+                room += FirstPiecePt(blocks[i], type);
                 keepWhole = IsSmall(blocks[i]);
                 group.Add(blocks[i]);
             }
@@ -587,35 +594,29 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 inner.Spacing(spacing);
                 foreach (var member in group)
                 {
-                    Block(inner.Item(), member);
+                    Block(inner.Item(), member, type);
                 }
             });
         }
     }
 
-    /// <summary>A heading's height with the spacing after it, at its largest size.</summary>
+    /// <summary>A heading's height with the spacing after it, at its largest size, for the default body size.</summary>
     internal const float HeadingRoomPt = 27;
-
-    /// <summary>One line of body text.</summary>
-    private const float LinePt = 13;
-
-    /// <summary>Body text characters in a column's line, roughly.</summary>
-    private const int LineChars = 52;
 
     /// <summary>
     /// The height of the first piece of a large block that can't split: what must fit under its
     /// heading for the heading not to be left alone. It is an estimate made before layout.
     /// </summary>
-    internal static float FirstPiecePt(BookletBlock block) => block switch
+    internal static float FirstPiecePt(BookletBlock block, Typeset type) => block switch
     {
         BookletList { Items.Count: > 0 } list => IsSmallItem(list.Items[0])
-            ? Math.Max(1, (Chars(list.Items[0].Blocks) + LineChars - 1) / LineChars) * LinePt
-            : 2 * LinePt,
-        BookletBox => 20 + 2 * LinePt,
-        BookletTable => 3 * LinePt,
-        BookletGameBlock game => (game.Block.Name is null ? 0 : 20) + 14 + 2 * LinePt,
-        BookletCode => 12 + 2 * LinePt,
-        _ => 2 * LinePt,
+            ? Math.Max(1, (Chars(list.Items[0].Blocks) + type.LineChars - 1) / type.LineChars) * type.LinePt
+            : 2 * type.LinePt,
+        BookletBox => type.Pt(20) + 2 * type.LinePt,
+        BookletTable => 3 * type.LinePt,
+        BookletGameBlock game => type.Pt((game.Block.Name is null ? 0 : 20) + 14) + 2 * type.LinePt,
+        BookletCode => type.Pt(12) + 2 * type.LinePt,
+        _ => 2 * type.LinePt,
     };
 
     private static bool IsSmallItem(BookletListItem item) => Chars(item.Blocks) <= KeepWholeTextChars;
@@ -647,46 +648,46 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     private static int Chars(IReadOnlyList<BookletInline> text) => text.Sum(i => i is BookletRun r ? r.Text.Length : 1);
 
-    private static void Block(IContainer container, BookletBlock block)
+    private static void Block(IContainer container, BookletBlock block, Typeset type)
     {
         switch (block)
         {
             case BookletSectionHeading section:
                 container.PaddingTop(6).Text(section.Text.ToUpperInvariant())
-                    .FontFamily(Sans, Fallback).FontSize(10.5f).SemiBold().LetterSpacing(0.05f).FontColor(Accent);
+                    .FontFamily(Sans, Fallback).FontSize(type.Pt(10.5f)).SemiBold().LetterSpacing(0.05f).FontColor(Accent);
                 break;
             case BookletHeading heading:
                 container.PaddingTop(2).Text(t =>
                 {
-                    t.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).SemiBold().FontSize(heading.Level switch
+                    t.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).SemiBold().FontSize(type.Pt(heading.Level switch
                     {
                         1 => 13,
                         2 => 12,
                         _ => 10.5f,
-                    }));
-                    Inlines(t, heading.Text);
+                    })));
+                    Inlines(t, heading.Text, type);
                 });
                 break;
             case BookletParagraph paragraph:
                 var whole = Chars(paragraph.Text) <= KeepWholeTextChars ? container.PreventPageBreak() : container;
-                whole.Text(t => Inlines(t, paragraph.Text));
+                whole.Text(t => Inlines(t, paragraph.Text, type));
                 break;
             case BookletList list:
-                List(container, list);
+                List(container, list, type);
                 break;
             case BookletBox box:
-                Box(IsSmall(box) ? container.PreventPageBreak() : container, box);
+                Box(IsSmall(box) ? container.PreventPageBreak() : container, box, type);
                 break;
             case BookletGameBlock game:
-                GameBlock(IsSmall(game) ? container.PreventPageBreak() : container, game.Block);
+                GameBlock(IsSmall(game) ? container.PreventPageBreak() : container, game.Block, type);
                 break;
             case BookletTable table:
-                Table(container, table);
+                Table(container, table, type);
                 break;
             case BookletCode code:
                 (IsSmall(code) ? container.PreventPageBreak() : container)
                     .Background(CodeShade).Padding(6)
-                    .Text(code.Text).FontFamily(Mono, Fallback).FontSize(8.5f).LineHeight(1.2f);
+                    .Text(code.Text).FontFamily(Mono, Fallback).FontSize(type.Pt(8.5f)).LineHeight(1.2f);
                 break;
             case BookletRule:
                 container.PaddingVertical(4).LineHorizontal(0.5f).LineColor(Hairline);
@@ -694,7 +695,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         }
     }
 
-    private static void List(IContainer container, BookletList list)
+    private static void List(IContainer container, BookletList list, Typeset type)
     {
         container.Column(col =>
         {
@@ -707,13 +708,13 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 line.Row(row =>
                 {
                     // The marker has its own cell inside the column, never in the gutter.
-                    var markerCell = row.ConstantItem(item.Task != BookletTask.None ? 14 : list.Style == BookletListStyle.Numbered ? 16 : 10);
+                    var markerCell = row.ConstantItem(type.Pt(item.Task != BookletTask.None ? 14 : list.Style == BookletListStyle.Numbered ? 16 : 10));
                     if (item.Task != BookletTask.None)
                     {
-                        var box = markerCell.PaddingTop(3).Width(8).Height(8).Border(0.75f).BorderColor(Ink);
+                        var box = markerCell.PaddingTop(type.Pt(3)).Width(type.Pt(8)).Height(type.Pt(8)).Border(0.75f).BorderColor(Ink);
                         if (item.Task == BookletTask.Done)
                         {
-                            box.AlignCenter().AlignMiddle().Text("✓").FontFamily(Sans, Fallback).FontSize(7).LineHeight(1);
+                            box.AlignCenter().AlignMiddle().Text("✓").FontFamily(Sans, Fallback).FontSize(type.Pt(7)).LineHeight(1);
                         }
                     }
                     else
@@ -721,13 +722,13 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                         markerCell.Text(marker);
                     }
 
-                    row.RelativeItem().Column(inner => Blocks(inner, item.Blocks, 2));
+                    row.RelativeItem().Column(inner => Blocks(inner, item.Blocks, 2, type));
                 });
             }
         });
     }
 
-    private static void Box(IContainer container, BookletBox box)
+    private static void Box(IContainer container, BookletBox box, Typeset type)
     {
         var framed = box.Kind switch
         {
@@ -743,18 +744,18 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         {
             if (box.Kind == BookletBoxKind.ReadAloud)
             {
-                col.Item().DefaultTextStyle(s => s.Italic()).Column(inner => Blocks(inner, box.Blocks, 4));
+                col.Item().DefaultTextStyle(s => s.Italic()).Column(inner => Blocks(inner, box.Blocks, 4, type));
             }
             else if (box.Kind == BookletBoxKind.Ask && box.Blocks.Count > 0)
             {
                 // A question's lead is bold, so it is found at a glance mid-session.
                 col.Spacing(4);
-                col.Item().DefaultTextStyle(s => s.SemiBold()).Column(inner => Blocks(inner, [box.Blocks[0]], 4));
-                col.Item().Column(inner => Blocks(inner, box.Blocks.Skip(1).ToList(), 4));
+                col.Item().DefaultTextStyle(s => s.SemiBold()).Column(inner => Blocks(inner, [box.Blocks[0]], 4, type));
+                col.Item().Column(inner => Blocks(inner, box.Blocks.Skip(1).ToList(), 4, type));
             }
             else
             {
-                col.Item().Column(inner => Blocks(inner, box.Blocks, 4));
+                col.Item().Column(inner => Blocks(inner, box.Blocks, 4, type));
             }
         });
     }
@@ -780,18 +781,18 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// An item is a card with a heavy top rule instead, so it never reads as a prop, and its
     /// description under a hairline. An unnamed, ungrouped block prints as feature 34 printed it.
     /// </summary>
-    private static void GameBlock(IContainer container, GameBlock block)
+    private static void GameBlock(IContainer container, GameBlock block, Typeset type)
     {
         var body = block.Kind == GameBlockKind.Stat
             ? container.Border(1.5f).BorderColor(Ink).Padding(6)
             : ItemFrame(container);
 
-        body.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(8.5f).LineHeight(1.25f)).Column(col =>
+        body.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(type.Pt(8.5f)).LineHeight(1.25f)).Column(col =>
         {
             col.Spacing(3);
             if (block.Name is { } name)
             {
-                var title = col.Item().Text(name).FontSize(block.Kind == GameBlockKind.Stat ? 11 : 10.5f).SemiBold();
+                var title = col.Item().Text(name).FontSize(type.Pt(block.Kind == GameBlockKind.Stat ? 11 : 10.5f)).SemiBold();
                 if (block.Kind == GameBlockKind.Stat)
                 {
                     title.FontColor(Accent);
@@ -800,7 +801,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
             if (block.Subtitle is { } subtitle)
             {
-                col.Item().Text(subtitle).FontFamily(Serif, Fallback).FontSize(9).Italic();
+                col.Item().Text(subtitle).FontFamily(type.Face, Fallback).FontSize(type.Pt(9)).Italic();
             }
 
             if (block.Kind == GameBlockKind.Stat && block.Name is not null)
@@ -818,7 +819,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                     {
                         head.Spacing(3);
                         head.Item().PaddingTop(3).Text(heading.ToUpperInvariant())
-                            .FontSize(7.5f).SemiBold().LetterSpacing(0.06f).FontColor(Accent);
+                            .FontSize(type.Pt(7.5f)).SemiBold().LetterSpacing(0.06f).FontColor(Accent);
                         head.Item().LineHorizontal(0.5f).LineColor(Hairline);
                         if (group.Lines.Count > 0)
                         {
@@ -838,11 +839,11 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 {
                     if (run.IsScores)
                     {
-                        ScoreRows(col.Item(), run.Lines);
+                        ScoreRows(col.Item(), run.Lines, type);
                     }
                     else
                     {
-                        LabelTable(col.Item(), run.Lines);
+                        LabelTable(col.Item(), run.Lines, type);
                     }
                 }
             }
@@ -850,7 +851,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             if (block.Description.Count > 0)
             {
                 col.Item().PaddingTop(2).LineHorizontal(0.5f).LineColor(Hairline);
-                col.Item().Text(string.Join('\n', block.Description)).FontFamily(Serif, Fallback).FontSize(9.5f).LineHeight(1.3f);
+                col.Item().Text(string.Join('\n', block.Description)).FontFamily(type.Face, Fallback).FontSize(type.Pt(9.5f)).LineHeight(type.LineHeight);
             }
         });
     }
@@ -878,12 +879,12 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         return inner;
     }
 
-    private static void LabelTable(IContainer container, IReadOnlyList<GameBlockLine> lines) =>
+    private static void LabelTable(IContainer container, IReadOnlyList<GameBlockLine> lines, Typeset type) =>
         container.Table(table =>
         {
             table.ColumnsDefinition(c =>
             {
-                c.ConstantColumn(62);
+                c.ConstantColumn(type.Pt(62));
                 c.RelativeColumn();
             });
 
@@ -900,7 +901,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             }
         });
 
-    private static void ScoreRows(IContainer container, IReadOnlyList<GameBlockLine> scores)
+    private static void ScoreRows(IContainer container, IReadOnlyList<GameBlockLine> scores, Typeset type)
     {
         var perRow = Math.Min(ScoreRowMax, scores.Count);
         container.PaddingVertical(2).Column(rows =>
@@ -917,7 +918,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                         {
                             cell.Column(c =>
                             {
-                                c.Item().AlignCenter().Text(chunk[i].Label!).SemiBold().FontSize(7.5f);
+                                c.Item().AlignCenter().Text(chunk[i].Label!).SemiBold().FontSize(type.Pt(7.5f));
                                 c.Item().AlignCenter().Text(chunk[i].Value);
                             });
                         }
@@ -975,7 +976,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     private static bool IsScore(GameBlockLine line) =>
         line.Label is { Length: > 0 and <= ScoreLabelMaxChars } && line.Value.Length is > 0 and <= ScoreValueMaxChars;
 
-    private static void Table(IContainer container, BookletTable table)
+    private static void Table(IContainer container, BookletTable table, Typeset type)
     {
         var columns = Math.Max(table.Header.Count, table.Rows.Count == 0 ? 0 : table.Rows.Max(r => r.Count));
         if (columns == 0)
@@ -983,11 +984,11 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             return;
         }
 
-        container.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(8.5f).LineHeight(1.25f)).Table(t =>
+        container.DefaultTextStyle(s => s.FontFamily(Sans, Fallback).FontSize(type.Pt(8.5f)).LineHeight(1.25f)).Table(t =>
         {
             t.ColumnsDefinition(c =>
             {
-                foreach (var width in ColumnWidths(table, columns))
+                foreach (var width in ColumnWidths(table, columns, type.Pt(1)))
                 {
                     if (width.Fixed)
                     {
@@ -1011,7 +1012,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                             .Text(x =>
                             {
                                 x.DefaultTextStyle(s => s.SemiBold());
-                                Inlines(x, text);
+                                Inlines(x, text, type);
                             });
                     }
                 });
@@ -1023,13 +1024,13 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
                 {
                     var text = i < row.Count ? row[i] : [];
                     // A row never splits: each cell stays whole, so the row moves on together.
-                    t.Cell().ShowEntire().BorderBottom(0.5f).BorderColor(Hairline).Padding(3).Text(x => Inlines(x, text));
+                    t.Cell().ShowEntire().BorderBottom(0.5f).BorderColor(Hairline).Padding(3).Text(x => Inlines(x, text, type));
                 }
             }
         });
     }
 
-    /// <summary>A table cell's characters are about this wide at the table's 8.5 pt.</summary>
+    /// <summary>A table cell's characters are about this wide at the table's 8.5 pt, at the default body size.</summary>
     private const float TableCharPt = 4.7f;
 
     /// <summary>A column whose every cell is this short is sized to fit it, so "0:00-0:20" never wraps.</summary>
@@ -1043,7 +1044,8 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// none narrower than its longest word, so a word never breaks across lines. If the fixed
     /// widths would take more than half the table, every column shares instead.
     /// </summary>
-    internal static ColumnWidth[] ColumnWidths(BookletTable table, int columns)
+    /// <param name="scale">How much larger than the default the table's type is set.</param>
+    internal static ColumnWidth[] ColumnWidths(BookletTable table, int columns, float scale = 1)
     {
         var longest = new int[columns];
         var longestWord = new int[columns];
@@ -1059,7 +1061,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
         var available = (PageSizes.Letter.Width - 2 * Margin - Gutter) / 2;
         var widths = new float?[columns];
-        var shortWidths = longest.Select(l => l <= ShortColumnChars ? Fit(l) : 0f).ToArray();
+        var shortWidths = longest.Select(l => l <= ShortColumnChars ? Fit(l, scale) : 0f).ToArray();
         if (shortWidths.Any(w => w > 0) && shortWidths.Any(w => w == 0) && shortWidths.Sum() <= available / 2)
         {
             for (var i = 0; i < columns; i++)
@@ -1081,7 +1083,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             var shortest = Math.Max(1, shared.Select(i => total[i]).Where(l => l > 0).DefaultIfEmpty(1).Min());
             var weights = shared.ToDictionary(i => i, i => Math.Clamp(total[i] / shortest, 1, 3));
             var left = available - widths.Sum(w => w ?? 0);
-            var squeezed = shared.Where(i => left * weights[i] / weights.Values.Sum() < Fit(longestWord[i])).ToList();
+            var squeezed = shared.Where(i => left * weights[i] / weights.Values.Sum() < Fit(longestWord[i], scale)).ToList();
             if (squeezed.Count == 0 || squeezed.Count == shared.Count)
             {
                 return Enumerable.Range(0, columns)
@@ -1091,14 +1093,14 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
             foreach (var i in squeezed)
             {
-                widths[i] = Fit(longestWord[i]);
+                widths[i] = Fit(longestWord[i], scale);
             }
         }
 
         return widths.Select(w => new ColumnWidth(true, w!.Value)).ToArray();
     }
 
-    private static float Fit(int chars) => chars * TableCharPt + 8;
+    private static float Fit(int chars, float scale) => chars * TableCharPt * scale + 8;
 
     private static int LongestWord(IReadOnlyList<BookletInline> text) =>
         string.Concat(text.OfType<BookletRun>().Select(r => r.Text))
@@ -1107,7 +1109,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     // -------------------------------------------------------------------- Inlines --
 
-    private static void Inlines(TextDescriptor text, IReadOnlyList<BookletInline> inlines)
+    private static void Inlines(TextDescriptor text, IReadOnlyList<BookletInline> inlines, Typeset type)
     {
         foreach (var inline in inlines)
         {
@@ -1136,8 +1138,40 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
             if (run.Style.HasFlag(BookletRunStyle.Code))
             {
-                span.FontFamily(Mono, Fallback).FontSize(8.5f);
+                span.FontFamily(Mono, Fallback).FontSize(type.Pt(8.5f));
             }
         }
+    }
+
+    // ----------------------------------------------------------------------- Type --
+
+    /// <summary>
+    /// The GM's type, resolved for layout: the body face, size and line height. Every other size
+    /// in the body (headings, stat blocks, tables, code) was set for the default 10 pt body and
+    /// scales with <see cref="Pt"/>, so the book keeps its proportions at any size.
+    /// </summary>
+    internal readonly record struct Typeset(string Face, float Size, float LineHeight)
+    {
+        public const float DefaultSize = (float)BookTypography.DefaultSize;
+
+        public const float DefaultLineHeight = (float)BookTypography.DefaultLineSpacing;
+
+        /// <summary>Body text characters in a column's line at the default size, roughly.</summary>
+        private const int DefaultLineChars = 52;
+
+        public static Typeset Of(BookTypography? type)
+        {
+            type ??= new BookTypography();
+            return new Typeset(BookTypography.NameOf(type.FontOrDefault), (float)type.SizeOrDefault, (float)type.LineSpacingOrDefault);
+        }
+
+        /// <summary>A size set for the default body, at this body's size.</summary>
+        public float Pt(float atDefault) => atDefault * Size / DefaultSize;
+
+        /// <summary>One line of body text.</summary>
+        public float LinePt => Size * LineHeight;
+
+        /// <summary>Body text characters in a column's line, roughly.</summary>
+        public int LineChars => Math.Max(1, (int)MathF.Round(DefaultLineChars * DefaultSize / Size));
     }
 }

@@ -1,0 +1,196 @@
+@inject NornisApiClient Api
+
+@* Typography on the Book tab: the face, size and line spacing the booklet's body is set in.
+   The booklet is laid out on the server, so the faces are the ones Nornis ships with the
+   printer, never the GM's own. The sample is set in the chosen type at a column's width, so
+   the GM sees roughly how a line of the booklet wraps. A value left at its default is saved
+   as "default", so the booklet follows Nornis if the default ever changes. *@
+
+<HeadContent>
+    @* Newsreader comes with the app's own fonts; the rest only for this card's menu and sample. *@
+    <link href="@WebFontsHref" rel="stylesheet" />
+</HeadContent>
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-typography">
+    <MudText Typo="Typo.overline" Color="Color.Secondary">Typography</MudText>
+
+    <div class="nornis-typography-fields">
+        <MudSelect T="string" Value="@_font" ValueChanged="OnFontChanged" Label="Font" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Dense="true" Disabled="@(Disabled || _saving)" Class="nornis-typography-font"
+                   aria-label="Font">
+            @foreach (var font in Fonts)
+            {
+                <MudSelectItem T="string" Value="@font.Key">
+                    <span style="@($"font-family: {CssFamily(font)}")">@font.Name</span>
+                </MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudNumericField T="decimal" Value="@_size" ValueChanged="OnSizeChanged" Label="Size" Variant="Variant.Outlined"
+                         Margin="Margin.Dense" Min="MinSize" Max="MaxSize" Step="SizeStep" Format="0.#"
+                         Adornment="Adornment.End" AdornmentText="pt" Disabled="@(Disabled || _saving)"
+                         Class="nornis-typography-size" aria-label="Font size" />
+
+        <MudNumericField T="decimal" Value="@_lineSpacing" ValueChanged="OnLineSpacingChanged" Label="Line spacing"
+                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="MinLineSpacing" Max="MaxLineSpacing"
+                         Step="LineSpacingStep" Format="0.00" Disabled="@(Disabled || _saving)"
+                         Class="nornis-typography-spacing" aria-label="Line spacing" />
+    </div>
+
+    <div class="nornis-typography-sample" style="@SampleStyle" data-testid="typography-sample">
+        <p>The lantern gutters as the door swings inward. Beyond it, the stair winds down into a cold that smells of salt and old iron.</p>
+        <p class="nornis-typography-sample-aside"><em>Read aloud:</em> “You are not the first to come this way.”</p>
+    </div>
+    <div class="nornis-book-details-caption">
+        The body text, read-aloud and props print in this type. Headings, stat blocks and tables keep their faces and scale with the size. A print you've filed keeps the type it was printed in.
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error" Class="nornis-typography-error">@_error</MudText>
+    }
+
+    <div class="d-flex gap-2 mt-2">
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="nornis-typography-save"
+                   Disabled="@(Disabled || _saving || !IsChanged)" OnClick="SaveAsync">Save</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Text" Class="nornis-typography-defaults"
+                   Disabled="@(Disabled || _saving || IsDefault)" OnClick="UseDefaults">Use the defaults</MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    /// <summary>A face the booklet can be set in: its <c>BookFont</c> name and the name a GM reads.</summary>
+    public sealed record FontChoice(string Key, string Name);
+
+    // Mirrors of Nornis.Domain.Enums.BookFont and Nornis.Domain.Models.BookTypography, which the
+    // Web can't reference; TypographyMirrorTests pins them.
+    public static readonly IReadOnlyList<FontChoice> Fonts =
+    [
+        new("Newsreader", "Newsreader"),
+        new("EbGaramond", "EB Garamond"),
+        new("Literata", "Literata"),
+        new("CrimsonPro", "Crimson Pro"),
+        new("SourceSerif", "Source Serif 4"),
+        new("Lora", "Lora"),
+        new("Alegreya", "Alegreya"),
+    ];
+
+    public const string DefaultFont = "Newsreader";
+    public const decimal DefaultSize = 10m;
+    public const decimal MinSize = 8m;
+    public const decimal MaxSize = 14m;
+    public const decimal SizeStep = 0.5m;
+    public const decimal DefaultLineSpacing = 1.3m;
+    public const decimal MinLineSpacing = 1.0m;
+    public const decimal MaxLineSpacing = 2.0m;
+    public const decimal LineSpacingStep = 0.05m;
+
+    /// <summary>Every face but Newsreader, at the weights the sample and the menu use.</summary>
+    public static readonly string WebFontsHref = "https://fonts.googleapis.com/css2?"
+        + string.Join("&", Fonts.Where(f => f.Key != DefaultFont)
+            .Select(f => $"family={f.Name.Replace(' ', '+')}:ital,wght@0,400;0,600;1,400"))
+        + "&display=swap";
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after a save.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private string _font = DefaultFont;
+    private decimal _size = DefaultSize;
+    private decimal _lineSpacing = DefaultLineSpacing;
+    private BookTypographyDto? _shown;
+    private bool _saving;
+    private string? _error;
+
+    private BookTypographyDto Stored => Adventure.Typography ?? new BookTypographyDto(null, null, null);
+
+    private string StoredFont => Stored.Font is { } key && Fonts.Any(f => f.Key == key) ? key : DefaultFont;
+
+    private bool IsChanged =>
+        _font != StoredFont || _size != (Stored.Size ?? DefaultSize) || _lineSpacing != (Stored.LineSpacing ?? DefaultLineSpacing);
+
+    private bool IsDefault => _font == DefaultFont && _size == DefaultSize && _lineSpacing == DefaultLineSpacing;
+
+    private string SampleStyle => FormattableString.Invariant(
+        $"font-family: {CssFamily(Fonts.First(f => f.Key == _font))}; font-size: {_size}pt; line-height: {_lineSpacing};");
+
+    protected override void OnParametersSet()
+    {
+        // Take the stored type when it changes (first render, a save), never over an unsaved edit.
+        if (_shown != Stored)
+        {
+            _shown = Stored;
+            _font = StoredFont;
+            _size = Stored.Size ?? DefaultSize;
+            _lineSpacing = Stored.LineSpacing ?? DefaultLineSpacing;
+        }
+    }
+
+    private static string CssFamily(FontChoice font) => $"'{font.Name}', Georgia, serif";
+
+    private void OnFontChanged(string key)
+    {
+        _font = Fonts.Any(f => f.Key == key) ? key : DefaultFont;
+        _error = null;
+    }
+
+    private void OnSizeChanged(decimal size)
+    {
+        _size = Snap(size, SizeStep, MinSize, MaxSize);
+        _error = null;
+    }
+
+    private void OnLineSpacingChanged(decimal spacing)
+    {
+        _lineSpacing = Snap(spacing, LineSpacingStep, MinLineSpacing, MaxLineSpacing);
+        _error = null;
+    }
+
+    /// <summary>A typed value to its nearest step within the bounds, as the API takes it.</summary>
+    public static decimal Snap(decimal value, decimal step, decimal min, decimal max) =>
+        Math.Clamp(Math.Round(value / step, MidpointRounding.AwayFromZero) * step, min, max);
+
+    private void UseDefaults()
+    {
+        _font = DefaultFont;
+        _size = DefaultSize;
+        _lineSpacing = DefaultLineSpacing;
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving || !IsChanged)
+        {
+            return;
+        }
+
+        // A default is saved as none, so "Use the defaults" leaves nothing chosen.
+        var request = new UpdateBookTypographyRequest(
+            _font == DefaultFont ? null : _font,
+            _size == DefaultSize ? null : _size,
+            _lineSpacing == DefaultLineSpacing ? null : _lineSpacing);
+
+        _saving = true;
+        _error = null;
+        try
+        {
+            var result = await Api.UpdateBookTypographyAsync(Adventure.WorldId, Adventure.Id, request);
+            if (result.IsSuccess)
+            {
+                await OnSaved.InvokeAsync(result.Value!);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

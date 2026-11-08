@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Nornis.Application.Configuration;
 using Nornis.Application.Prep;
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 using Nornis.Infrastructure.Printing;
 using NUnit.Framework;
 using QuestPDF.Fluent;
@@ -745,6 +746,101 @@ public class QuestPdfBookletRendererTests
 
         using var document = PdfDocument.Open(pdf.Bytes);
         Assert.That(pdf.Pages, Is.EqualTo(document.NumberOfPages));
+    }
+
+    // -------------------------------------------------------------- Typography --
+
+    /// <summary>
+    /// Every face on offer is embedded and sets the body, and the cover. Only regular-weight
+    /// words are checked: Skia writes the SemiBold cuts as Type 3 fonts, which carry no name.
+    /// </summary>
+    [TestCaseSource(nameof(EveryFont))]
+    public void TheBody_IsSetInTheGmsFace(BookFont font)
+    {
+        var pdf = _renderer.Render(new Booklet(Cover, Rights, [Chapter("Arrival", P("bodyword one."))],
+            Typography: new BookTypography { Font = font }));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var face = BookTypography.NameOf(font).Replace(" ", "", StringComparison.Ordinal);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Words(document.GetPage(FirstChapterPage)).First(w => w.Text == "bodyword").Letters[0].FontName, Does.Contain(face));
+            Assert.That(Words(document.GetPage(1)).First(w => w.Text == "Dave").Letters[0].FontName, Does.Contain(face),
+                "the cover is in the book's face too");
+        });
+    }
+
+    private static IEnumerable<BookFont> EveryFont() => Enum.GetValues<BookFont>();
+
+    [Test]
+    public void TheGmsSize_SetsTheBody_AndTheHeadingsScaleWithIt()
+    {
+        var chapter = Chapter("Arrival", new BookletHeading(1, Inl("headingword")), P("bodyword one."));
+        double SizeOf(BookletPdf pdf, string token)
+        {
+            using var document = PdfDocument.Open(pdf.Bytes);
+            return Words(document.GetPage(FirstChapterPage)).First(w => w.Text == token).Letters[0].PointSize;
+        }
+
+        var plain = Render(chapter);
+        var large = _renderer.Render(new Booklet(Cover, Rights, [chapter], Typography: new BookTypography { Size = 14m }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SizeOf(plain, "bodyword"), Is.EqualTo(10).Within(0.01), "nothing chosen is today's 10 pt");
+            Assert.That(SizeOf(large, "bodyword"), Is.EqualTo(14).Within(0.01));
+            Assert.That(SizeOf(plain, "headingword"), Is.EqualTo(13).Within(0.01));
+            Assert.That(SizeOf(large, "headingword"), Is.EqualTo(13 * 1.4).Within(0.01), "a heading keeps its proportion to the body");
+        });
+    }
+
+    [Test]
+    public void TheGmsLineSpacing_SetsTheDistanceBetweenLines()
+    {
+        var chapter = Chapter("Arrival", new BookletParagraph([new BookletRun("firstline"), new BookletBreak(), new BookletRun("secondline")]));
+        double GapOf(BookletPdf pdf)
+        {
+            using var document = PdfDocument.Open(pdf.Bytes);
+            var words = Words(document.GetPage(FirstChapterPage)).ToList();
+            return words.First(w => w.Text == "firstline").BoundingBox.Bottom - words.First(w => w.Text == "secondline").BoundingBox.Bottom;
+        }
+
+        var plain = GapOf(Render(chapter));
+        var open = GapOf(_renderer.Render(new Booklet(Cover, Rights, [chapter], Typography: new BookTypography { LineSpacing = 2.0m })));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plain, Is.EqualTo(10 * 1.3).Within(0.5));
+            Assert.That(open, Is.EqualTo(10 * 2.0).Within(0.5));
+        });
+    }
+
+    [Test]
+    public void ALargerType_TakesMorePages_AndStillKeepsEveryHeadingWithItsText()
+    {
+        var blocks = Enumerable.Range(1, 12).SelectMany(i => new BookletBlock[]
+        {
+            new BookletHeading(2, Inl($"heading{i}")),
+            P($"after{i} " + Text(420)),
+        }).ToArray();
+
+        var plain = Render(Chapter("Arrival", blocks));
+        var large = _renderer.Render(new Booklet(Cover, Rights, [Chapter("Arrival", blocks)],
+            Typography: new BookTypography { Size = 14m, LineSpacing = 1.6m }));
+
+        using var document = PdfDocument.Open(large.Bytes);
+        var words = AllWords(document).Where(w => w.Page >= FirstChapterPage).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(large.Pages, Is.GreaterThan(plain.Pages));
+            foreach (var i in Enumerable.Range(1, 12))
+            {
+                var heading = words.Single(w => w.Word.Text == $"heading{i}");
+                var next = words.Single(w => w.Word.Text == $"after{i}");
+                Assert.That((next.Page, ColumnOf(next.Word)), Is.EqualTo((heading.Page, ColumnOf(heading.Word))),
+                    $"heading{i} is never alone at a column's foot");
+            }
+        });
     }
 
     // ----------------------------------------------------------------- helpers --

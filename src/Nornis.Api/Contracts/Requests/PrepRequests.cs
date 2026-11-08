@@ -15,6 +15,12 @@ public record UpdateAdventureRequest(string Title, string? Pitch, Guid? Campaign
 /// <summary>The four editable details, all of them: each is the new value, and null clears it (feature 32).</summary>
 public record UpdateAdventureDetailsRequest(string? GameSystem, string? Edition, string? Levels, int? Year);
 
+/// <summary>
+/// The type the booklet is set in, all three fields: each is the new value, and null means the
+/// default. <see cref="Font"/> is a <c>BookFont</c> name, such as "EbGaramond".
+/// </summary>
+public record UpdateBookTypographyRequest(string? Font, decimal? Size, decimal? LineSpacing);
+
 /// <summary>The GM's own AI-use tick (feature 38); ignored once AI use is recorded.</summary>
 public record SetAiDeclaredRequest(bool Declared);
 

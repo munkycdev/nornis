@@ -221,6 +221,32 @@ public class AdventureService : IAdventureService
         return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
     }
 
+    public async Task<AppResult<AdventureView>> UpdateTypographyAsync(UpdateBookTypographyCommand command, CancellationToken ct)
+    {
+        if (command.ActingUserRole != WorldRole.GM)
+        {
+            return AppResult<AdventureView>.Fail(GmOnly());
+        }
+
+        var adventure = await LoadAsync(command.WorldId, command.AdventureId, ct);
+        if (adventure is null)
+        {
+            return AppResult<AdventureView>.Fail(NotFound());
+        }
+
+        var typography = new BookTypography { Font = command.Font, Size = command.Size, LineSpacing = command.LineSpacing };
+        if (typography.Validate() is { } field)
+        {
+            return AppResult<AdventureView>.Fail(InvalidTypography(field));
+        }
+
+        adventure.Typography = typography;
+        adventure.UpdatedAt = DateTimeOffset.UtcNow;
+        await _adventures.UpdateAsync(adventure, ct);
+
+        return AppResult<AdventureView>.Success(await ViewAsync(adventure, ct));
+    }
+
     /// <summary>
     /// Sets the GM's own AI-use tick (feature 38). Once AI use is recorded the box is locked, and
     /// this changes nothing and answers with the Adventure as it is: the recorded use already
@@ -535,6 +561,14 @@ public class AdventureService : IAdventureService
         nameof(AdventureDetails.Edition) => $"The edition can be at most {AdventureDetails.MaxEditionLength} characters.",
         nameof(AdventureDetails.Levels) => $"The levels can be at most {AdventureDetails.MaxLevelsLength} characters.",
         _ => $"The year must be between {AdventureDetails.MinYear} and {AdventureDetails.MaxYearsAhead} years from now.",
+    });
+
+    private static AppError InvalidTypography(string field) => new(400, "invalid_typography", field switch
+    {
+        nameof(BookTypography.Font) => "That isn't one of the booklet's fonts.",
+        nameof(BookTypography.Size) =>
+            $"The font size must be between {BookTypography.MinSize} and {BookTypography.MaxSize} points, in half points.",
+        _ => $"The line spacing must be between {BookTypography.MinLineSpacing:0.0} and {BookTypography.MaxLineSpacing:0.0}, in steps of {BookTypography.LineSpacingStep}.",
     });
 
     private static AppError TooLarge(string message) => PrepBounds.TooLarge(message);

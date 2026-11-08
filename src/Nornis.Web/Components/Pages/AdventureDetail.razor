@@ -134,7 +134,8 @@ else if (_adventure is not null)
             {
                 <AdventureBookTab WorldId="Worlds.Current.Id" Adventure="_adventure" Campaigns="_campaigns" Disabled="_busy"
                                   OnEditDetails="EditDetailsAsync" OnCoverChanged="OnCoverChangedAsync"
-                                  OnBookDetailsSaved="OnBookDetailsSaved" OnHandoutsSaved="Merge" />
+                                  OnBookDetailsSaved="OnBookDetailsSaved" OnHandoutsSaved="Merge"
+                                  OnTypographySaved="Merge" />
             }
             else if (_mode == DesignMode)
             {
@@ -608,6 +609,7 @@ else if (_adventure is not null)
                 TableBrief = updated.TableBrief,
                 SourceBooks = updated.SourceBooks,
                 Handouts = updated.Handouts,
+                Typography = updated.Typography,
                 UpdatedAt = updated.UpdatedAt,
             };
         }

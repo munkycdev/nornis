@@ -54,7 +54,8 @@ public static class AdventureConversationPrompt
         - Passages from the GM's reference books, when any fit.
         - The adventure's title, pitch and outline, and the section the GM has open, if any; or,
           when the GM is in Design mode, the whole design draft; or, when the GM is working on the
-          book, its cover, the cover's art brief and the handouts printed at its back.
+          book, its cover, the cover's art brief, the type it is set in and the handouts printed
+          at its back.
         - The conversation so far, and the GM's new message.
 
         ## Rules
@@ -294,6 +295,7 @@ public static class AdventureConversationPrompt
         }
 
         sb.AppendLine();
+        AppendType(sb, adventure.Typography);
         sb.AppendLine("### Handouts and maps, printed at the back");
         sb.AppendLine();
         var handouts = adventure.Handouts.OrderBy(h => h.SortOrder).ToList();
@@ -309,6 +311,21 @@ public static class AdventureConversationPrompt
             }
         }
 
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// The type the body is set in, and the faces the GM can choose from: the booklet is laid
+    /// out on the server, so a face Nornis doesn't ship can't be used, and isn't worth suggesting.
+    /// </summary>
+    private static void AppendType(StringBuilder sb, BookTypography type)
+    {
+        sb.AppendLine("### Type");
+        sb.AppendLine();
+        sb.AppendLine(FormattableString.Invariant(
+            $"Body text: {BookTypography.NameOf(type.FontOrDefault)}, {type.SizeOrDefault:0.#} pt, line spacing {type.LineSpacingOrDefault:0.0#}."));
+        sb.AppendLine(FormattableString.Invariant(
+            $"The GM sets these on the Typography card: a size from {BookTypography.MinSize:0} to {BookTypography.MaxSize:0} pt, line spacing from {BookTypography.MinLineSpacing:0.0} to {BookTypography.MaxLineSpacing:0.0}, and one of these faces only: {string.Join(", ", Enum.GetValues<BookFont>().Select(BookTypography.NameOf))}."));
         sb.AppendLine();
     }
 

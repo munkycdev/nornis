@@ -101,6 +101,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         row.LastPrintedDocumentId = adventure.LastPrintedDocumentId;
         row.TableBrief = adventure.TableBrief;
         row.Details = adventure.Details with { };
+        row.Typography = adventure.Typography with { };
         row.AiUse.Declared = adventure.AiUse.Declared;
         row.UpdatedAt = adventure.UpdatedAt;
         return Task.CompletedTask;
@@ -420,6 +421,7 @@ public class InMemoryAdventureRepository : IAdventureRepository
         Pitch = a.Pitch,
         LastPrintedDocumentId = a.LastPrintedDocumentId,
         Details = a.Details with { },
+        Typography = a.Typography with { },
         AiUse = new() { WroteText = a.AiUse.WroteText, MadeArt = a.AiUse.MadeArt, Declared = a.AiUse.Declared, ResearchedOnWeb = a.AiUse.ResearchedOnWeb },
         Cover = a.Cover is null ? null : a.Cover with { },
         CoverImagesGenerated = a.CoverImagesGenerated,

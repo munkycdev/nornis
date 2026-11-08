@@ -60,7 +60,14 @@ public record AdventureResponse(
     IReadOnlyList<AdventureSourceBookResponse>? SourceBooks = null,
     // Feature 38: what the Adventure records about AI's part in it, and the handouts it prints.
     AdventureAiUseResponse? AiUse = null,
-    IReadOnlyList<AdventureHandoutResponse>? Handouts = null);
+    IReadOnlyList<AdventureHandoutResponse>? Handouts = null,
+    BookTypographyResponse? Typography = null);
+
+/// <summary>
+/// The type the booklet is set in, as the GM chose it. A null is the default, left unfilled so
+/// the Typography card can tell a choice from the default. <see cref="Font"/> is a <c>BookFont</c> name.
+/// </summary>
+public record BookTypographyResponse(string? Font, decimal? Size, decimal? LineSpacing);
 
 /// <summary>A map or handout printed at the back of the booklet (feature 38), in order. Category is Map or Handout.</summary>
 public record AdventureHandoutResponse(Guid Id, string Title, string? Slug, string Category, string ContentType, string Visibility);

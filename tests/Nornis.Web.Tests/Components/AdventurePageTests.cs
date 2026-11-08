@@ -558,6 +558,7 @@ public class AdventurePageTests : BunitContext
         {
             Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-cover-card"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-typography"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-handouts"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-adventure-documents"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-talk-column .nornis-prep-talk"), Has.Count.EqualTo(1), "Talk it through is beside the book");

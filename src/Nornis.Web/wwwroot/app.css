@@ -4756,6 +4756,54 @@ a.nornis-cite:hover {
     font-style: italic;
 }
 
+/* Typography on the Book tab: three fields in a row, then a sample set like a booklet column
+   (3.5in wide, ink on white in either theme, since that is what prints). The card is its own
+   container, so the fields stack by the card's width, wherever the tab puts it. */
+.nornis-typography {
+    container-type: inline-size;
+}
+
+.nornis-typography-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.nornis-typography-sample {
+    max-width: min(100%, 252pt);
+    margin: 12px 0 6px;
+    padding: 10px 12px;
+    background: #fff;
+    color: #1c1f24;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 4px;
+}
+
+.nornis-typography-sample p {
+    margin: 0;
+}
+
+.nornis-typography-sample p + p {
+    margin-top: 0.5em;
+}
+
+.nornis-typography-error {
+    display: block;
+    margin-top: 6px;
+}
+
+@container (max-width: 420px) {
+    .nornis-typography-fields {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    /* The font menu, across both columns. */
+    .nornis-typography-fields > :first-child {
+        grid-column: 1 / -1;
+    }
+}
+
 /* On Sections the rail goes under the editor and scrolls with the page again; Design and Book
    keep it beside the main column down to the narrow breakpoint. */
 @container page (max-width: 1300px) {

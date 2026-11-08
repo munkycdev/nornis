@@ -40,6 +40,17 @@ public class AdventureConfiguration : IEntityTypeConfiguration<Adventure>
 
         builder.Navigation(a => a.Details).IsRequired();
 
+        // Three nullable Typography_* columns; all null is the default type. Required for the
+        // reason Details is. The decimals hold the half points and twentieths the bounds allow.
+        builder.OwnsOne(a => a.Typography, type =>
+        {
+            type.Property(t => t.Font).HasConversion<string>().HasMaxLength(20);
+            type.Property(t => t.Size).HasPrecision(3, 1);
+            type.Property(t => t.LineSpacing).HasPrecision(3, 2);
+        });
+
+        builder.Navigation(a => a.Typography).IsRequired();
+
         // Feature 38: three bool columns (the migration adds them as false). The recorded two are only ever set
         // to true, by AdventureRepository's AI writes; UpdateAsync copies the GM's Declared only.
         builder.OwnsOne(a => a.AiUse, ai =>
