@@ -66,9 +66,9 @@ else if (_adventure is not null)
         </div>
     </div>
 
-    @* The three tabs (Nornis 3.13): Design, Sections and Book, in the order a GM works. The tab is
-       kept in the URL; moving between tabs saves what was typed on the one being left, and no
-       tab changes while a Talk it through turn runs. *@
+    @* The three tabs (Nornis 3.13): Design, Structure (called Sections before 3.16) and Book, in
+       the order a GM works. The tab is kept in the URL; moving between tabs saves what was typed
+       on the one being left, and no tab changes while a Talk it through turn runs. *@
     <div class="nornis-prep-mode nornis-prep-tabs" role="tablist" aria-label="Adventure">
         @foreach (var mode in Modes)
         {
@@ -82,7 +82,7 @@ else if (_adventure is not null)
     </div>
 
     <div class="nornis-prep-layout nornis-prep-layout-@_mode.ToLowerInvariant()">
-        @if (_mode == SectionsMode)
+        @if (_mode == StructureMode)
         {
             <div class="nornis-prep-side">
                 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
@@ -129,7 +129,7 @@ else if (_adventure is not null)
         }
 
         <div class="nornis-prep-editor">
-            @* Design (feature 37) works on the one draft; Sections on the outline's sections. *@
+            @* Design (feature 37) works on the one draft; Structure on the outline's sections. *@
             @if (_mode == BookMode)
             {
                 <AdventureBookTab WorldId="Worlds.Current.Id" Adventure="_adventure" Campaigns="_campaigns" Disabled="_busy"
@@ -310,11 +310,12 @@ else if (_adventure is not null)
     private AdventureSectionDto? Selected => _adventure?.Sections.FirstOrDefault(s => s.Id == _selectedId);
 
     public const string DesignMode = "Design";
-    public const string SectionsMode = "Sections";
+    /// <summary>The tab that holds the outline and the open section, called Structure since 3.16 (Sections before).</summary>
+    public const string StructureMode = "Structure";
     public const string BookMode = "Book";
 
     /// <summary>The tabs, in the order a GM works: the draft, then its sections, then the book they make.</summary>
-    public static readonly IReadOnlyList<string> Modes = [DesignMode, SectionsMode, BookMode];
+    public static readonly IReadOnlyList<string> Modes = [DesignMode, StructureMode, BookMode];
 
     /// <summary>What Talk it through sends with each message on a tab: the section, the draft or the book.</summary>
     public static string ConversationScopeOf(string mode) => mode switch
@@ -328,16 +329,16 @@ else if (_adventure is not null)
     public static string? ModeFromQuery(string? tab) =>
         Modes.FirstOrDefault(m => string.Equals(m, tab?.Trim(), StringComparison.OrdinalIgnoreCase));
 
-    private string _mode = SectionsMode;
+    private string _mode = StructureMode;
     private Guid? _modeFor;
     private AdventureDesignPanel? _designPanel;
 
     /// <summary>
-    /// The tab an Adventure opens on when the URL names none: Sections once any section is
+    /// The tab an Adventure opens on when the URL names none: Structure once any section is
     /// written, otherwise Design, where a new adventure is worked out as one document first.
     /// </summary>
     public static string OpeningMode(AdventureDto adventure) =>
-        adventure.Sections.Any(s => s.IsFilled) ? SectionsMode : DesignMode;
+        adventure.Sections.Any(s => s.IsFilled) ? StructureMode : DesignMode;
 
     /// <summary>
     /// Where the browser keeps a section's unsaved text. Per section, so moving between sections
@@ -449,7 +450,7 @@ else if (_adventure is not null)
     private void SetMode(string mode)
     {
         _mode = mode;
-        if (mode != SectionsMode)
+        if (mode != StructureMode)
         {
             _editor = null;
         }
@@ -484,13 +485,13 @@ else if (_adventure is not null)
         var saved = _mode switch
         {
             DesignMode => _designPanel is null || await _designPanel.SaveIfDirtyAsync(),
-            SectionsMode => await SaveBeforeLeavingEditorAsync(),
+            StructureMode => await SaveBeforeLeavingEditorAsync(),
             _ => true,
         };
         if (saved)
         {
             SetMode(mode);
-            if (mode == SectionsMode)
+            if (mode == StructureMode)
             {
                 // The section editor mounts fresh, from the section's saved text.
                 _editorVersion++;
@@ -539,12 +540,12 @@ else if (_adventure is not null)
         }
     }
 
-    /// <summary>A split made new sections: show them, on the Sections tab, from the first.</summary>
+    /// <summary>A split made new sections: show them, on the Structure tab, from the first.</summary>
     private void OnSplit(AdventureDto updated)
     {
         _selectedId = null;
         Show(updated, remountEditor: true);
-        SetMode(SectionsMode);
+        SetMode(StructureMode);
         ShowTabInUrl();
         Snackbar.Add($"Split into {updated.Sections.Count} sections. Your draft is still on the Design tab.", Severity.Success);
     }
@@ -627,11 +628,11 @@ else if (_adventure is not null)
             return;
         }
 
-        if (_mode != SectionsMode)
+        if (_mode != StructureMode)
         {
-            // Choosing a section opens it on the Sections tab.
-            await SwitchModeAsync(SectionsMode);
-            if (_mode != SectionsMode)
+            // Choosing a section opens it on the Structure tab.
+            await SwitchModeAsync(StructureMode);
+            if (_mode != StructureMode)
             {
                 return;
             }
