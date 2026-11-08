@@ -1,0 +1,202 @@
+@inject NornisApiClient Api
+
+@* The head of an adventure's page: its title, pitch and campaign, edited where they are shown,
+   so the adventure's own details sit above every tab rather than on one of them. The title and
+   the pitch open into a box on a click (Enter saves the title, Ctrl+Enter the pitch, Escape
+   puts either back); the campaign saves as soon as it is picked. Every save sends all three,
+   as the API takes them, and raises what the API returned for the page to merge. *@
+
+<div class="nornis-prep-heading">
+    @if (_editing == TitleField)
+    {
+        <div class="nornis-prep-heading-edit" @onkeydown="OnTitleKeyDownAsync">
+            <MudTextField T="string" @bind-Value="_draft" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          MaxLength="MaxTitleChars" AutoFocus="true" Disabled="_saving" aria-label="Title"
+                          Class="nornis-prep-heading-title-input" />
+            @EditButtons(canSave: !string.IsNullOrWhiteSpace(_draft))
+        </div>
+    }
+    else
+    {
+        <button type="button" class="nornis-prep-heading-title" disabled="@IsLocked" aria-label="Edit the title"
+                title="Edit the title" @onclick="() => Edit(TitleField)">
+            <MudText Typo="Typo.h4" Class="nornis-serif" HtmlTag="span">@Adventure.Title</MudText>
+            <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-prep-heading-pencil" />
+        </button>
+    }
+
+    @if (_editing == PitchField)
+    {
+        <div class="nornis-prep-heading-edit" @onkeydown="OnPitchKeyDownAsync">
+            <MudTextField T="string" @bind-Value="_draft" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Lines="3" MaxLength="MaxPitchChars" AutoFocus="true" Disabled="_saving" aria-label="Pitch"
+                          Placeholder="A sentence or two: what happens, and why the players care."
+                          Class="nornis-prep-heading-pitch-input" />
+            @EditButtons(canSave: true)
+        </div>
+    }
+    else
+    {
+        <button type="button" class="nornis-prep-heading-pitch" disabled="@IsLocked" aria-label="Edit the pitch"
+                title="Edit the pitch" @onclick="() => Edit(PitchField)">
+            @if (string.IsNullOrWhiteSpace(Adventure.Pitch))
+            {
+                <span class="nornis-prep-heading-none">Add a pitch</span>
+            }
+            else
+            {
+                <span>@Adventure.Pitch</span>
+            }
+            <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-prep-heading-pencil" />
+        </button>
+    }
+
+    <div class="nornis-prep-heading-campaign">
+        <MudSelect T="Guid?" Value="@Adventure.CampaignId" ValueChanged="SaveCampaignAsync" Label="Campaign"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Disabled="@IsLocked"
+                   aria-label="Campaign" Class="nornis-prep-heading-campaign-select">
+            <MudSelectItem T="Guid?" Value="@((Guid?)null)">None: world-level prep</MudSelectItem>
+            @foreach (var campaign in Campaigns)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)campaign.Id)">@campaign.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error" Class="nornis-prep-heading-error">@_error</MudText>
+    }
+</div>
+
+@code {
+    public const string TitleField = "title";
+    public const string PitchField = "pitch";
+
+    // The API's bounds (AdventureService.MaxTitleChars / MaxPitchChars), as the dialog that
+    // creates an adventure has them.
+    public const int MaxTitleChars = 200;
+    public const int MaxPitchChars = 4000;
+
+    [Parameter, EditorRequired] public Guid WorldId { get; set; }
+
+    [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
+
+    /// <summary>The world's campaigns, for the campaign menu.</summary>
+    [Parameter] public IReadOnlyList<CampaignDto> Campaigns { get; set; } = [];
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Raised with the Adventure as the API returned it after a save.</summary>
+    [Parameter] public EventCallback<AdventureDto> OnSaved { get; set; }
+
+    private string? _editing;
+    private string _draft = string.Empty;
+    private bool _saving;
+    private string? _error;
+
+    private bool IsLocked => Disabled || _saving || _editing is not null;
+
+    private RenderFragment EditButtons(bool canSave) => __builder =>
+    {
+        <div class="d-flex gap-1 mt-1">
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="nornis-prep-heading-save"
+                       Disabled="@(_saving || !canSave)" OnClick="SaveEditAsync">
+                @(_saving ? "Saving…" : "Save")
+            </MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Class="nornis-prep-heading-cancel"
+                       Disabled="_saving" OnClick="Cancel">Cancel</MudButton>
+        </div>
+    };
+
+    private void Edit(string field)
+    {
+        _editing = field;
+        _draft = field == TitleField ? Adventure.Title : Adventure.Pitch ?? string.Empty;
+        _error = null;
+    }
+
+    private void Cancel()
+    {
+        _editing = null;
+        _error = null;
+    }
+
+    private async Task OnTitleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SaveEditAsync();
+        }
+        else if (e.Key == "Escape")
+        {
+            Cancel();
+        }
+    }
+
+    private async Task OnPitchKeyDownAsync(KeyboardEventArgs e)
+    {
+        // Enter is a new line in the pitch; Ctrl+Enter saves it.
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey))
+        {
+            await SaveEditAsync();
+        }
+        else if (e.Key == "Escape")
+        {
+            Cancel();
+        }
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (_editing is not { } field || _saving)
+        {
+            return;
+        }
+
+        var text = _draft.Trim();
+        if (field == TitleField && text.Length == 0)
+        {
+            _error = "An adventure needs a title.";
+            return;
+        }
+
+        var saved = field == TitleField
+            ? await SaveAsync(text, Adventure.Pitch, Adventure.CampaignId)
+            : await SaveAsync(Adventure.Title, text.Length == 0 ? null : text, Adventure.CampaignId);
+        if (saved)
+        {
+            _editing = null;
+        }
+    }
+
+    private async Task SaveCampaignAsync(Guid? campaignId)
+    {
+        if (campaignId != Adventure.CampaignId)
+        {
+            await SaveAsync(Adventure.Title, Adventure.Pitch, campaignId);
+        }
+    }
+
+    private async Task<bool> SaveAsync(string title, string? pitch, Guid? campaignId)
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var result = await Api.UpdateAdventureAsync(WorldId, Adventure.Id, new UpdateAdventureRequest(title, pitch, campaignId));
+            if (!result.IsSuccess)
+            {
+                _error = result.Error!.Message;
+                return false;
+            }
+
+            await OnSaved.InvokeAsync(result.Value!);
+            return true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

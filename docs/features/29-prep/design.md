@@ -1,5 +1,17 @@
 # Design Document
 
+> **Amendment (2026-11-08, Nornis 3.18):** the Adventure card is gone, and
+> `AdventureDetailsDialog` now only creates an adventure from the Prep list. The page head is `AdventureHeading`: the title and pitch are edited
+> where they are shown (a click opens a box; Enter saves the title, Ctrl+Enter the pitch, Escape
+> puts either back) and the campaign menu saves when picked, each save sending title, pitch and
+> campaign to `PUT /prep/{id}` as before. Sections is now Structure (`?tab=structure`). On Book,
+> Typography sits above Book details in the second column. On a window at least 1200px wide and
+> 600px tall the page is a fixed-height workspace (`.nornis-workspace`, which puts `.nornis-main`
+> into a 100dvh column through `:has()`): the page never scrolls, each column scrolls inside,
+> the draft and section editors fill their column with their own scrolling text and their
+> buttons pinned beneath, and Talk it through's messages scroll above a pinned message box. The
+> footer is hidden there. Narrower windows scroll as a page. The text below is left as written.
+
 > **Amendment (2026-11-07, Nornis 3.13):** `/prep/{key}` is now three tabs, Design, Sections and
 > Book, kept in the URL as `?tab=design|sections|book` (read when the page opens; the opening tab
 > otherwise follows `AdventureDetail.OpeningMode`). Every tab has the same right rail: one

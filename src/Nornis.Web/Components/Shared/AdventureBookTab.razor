@@ -1,14 +1,13 @@
 @* The Book tab of an Adventure: the booklet as an object, apart from its words, beside Talk it
    through as every tab is. Two columns when there is room: what the book carries besides its
-   sections (the cover art, the type it is set in, the handouts printed at its back, the
-   documents that belong to it), and what it is called and filed by. Every card saves itself and raises what the API returned;
-   the page merges it, so nothing open on the other tabs is replaced. *@
+   sections (the cover art, the handouts printed at its back, the documents that belong to it),
+   and how it is set and filed (its type and its Book details). The title, pitch and campaign are
+   the page head's, above every tab (3.18). Every card saves itself and raises what the API
+   returned; the page merges it, so nothing open on the other tabs is replaced. *@
 
 <div class="nornis-prep-book">
     <div class="nornis-prep-book-contents">
         <CoverCard WorldId="WorldId" AdventureId="Adventure.Id" Disabled="Disabled" OnChanged="OnCoverChanged" />
-
-        <TypographyCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnTypographySaved" />
 
         <HandoutsCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnHandoutsSaved" />
 
@@ -16,39 +15,7 @@
     </div>
 
     <div class="nornis-prep-book-catalog">
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-about">
-            <div class="d-flex align-center">
-                <MudText Typo="Typo.overline" Color="Color.Secondary" Class="flex-grow-1">Adventure</MudText>
-                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Class="nornis-prep-about-edit"
-                               Disabled="Disabled" aria-label="Edit the title, pitch and campaign" OnClick="OnEditDetails" />
-            </div>
-            <div class="nornis-prep-about-row">
-                <div class="nornis-book-details-caption">Title</div>
-                <div class="nornis-prep-about-title">@Adventure.Title</div>
-            </div>
-            <div class="nornis-prep-about-row">
-                <div class="nornis-book-details-caption">Pitch</div>
-                @if (string.IsNullOrWhiteSpace(Adventure.Pitch))
-                {
-                    <div class="nornis-prep-about-none">No pitch yet.</div>
-                }
-                else
-                {
-                    <div class="nornis-prep-about-pitch">@Adventure.Pitch</div>
-                }
-            </div>
-            <div class="nornis-prep-about-row">
-                <div class="nornis-book-details-caption">Campaign</div>
-                @if (CampaignName is { } campaign)
-                {
-                    <div class="nornis-prep-about-campaign">@campaign</div>
-                }
-                else
-                {
-                    <div class="nornis-prep-about-none">Not tied to a campaign.</div>
-                }
-            </div>
-        </MudPaper>
+        <TypographyCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnTypographySaved" />
 
         <BookDetailsCard Adventure="Adventure" Disabled="Disabled" OnSaved="OnBookDetailsSaved" />
     </div>
@@ -59,13 +26,7 @@
 
     [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
 
-    /// <summary>The world's campaigns, to name the one this adventure is for.</summary>
-    [Parameter] public IReadOnlyList<CampaignDto> Campaigns { get; set; } = [];
-
     [Parameter] public bool Disabled { get; set; }
-
-    /// <summary>The pencil on the Adventure card: the page opens the details dialog, as it owns the URL.</summary>
-    [Parameter] public EventCallback OnEditDetails { get; set; }
 
     [Parameter] public EventCallback OnCoverChanged { get; set; }
 
@@ -74,7 +35,4 @@
     [Parameter] public EventCallback<AdventureDto> OnHandoutsSaved { get; set; }
 
     [Parameter] public EventCallback<AdventureDto> OnTypographySaved { get; set; }
-
-    private string? CampaignName =>
-        Adventure.CampaignId is { } id ? Campaigns.FirstOrDefault(c => c.Id == id)?.Name : null;
 }
