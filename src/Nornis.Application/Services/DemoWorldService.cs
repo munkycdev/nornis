@@ -4,8 +4,10 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nornis.Application.Ai;
+using Nornis.Application.Art;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
+using Nornis.Application.KeyArt;
 using Nornis.Application.Models;
 using Nornis.Application.Storage;
 using Nornis.Domain.Entities;
@@ -34,6 +36,10 @@ public class DemoWorldService : IDemoWorldService
     /// <summary>How far in the past the latest session lands, so the world feels lived-in
     /// but current.</summary>
     private static readonly TimeSpan LatestSessionAge = TimeSpan.FromDays(3);
+
+    /// <summary>The package's key art (feature 42), optional: a PNG or JPEG, read by its bytes.
+    /// A demo world that has it opens Home on a picture, as the welcome page promises.</summary>
+    internal const string KeyArtEntry = "key-art";
 
     private static readonly string[] FallbackAdjectives =
         ["Ashen", "Sundered", "Gilded", "Drowned", "Emberlit", "Thornbound", "Veiled", "Wintered", "Salt-Worn", "Starlit"];
@@ -162,6 +168,7 @@ public class DemoWorldService : IDemoWorldService
             UpdatedAt = now,
             IsDemo = true,
             TutorialEnabled = command.TutorialEnabled,
+            KeyArt = await CopyKeyArtAsync(zip, worldId, now, ct),
         };
 
         // Carries its player; every packaged character is that player's, since a template
@@ -368,6 +375,48 @@ public class DemoWorldService : IDemoWorldService
         };
 
         return (world, member, rows);
+    }
+
+    /// <summary>
+    /// Copies the package's key art into the new world's own key-art folder, as an upload: the
+    /// GM sees it as a picture they may replace, with no brief to regenerate from. Null when the
+    /// package has none. Bounded by the template, which ships with the app.
+    /// </summary>
+    private async Task<WorldKeyArt?> CopyKeyArtAsync(ZipArchive zip, Guid worldId, DateTimeOffset now, CancellationToken ct)
+    {
+        var entry = zip.Entries.FirstOrDefault(e =>
+            Path.GetFileNameWithoutExtension(e.FullName) == KeyArtEntry && !e.FullName.Contains('/'));
+        if (entry is null)
+        {
+            return null;
+        }
+
+        byte[] bytes;
+        await using (var entryStream = entry.Open())
+        using (var buffer = new MemoryStream())
+        {
+            await entryStream.CopyToAsync(buffer, ct);
+            bytes = buffer.ToArray();
+        }
+
+        if (ImageFile.Read(bytes) is not { } info)
+        {
+            throw new InvalidTemplateException($"Template key art '{entry.FullName}' is not a PNG or JPEG image.");
+        }
+
+        var path = KeyArtBlobs.UploadPath(worldId, Guid.NewGuid(), info.Extension);
+        using (var stream = new MemoryStream(bytes, writable: false))
+        {
+            await _blobStorageService.UploadAsync(path, stream, info.ContentType, ct);
+        }
+
+        return new WorldKeyArt
+        {
+            BlobPath = path,
+            ContentType = info.ContentType,
+            Source = CoverSource.Uploaded,
+            UpdatedAt = now,
+        };
     }
 
     // ------------------------------------------------------------------------ parsing --

@@ -1,5 +1,15 @@
 # UI Design System
 
+> **Amendment (2026-11-08, Nornis 3.22, "the welcome page is a call to action"):** Dave asked
+> for a /welcome that is more visually compelling and says "sign in and try this out". The page
+> now opens on the demo world's key art (a static copy in `wwwroot/images/welcome/`, the same
+> picture as `key-art.jpg` in the demo template), set beside the headline under feature 42's rule:
+> the picture fades into the page, the words sit on paper. It fills the first screen on a desktop
+> window and is a strip above the words on a phone; the public site still scrolls as a page. Its
+> one primary action goes to `/start/demo`, which signs the visitor in and opens their demo world
+> with the tour. The short centred stonemark rule now sits at the foot of the welcome page's
+> closing band rather than its hero, which is no longer centred; the Features hero keeps its own.
+
 > **Amendment (2026-11-08, Nornis 3.18 and 3.19, "the window stays still"):** Dave asked that
 > the window be the same height everywhere and the editing boxes be what scroll. On a desktop
 > window (at least 960px wide and 560px tall) the member app is an app shell: the sidebar and the

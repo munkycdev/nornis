@@ -1,33 +1,43 @@
 @page "/welcome"
 @layout PublicLayout
 
+@* The landing page is a call to action: sign in and open a world that is already being played.
+   The demo world is the picture, the example and the first ten minutes, so everything here is
+   something the visitor will find once they are in. The picture is the demo template's own key
+   art (key-art.jpg in DemoTemplate/vespergale-reach.zip), kept in step by hand: the template ships
+   with the API and this page with the Web, so no compiler spans the two. *@
+
 <PageTitle>Nornis — Your world, remembered</PageTitle>
 
-<section class="nornis-landing-hero">
-    <div class="nornis-eyebrow">World memory engine</div>
-    <h1 class="nornis-landing-title">Your world,<br />remembered.</h1>
-    <p class="nornis-landing-sub">
-        Nornis turns session notes, journals, and transcripts into a living record of your
-        tabletop world — storylines, canon, and a Loremaster you can ask anything.
-    </p>
-    <div class="nornis-landing-cta">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Href="/dashboard">
-            Start your record
-        </MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large" Href="/welcome#how">
-            See how it works
-        </MudButton>
+<section class="nornis-welcome-hero">
+    <div class="nornis-welcome-picture" aria-hidden="true">
+        <img src="images/welcome/key-art.jpg" alt="" decoding="async" fetchpriority="high" />
     </div>
-    <div class="nornis-landing-tagline">It's your epic. Every source leaves a mark.</div>
-    <Stonemark Kind="StonemarkKind.Rule" Class="nornis-rule-short" />
+
+    <div class="nornis-welcome-copy">
+        <div class="nornis-eyebrow">World memory engine</div>
+        <h1 class="nornis-welcome-title">Your world,<br />remembered.</h1>
+        <p class="nornis-welcome-sub">
+            Nornis turns session notes, journals and transcripts into a living record of your
+            tabletop world: who you met, what's still unresolved, and a Loremaster that answers
+            from what your table agreed is true.
+        </p>
+
+        @Cta
+        <p class="nornis-welcome-promise">
+            The demo world is a campaign already in progress: five sessions played, a map, and a
+            guided tour. It's yours to poke at. Bring your own campaign whenever you like.
+        </p>
+    </div>
 </section>
 
 <section class="nornis-landing-demo" aria-label="Example extraction">
     <figure class="nornis-landing-source">
         <figcaption class="nornis-eyebrow">A session note goes in…</figcaption>
         <blockquote>
-            "We questioned Captain Voss in Black Harbor. He denied knowing about the missing
-            caravan, but Tavrin found the Silver Key in his quarters."
+            "Harbormaster Crane hired us after the third wreck in a month. The Lanternwatch light
+            has been dark for nine nights, the lens is gone, and Old Fennick's supper was still on
+            the table."
         </blockquote>
     </figure>
     <div class="nornis-landing-arrow" aria-hidden="true">
@@ -36,68 +46,52 @@
     <div class="nornis-landing-proposals">
         <div class="nornis-eyebrow">…and Nornis proposes</div>
         <div class="nornis-landing-chips">
-            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" /> Create: Captain Voss</span>
-            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" /> Create: Black Harbor</span>
-            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Storyline: The Missing Caravan</span>
-            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Diamond" Size="Size.Small" /> Create: Silver Key</span>
-            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> Fact: Voss denied knowing about the caravan <em>(rumor)</em></span>
-            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" /> Connect: Voss ↔ Black Harbor</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" /> Create: Harbormaster Ilsabet Crane</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" /> Create: Lanternwatch</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Storyline: The Dark Lantern</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" /> Create: Old Fennick</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Small" /> Fact: Fennick is missing, not dead</span>
+            <span class="nornis-landing-chip"><MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" /> Connect: Fennick ↔ Lanternwatch</span>
         </div>
         <p class="nornis-landing-note">You accept, edit, or reject each one. Nothing enters your canon without you.</p>
     </div>
 </section>
 
-<section class="nornis-landing-how" id="how">
-    <h2 class="nornis-landing-h2">How it works</h2>
-    <div class="nornis-landing-steps">
-        <div class="nornis-landing-step">
-            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.Create" /></div>
-            <h3>Capture</h3>
-            <p>Paste session notes, player journals, GM prep, transcripts, or links. Raw and unpolished is fine — that's the point.</p>
-        </div>
-        <div class="nornis-landing-step">
-            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></div>
-            <h3>Nornis proposes</h3>
-            <p>AI reads each source and proposes characters, places, storylines, facts, and connections — every one cited back to its source.</p>
-        </div>
-        <div class="nornis-landing-step">
-            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.FactCheck" /></div>
-            <h3>You decide</h3>
-            <p>Review every proposal. Accept, edit, or reject — the AI proposes, your table decides what becomes canon.</p>
-        </div>
-        <div class="nornis-landing-step">
+<section class="nornis-welcome-first" id="how">
+    <h2 class="nornis-landing-h2">Your first ten minutes</h2>
+    <ol class="nornis-welcome-steps">
+        <li class="nornis-welcome-step">
+            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.Map" /></div>
+            <div>
+                <h3>Walk the world</h3>
+                <p>
+                    Five sessions are already in. Open the map, the codex and the timeline, and see
+                    what Nornis kept from them: every person, place and open thread, cited back to
+                    the session it came from.
+                </p>
+            </div>
+        </li>
+        <li class="nornis-welcome-step">
             <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.QuestionAnswer" /></div>
-            <h3>Ask the Loremaster</h3>
-            <p>"What do we know about Captain Voss?" Answers come only from your accepted record, with citations — and it says so when it doesn't know.</p>
-        </div>
-    </div>
-</section>
-
-<section class="nornis-landing-features">
-    <h2 class="nornis-landing-h2">Built for the long world</h2>
-    <div class="nornis-landing-cards">
-        <div class="nornis-landing-card">
-            <h3><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Storylines</h3>
-            <p>
-                Mysteries, quests, rivalries, and prophecies tracked as first-class arcs — active,
-                dormant, or resolved. The stories in motion, always in view.
-            </p>
-        </div>
-        <div class="nornis-landing-card">
-            <h3><MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" /> Canon &amp; truth</h3>
-            <p>
-                Confirmed fact, rumor, disputed account, known misinformation, and hidden GM truth
-                are kept distinct. Player knowledge and GM secrets never blur.
-            </p>
-        </div>
-        <div class="nornis-landing-card">
-            <h3><MudIcon Icon="@Icons.Material.Outlined.Receipt" Size="Size.Small" /> Honest AI</h3>
-            <p>
-                Every answer cites its sources. Every AI operation is metered, with token and cost
-                visibility down to the operation.
-            </p>
-        </div>
-    </div>
+            <div>
+                <h3>Ask the Loremaster</h3>
+                <p>
+                    "Who is paying the wreckers?" It answers only from the accepted record, shows
+                    where each part came from, and says so when the record doesn't know.
+                </p>
+            </div>
+        </li>
+        <li class="nornis-welcome-step">
+            <div class="nornis-landing-step-icon"><MudIcon Icon="@Icons.Material.Outlined.Create" /></div>
+            <div>
+                <h3>Play session six</h3>
+                <p>
+                    The last session is left as raw notes. Capture it, review what Nornis proposes,
+                    and watch the record change. Then do the same with your own campaign.
+                </p>
+            </div>
+        </li>
+    </ol>
     <div class="nornis-landing-more">
         <MudButton Variant="Variant.Text" Color="Color.Primary"
                    EndIcon="@Icons.Material.Filled.ArrowForward" Href="/features">
@@ -108,8 +102,35 @@
 
 <section class="nornis-landing-final">
     <h2 class="nornis-landing-h2">Many sources feed one enduring epic.</h2>
-    <p class="nornis-landing-sub">Start capturing tonight's session — Nornis will remember the rest.</p>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Href="/dashboard">
-        Start your record
-    </MudButton>
+    <p class="nornis-landing-sub">Sign in, open the demo world, and ask it something.</p>
+    @Cta
+    <Stonemark Kind="StonemarkKind.Rule" Class="nornis-rule-short" />
 </section>
+
+@code {
+    // One call to action, said twice. A member already signed in is offered their own Home first.
+    private static readonly RenderFragment Cta = __builder =>
+    {
+        <div class="nornis-welcome-cta">
+            <AuthorizeView>
+                <Authorized>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Href="/dashboard">
+                        Open Nornis
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Large" Href="/start/demo">
+                        Explore the demo world
+                    </MudButton>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Href="/start/demo"
+                               EndIcon="@Icons.Material.Filled.ArrowForward">
+                        Sign in and explore a ready-made world
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Large" Href="/dashboard">
+                        Start with your own campaign
+                    </MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    };
+}

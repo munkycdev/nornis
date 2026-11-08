@@ -261,6 +261,63 @@ public class WorldStateTests
 
     #endregion
 
+    // ---------------------------------------------------------- demo world --
+
+    [Test]
+    public async Task OpenDemoAsync_WithNoDemoWorld_MakesOneAndSelectsIt()
+    {
+        var handler = new StubApiHandler();
+        var state = CreateState(handler, out var js);
+        await state.EnsureSelectionRestoredAsync();
+
+        var result = await state.OpenDemoAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(handler.DemoCreations, Is.EqualTo(1));
+            Assert.That(state.Current!.Id, Is.EqualTo(handler.CreatedDemoId));
+            Assert.That(state.Worlds, Has.Count.EqualTo(3), "the list is reloaded, so the switcher shows it");
+            Assert.That(js.LastWriteTo(WorldState.StorageKey), Is.EqualTo(handler.CreatedDemoId.ToString()));
+        });
+    }
+
+    [Test]
+    public async Task OpenDemoAsync_WithTheirOwnDemoWorld_OpensItRatherThanMakingAnother()
+    {
+        // The welcome page's button is pressed by returning members too; a second demo world
+        // each time would be clutter, and the API's one-a-day limit would refuse it anyway.
+        var handler = new StubApiHandler { SecondWorldIsDemoAs = "GM" };
+        var state = CreateState(handler);
+        await state.EnsureSelectionRestoredAsync();
+
+        var result = await state.OpenDemoAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(handler.DemoCreations, Is.Zero);
+            Assert.That(state.Current!.Id, Is.EqualTo(handler.SecondWorldId));
+        });
+    }
+
+    [Test]
+    public async Task OpenDemoAsync_ADemoWorldTheyOnlyPlayIn_IsNotTheirs()
+    {
+        // A friend's demo world they were invited to has no tour for them and isn't theirs to poke at.
+        var handler = new StubApiHandler { SecondWorldIsDemoAs = "Player" };
+        var state = CreateState(handler);
+        await state.EnsureSelectionRestoredAsync();
+
+        await state.OpenDemoAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.DemoCreations, Is.EqualTo(1));
+            Assert.That(state.Current!.Id, Is.EqualTo(handler.CreatedDemoId));
+        });
+    }
+
     // ------------------------------------------------------- boot / restore --
 
     [Test]
@@ -419,6 +476,14 @@ public class WorldStateTests
         public int AssessmentRequests { get; private set; }
         public bool? LastWorldsRequestHadViewAs { get; private set; }
 
+        /// <summary>Makes the second world a demo world, run with this role (null: not a demo).</summary>
+        public string? SecondWorldIsDemoAs { get; init; }
+
+        /// <summary>The demo world POST /api/worlds/demo made, once it has; listed from then on.</summary>
+        public Guid? CreatedDemoId { get; private set; }
+
+        public int DemoCreations { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -426,11 +491,25 @@ public class WorldStateTests
             if (path == "/api/worlds")
             {
                 LastWorldsRequestHadViewAs = request.Headers.Contains("X-Nornis-View-As");
+                var second = SecondWorldIsDemoAs is { } demoRole
+                    ? $$"""{"id":"{{SecondWorldId}}","name":"W2","description":null,"gameSystem":null,"myRole":"{{demoRole}}","isDemo":true}"""
+                    : $$"""{"id":"{{SecondWorldId}}","name":"W2","description":null,"gameSystem":null,"myRole":"{{MyRole}}"}""";
+                var created = CreatedDemoId is { } id
+                    ? $$""",{"id":"{{id}}","name":"The Veiled Vale","description":null,"gameSystem":null,"myRole":"GM","isDemo":true}"""
+                    : "";
                 return Task.FromResult(Json(
                     $$"""
                     [{"id":"{{WorldId}}","name":"W","description":null,"gameSystem":null,"myRole":"{{MyRole}}"},
-                     {"id":"{{SecondWorldId}}","name":"W2","description":null,"gameSystem":null,"myRole":"{{MyRole}}"}]
+                     {{second}}{{created}}]
                     """));
+            }
+
+            if (path == "/api/worlds/demo" && request.Method == HttpMethod.Post)
+            {
+                DemoCreations++;
+                CreatedDemoId = Guid.NewGuid();
+                return Task.FromResult(Json(
+                    $$"""{"id":"{{CreatedDemoId}}","name":"The Veiled Vale","description":null,"gameSystem":null,"myRole":"GM","isDemo":true}"""));
             }
 
             if (path == $"/api/worlds/{WorldId}/health/assessment")

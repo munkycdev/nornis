@@ -82,7 +82,7 @@
         _busy = true;
         _error = null;
 
-        var result = await Api.CreateDemoWorldAsync(tutorial: true);
+        var result = await Worlds.OpenDemoAsync();
 
         _busy = false;
 
@@ -93,8 +93,6 @@
         }
 
         _visible = false;
-        await Worlds.ReloadAsync();
-        await Worlds.SelectAsync(result.Value!.Id);
     }
 
     private async Task CreateBlankAsync()

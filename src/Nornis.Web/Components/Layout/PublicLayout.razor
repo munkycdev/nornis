@@ -15,9 +15,18 @@
             <a href="/features">Features</a>
             <a href="/changelog">Change Log</a>
         </nav>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard" Class="nornis-public-signin">
-            Sign in
-        </MudButton>
+        <AuthorizeView>
+            <Authorized>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard" Class="nornis-public-signin">
+                    Open Nornis
+                </MudButton>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard" Class="nornis-public-signin">
+                    Sign in
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
     </header>
 
     <main class="nornis-public-main">
