@@ -36,7 +36,7 @@
     }
     else if (_source is not null)
     {
-        <EntityPage>
+        <EntityPage Workspace="_editing">
         <Header>
         <div class="nornis-detail-head">
             <div class="nornis-list-thumb"><MudIcon Icon="@Icons.Material.Outlined.Description" /></div>
@@ -164,7 +164,7 @@
 
         @if (_editing)
         {
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-fill">
                 <div class="nornis-detail-section-title">Edit source</div>
 
                 <MudTextField @bind-Value="_editTitle" Label="Title" Required="true" Immediate="true"
@@ -187,7 +187,7 @@
                     </MudSelect>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-3 nornis-fill">
                     <NotesEditor @ref="_bodyEditor" InitialMarkdown="@_editBody"
                                  Placeholder="Paste session notes, a journal entry, a transcript…"
                                  AllowMaximize="true"
