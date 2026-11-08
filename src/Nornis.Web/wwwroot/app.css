@@ -2724,18 +2724,6 @@ a.nornis-cite:hover {
     margin: 0 0 34px 0;
 }
 
-.nornis-landing-step-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 46px;
-    height: 46px;
-    border-radius: 8px;
-    background-color: var(--mud-palette-text-primary);
-    color: var(--nornis-gold);
-    margin-bottom: 12px;
-}
-
 .nornis-landing-more {
     text-align: center;
     margin-top: 26px;
@@ -2866,6 +2854,25 @@ a.nornis-cite:hover {
     border-radius: 10px;
     box-shadow: var(--nornis-card-shadow);
     padding: 24px;
+}
+
+/* The step's icon on a soft tint of ink, as the app's type tiles sit on a tint of their colour:
+   filled glyphs, which stay crisp at one pixel per point where thin outlines smear, and ink
+   rather than terracotta, which the theme keeps for the one action. */
+.nornis-welcome-step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    color: var(--mud-palette-text-primary);
+    background-color: color-mix(in srgb, var(--mud-palette-text-primary) 8%, transparent);
+    margin-bottom: 14px;
+}
+
+.nornis-welcome-step-icon .mud-icon-root {
+    font-size: 1.6rem;
 }
 
 .nornis-welcome-step h3 {
