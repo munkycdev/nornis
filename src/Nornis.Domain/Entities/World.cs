@@ -1,4 +1,6 @@
-﻿namespace Nornis.Domain.Entities;
+﻿using Nornis.Domain.Models;
+
+namespace Nornis.Domain.Entities;
 
 public class World
 {
@@ -101,6 +103,27 @@ public class World
     /// abandoned so a host that crashed mid-assessment does not park the world forever.
     /// </summary>
     public DateTimeOffset? ContinuityAuditClaimedAt { get; set; }
+
+    /// <summary>The world's key art (feature 42); null when it has none.</summary>
+    public WorldKeyArt? KeyArt { get; set; }
+
+    /// <summary>The GM's working brief for generating key art, kept so a reload doesn't lose it.</summary>
+    public string? KeyArtBrief { get; set; }
+
+    /// <summary>
+    /// The latest generation's options, at most one generation's worth: generating again deletes
+    /// the ones not chosen, so a world holds the chosen art and these, nothing more.
+    /// </summary>
+    public List<Guid> KeyArtOptionIds { get; set; } = [];
+
+    /// <summary>
+    /// The calendar month (yyyy-MM, UTC) <see cref="KeyArtImagesGenerated"/> counts. Null means no
+    /// key art has been generated yet; a new month starts the count again.
+    /// </summary>
+    public string? KeyArtImagesMonth { get; set; }
+
+    /// <summary>Key-art images generated in <see cref="KeyArtImagesMonth"/>, counted before each call.</summary>
+    public int KeyArtImagesGenerated { get; set; }
 
     public byte[] RowVersion { get; set; } = [];
 

@@ -1,4 +1,4 @@
-using Nornis.Application.Services;
+﻿using Nornis.Application.Services;
 using Nornis.Domain.Enums;
 using NUnit.Framework;
 
@@ -19,7 +19,8 @@ public class AiSpendPoolsTests
         var prep = AiSpendPools.OperationsIn(AiSpendPool.PrepMonthly);
 
         Assert.That(prep, Is.EqualTo([AiOperationType.AdventureDrafting, AiOperationType.AdventureConversation,
-            AiOperationType.CoverArtBrief, AiOperationType.CoverArt]), "cover art is Prep's spending too (feature 38)");
+            AiOperationType.CoverArtBrief, AiOperationType.CoverArt, AiOperationType.KeyArt]),
+            "cover art (feature 38) and key art (feature 42) are Prep's spending too");
         Assert.That(daily.Concat(prep), Is.EquivalentTo(Enum.GetValues<AiOperationType>()));
         Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureDrafting));
         Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureConversation));

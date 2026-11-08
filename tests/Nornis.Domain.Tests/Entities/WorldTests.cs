@@ -124,7 +124,11 @@ public class WorldTests
         // amendment in domain-model.md.
         // 23rd: PrepMonthlyBudgetUsd — Prep's own monthly AI cap (feature 29), apart from the
         // daily budget extraction depends on. Null means the default.
-        Assert.That(properties, Has.Length.EqualTo(23));
+        // 24th–28th: KeyArt, KeyArtBrief, KeyArtOptionIds, KeyArtImagesMonth and
+        // KeyArtImagesGenerated (feature 42): the world's picture, the GM's working brief, the
+        // latest generation's options, and the month's image count the cap reads. Written only
+        // through IWorldKeyArtRepository, never by a whole-world save.
+        Assert.That(properties, Has.Length.EqualTo(28));
     }
 
     [Test]

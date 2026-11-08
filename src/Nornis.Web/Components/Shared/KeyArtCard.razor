@@ -1,0 +1,242 @@
+@inject NornisApiClient Api
+
+@* The world's key art (feature 42): one landscape picture that stands for the world, behind its
+   name on Home and in the world switcher. The GM uploads one, or writes a brief and generates two
+   options on the world creator's own OpenAI key and chooses one. Every rule (the cap, the key,
+   what is deleted when) is the API's; this card shows what the API answers. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-keyart-card">
+    <div class="nornis-detail-section-title">Key art</div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-keyart-visibility">
+        The picture at the top of Home. Everyone in this world sees it@(PublicAccessEnabled ? ", and so does anyone with the public link" : ""),
+        so keep secrets out of it.
+    </MudText>
+
+    @if (_state is null)
+    {
+        @if (_error is null)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Secondary" Class="my-2" />
+        }
+    }
+    else
+    {
+        <div class="nornis-keyart-preview @(_state.KeyArt is null ? "nornis-keyart-preview-empty" : null)">
+            @if (_state.KeyArt is { } art)
+            {
+                <div class="nornis-keyart-preview-image" role="img" aria-label="The world's key art"
+                     style="background-image: url('@Links.WorldArt(WorldId, art.UpdatedAt)'); background-position: center @(art.FocusY)%;"></div>
+            }
+            else
+            {
+                <span>No key art yet. Home shows the world map instead, if there is one.</span>
+            }
+        </div>
+
+        @if (_state.KeyArt is { } current)
+        {
+            <div class="nornis-keyart-current">
+                <span class="nornis-book-details-caption">@(current.Source == "Generated" ? "Generated with AI" : "Your upload")</span>
+                <div class="nornis-keyart-anchor-wrap">
+                    <MudSelect T="string" Value="current.Anchor" ValueChanged="SetAnchorAsync" Label="Keep in view" Dense="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="Locked" Class="nornis-keyart-anchor">
+                        @foreach (var (value, label) in Anchors)
+                        {
+                            <MudSelectItem T="string" Value="value">@label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-keyart-remove"
+                           StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked" OnClick="RemoveAsync">Remove</MudButton>
+            </div>
+        }
+
+        @if (_state.Warning is { } warning)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Warning" Class="d-block nornis-keyart-warning">@warning</MudText>
+        }
+
+        <div class="d-flex flex-wrap gap-1 mt-2">
+            <label class="nornis-cover-upload @(Locked ? "nornis-cover-upload-disabled" : null)">
+                <InputFile OnChange="UploadAsync" accept=".png,.jpg,.jpeg,image/png,image/jpeg" disabled="@Locked" class="nornis-cover-upload-input" />
+                <MudIcon Icon="@Icons.Material.Outlined.Upload" Size="Size.Small" />
+                <span>Upload</span>
+            </label>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-keyart-generate-open"
+                       StartIcon="@Icons.Material.Outlined.AutoAwesome" Disabled="Locked" OnClick="() => _briefOpen = true">Generate</MudButton>
+        </div>
+
+        @if (_briefOpen)
+        {
+            <div class="nornis-cover-brief">
+                <MudTextField T="string" @bind-Value="_brief" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="4"
+                              MaxLength="MaxBriefChars" Counter="MaxBriefChars" Immediate="true" Disabled="Locked"
+                              Label="Describe the picture" aria-label="Describe the picture"
+                              Placeholder="A storm-dark coast at dusk, a lighthouse on the headland, the sea glittering under a broken sky…" />
+                <div class="nornis-book-details-caption">
+                    A wide landscape: a place, its light and its mood. Nornis keeps text out of the picture and sets the world's name over it.
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="nornis-keyart-generate"
+                               Disabled="@(Locked || !_state.CanGenerate || string.IsNullOrWhiteSpace(_brief))"
+                               OnClick="GenerateAsync">Generate two options</MudButton>
+                </div>
+                @if (_state.GenerateBlocker is { } blocker)
+                {
+                    <div class="nornis-book-details-caption nornis-keyart-blocker">@blocker</div>
+                }
+                <div class="nornis-book-details-caption nornis-keyart-count">
+                    @_state.ImagesThisMonth of @_state.ImagesCap images generated this month. They count in the Prep budget.
+                </div>
+            </div>
+        }
+
+        @if (_working is { } working)
+        {
+            <div class="nornis-cover-working">
+                <MudProgressLinear Indeterminate="true" Color="Color.Secondary" />
+                <MudText Typo="Typo.caption">@working</MudText>
+            </div>
+        }
+
+        @if (_state.Options.Count > 0)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">Generated options: choose one.</MudText>
+            <div class="nornis-keyart-options">
+                @foreach (var option in _state.Options)
+                {
+                    var chosen = option == _state.ChosenOptionId;
+                    <button type="button" class="nornis-cover-option nornis-keyart-option @(chosen ? "nornis-cover-option-chosen" : null)"
+                            disabled="@(Locked || chosen)" aria-pressed="@(chosen ? "true" : "false")"
+                            aria-label="@(chosen ? "The key art" : "Use this option")" @onclick="() => ChooseAsync(option)">
+                        <img src="@Links.WorldArtOption(WorldId, option)" alt="A generated key-art option" loading="lazy" />
+                    </button>
+                }
+            </div>
+        }
+    }
+
+    @if (_error is not null)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block nornis-keyart-error">@_error</MudText>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>Mirrors <c>WorldKeyArt.MaxBriefChars</c>; KeyArtCardTests pins it.</summary>
+    public const int MaxBriefChars = 2_000;
+
+    /// <summary>Mirrors <c>KeyArtOptions.MaxUploadBytes</c>' default; the API is the rule, this only stops a pointless send.</summary>
+    public const long MaxUploadBytes = 10 * 1024 * 1024;
+
+    /// <summary>The anchors, by their API names (<c>KeyArtAnchor</c>), as the GM reads them.</summary>
+    public static readonly IReadOnlyList<(string Value, string Label)> Anchors =
+    [
+        ("Top", "The top"),
+        ("Centre", "The middle"),
+        ("Bottom", "The bottom"),
+    ];
+
+    [Parameter, EditorRequired] public Guid WorldId { get; set; }
+
+    /// <summary>Whether the public site is on, so the card can say who sees the art.</summary>
+    [Parameter] public bool PublicAccessEnabled { get; set; }
+
+    /// <summary>Raised when the art changed, so the chrome can show the new picture.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private KeyArtStateDto? _state;
+    private string? _brief;
+    private bool _briefOpen;
+    private string? _working;
+    private string? _error;
+    private Guid _loadedFor;
+
+    private bool Locked => _working is not null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == WorldId)
+        {
+            return;
+        }
+
+        _loadedFor = WorldId;
+        _state = null;
+        _error = null;
+        _brief = null;
+        _briefOpen = false;
+        var result = await Api.GetKeyArtAsync(WorldId);
+        if (result.IsSuccess)
+        {
+            Show(result.Value!);
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+    }
+
+    private void Show(KeyArtStateDto state)
+    {
+        _state = state with { Options = state.Options ?? [] };
+        _brief ??= state.Brief;
+    }
+
+    private Task GenerateAsync() => RunAsync("Painting two options. This can take a minute…",
+        () => Api.GenerateKeyArtAsync(WorldId, _brief ?? string.Empty), changed: false);
+
+    private Task ChooseAsync(Guid option) => RunAsync("Setting the key art…",
+        () => Api.ChooseKeyArtAsync(WorldId, option), changed: true);
+
+    private Task SetAnchorAsync(string anchor) => RunAsync("Moving the picture…",
+        () => Api.SetKeyArtAnchorAsync(WorldId, anchor), changed: true);
+
+    private Task RemoveAsync() => RunAsync("Removing the key art…",
+        () => Api.RemoveKeyArtAsync(WorldId), changed: true);
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.Size > MaxUploadBytes)
+        {
+            _error = $"Key art can be at most {MaxUploadBytes / (1024 * 1024)} MB.";
+            return;
+        }
+
+        await RunAsync("Uploading your picture…", async () =>
+        {
+            await using var stream = file.OpenReadStream(MaxUploadBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            return await Api.UploadKeyArtAsync(WorldId, buffer.ToArray());
+        }, changed: true);
+    }
+
+    private async Task RunAsync(string working, Func<Task<ApiResult<KeyArtStateDto>>> call, bool changed)
+    {
+        _working = working;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            var result = await call();
+            if (result.IsSuccess)
+            {
+                Show(result.Value!);
+                if (changed)
+                {
+                    await OnChanged.InvokeAsync();
+                }
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        finally
+        {
+            _working = null;
+        }
+    }
+}

@@ -2,8 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nornis.Application.Ai;
+using Nornis.Application.Art;
 using Nornis.Application.Configuration;
-using Nornis.Application.Prep.Covers;
 using Nornis.Application.Services;
 using Nornis.Domain.Repositories;
 using Nornis.Infrastructure.Persistence.Repositories;
@@ -34,7 +34,7 @@ public static class AiFundingServiceCollectionExtensions
         services.AddScoped<AiCallBinder>();
         services.AddScoped<IAiCallBinder>(sp => sp.GetRequiredService<AiCallBinder>());
         services.AddScoped<IAiImageBinder>(sp => sp.GetRequiredService<AiCallBinder>());
-        services.AddScoped<ICoverArtGenerator, OpenAiCoverArtGenerator>();
+        services.AddScoped<IImageArtGenerator, OpenAiImageArtGenerator>();
         services.AddHttpClient<IAiKeyChecker, AiKeyChecker>()
             .ConfigurePrimaryHttpMessageHandler(PublicEndpointGuard.CreateHandler);
         services.AddMemoryCache();

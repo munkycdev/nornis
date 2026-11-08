@@ -101,6 +101,63 @@ public class WorldState
 
     public event Action? Changed;
 
+    /// <summary>Raised when a world's key art changed here, so the chrome can show the new picture.</summary>
+    public event Action? HeroChanged;
+
+    /// <summary>
+    /// Each world's hero (feature 42), as last read, keyed on world and effective role: the API
+    /// answers a GM viewing as a player with the player's picture, so the two are kept apart.
+    /// </summary>
+    private readonly Dictionary<(Guid World, string? Role), WorldHeroDto> _heroes = [];
+
+    /// <summary>The current world's hero as last read, without a request; null when none is cached.</summary>
+    public WorldHeroDto? CachedHero =>
+        Current is { } world && _heroes.TryGetValue((world.Id, EffectiveRole), out var hero) ? hero : null;
+
+    /// <summary>
+    /// The current world's hero: the cached one unless <paramref name="refresh"/>, which Home asks
+    /// for so its counts are current. Null when the read failed; the chrome then shows no picture.
+    /// </summary>
+    public async Task<WorldHeroDto?> GetHeroAsync(bool refresh = false, CancellationToken ct = default)
+    {
+        if (Current is not { } world)
+        {
+            return null;
+        }
+
+        var key = (world.Id, EffectiveRole);
+        if (!refresh && _heroes.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var result = await _api.GetWorldHeroAsync(world.Id, ct);
+        if (!result.IsSuccess)
+        {
+            return null;
+        }
+
+        var changed = !_heroes.TryGetValue(key, out var previous) || previous.Picture != result.Value!.Picture;
+        _heroes[key] = result.Value!;
+        if (changed && refresh)
+        {
+            HeroChanged?.Invoke();
+        }
+
+        return result.Value;
+    }
+
+    /// <summary>Forgets a world's hero after its key art changed here, and tells the chrome.</summary>
+    public void ForgetHero(Guid worldId)
+    {
+        foreach (var key in _heroes.Keys.Where(k => k.World == worldId).ToList())
+        {
+            _heroes.Remove(key);
+        }
+
+        HeroChanged?.Invoke();
+    }
+
     /// <summary>
     /// Loads the world list once per circuit. Concurrent callers (multiple components
     /// initializing at once) share a single load rather than each firing one. Deliberately

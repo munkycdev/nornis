@@ -59,21 +59,8 @@ public class PrepCoverController : ControllerBase
     [HttpPut("image")]
     public async Task<IActionResult> Upload(Guid worldId, Guid adventureId, CancellationToken ct)
     {
-        // One byte past the limit is enough to know it's too large, without reading the rest.
-        var limit = _options.MaxCoverUploadBytes;
-        using var buffer = new MemoryStream();
-        var chunk = new byte[81_920];
-        int read;
-        while ((read = await Request.Body.ReadAsync(chunk, ct)) > 0)
-        {
-            buffer.Write(chunk, 0, read);
-            if (buffer.Length > limit)
-            {
-                break;
-            }
-        }
-
-        return Respond(await _covers.UploadAsync(new UploadCoverCommand(worldId, adventureId, UserId, Role, buffer.ToArray()), ct));
+        var bytes = await RequestBodies.ReadBoundedAsync(Request.Body, _options.MaxCoverUploadBytes, ct);
+        return Respond(await _covers.UploadAsync(new UploadCoverCommand(worldId, adventureId, UserId, Role, bytes), ct));
     }
 
     [HttpDelete]

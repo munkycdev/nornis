@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Nornis.Application.Ai;
 using Nornis.Domain.Enums;
 using Nornis.Infrastructure.Ai;
@@ -12,7 +12,7 @@ namespace Nornis.Infrastructure.Tests.Ai;
 /// live Generate hit "The model 'gpt-image-1' does not exist" and was shown as a refusal.
 /// </summary>
 [TestFixture]
-public class CoverArtRejectionTests
+public class ImageArtRejectionTests
 {
     [TestCase("moderation_blocked", "Your request was rejected as a result of our safety system.")]
     [TestCase("content_policy_violation", "Rejected.")]
@@ -24,7 +24,7 @@ public class CoverArtRejectionTests
             : $$$"""{"error":{"message":"{{{message}}}","type":"image_generation_user_error","code":"{{{code}}}"}}""";
         var ex = FakeChatClient.HttpFailure(400, body);
 
-        var rejection = OpenAiCoverArtGenerator.Rejection(ex, ex);
+        var rejection = OpenAiImageArtGenerator.Rejection(ex, ex);
 
         Assert.That(rejection.Moderation, Is.True);
     }
@@ -35,7 +35,7 @@ public class CoverArtRejectionTests
         var ex = FakeChatClient.HttpFailure(400,
             """{"error":{"message":"The model 'gpt-image-1' does not exist.","type":"image_generation_user_error","param":"model","code":"invalid_value"}}""");
 
-        var rejection = OpenAiCoverArtGenerator.Rejection(ex, ex);
+        var rejection = OpenAiImageArtGenerator.Rejection(ex, ex);
 
         Assert.Multiple(() =>
         {
@@ -50,7 +50,7 @@ public class CoverArtRejectionTests
     {
         var ex = FakeChatClient.HttpFailure(400, "<html>bad gateway</html>");
 
-        var rejection = OpenAiCoverArtGenerator.Rejection(ex, ex);
+        var rejection = OpenAiImageArtGenerator.Rejection(ex, ex);
 
         Assert.That((rejection.Moderation, rejection.Reason), Is.EqualTo((false, (string?)null)));
     }
@@ -66,4 +66,14 @@ public class CoverArtRejectionTests
 
         Assert.That(translated, Is.InstanceOf<AiCreditExhaustedException>());
     }
+
+    /// <summary>Covers are portrait and key art landscape (feature 42); every shape has a size.</summary>
+    [TestCase(Nornis.Application.Art.ImageShape.Portrait, 1024, 1536)]
+    [TestCase(Nornis.Application.Art.ImageShape.Landscape, 1536, 1024)]
+    public void EachShape_HasItsSize(Nornis.Application.Art.ImageShape shape, int width, int height) =>
+        Assert.That(OpenAiImageArtGenerator.SizeOf(shape), Is.EqualTo((width, height)));
+
+    [Test]
+    public void EveryShape_HasASize() =>
+        Assert.That(() => Enum.GetValues<Nornis.Application.Art.ImageShape>().Select(OpenAiImageArtGenerator.SizeOf).ToList(), Throws.Nothing);
 }

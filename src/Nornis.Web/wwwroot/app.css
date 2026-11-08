@@ -521,6 +521,16 @@ h1:focus {
     color: var(--mud-palette-drawer-icon);
 }
 
+/* The world's key art in the switcher, in the icon's place (feature 42). */
+.nornis-world-thumb {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--mud-palette-divider);
+}
+
 /* View-as-player: the role chip is quiet at rest, and the whole world card tints while
    the mode is active so a GM can never mistake the filtered view for missing data. */
 .nornis-role-chip {
@@ -786,24 +796,12 @@ a.nornis-tutorial-step-title:hover {
 }
 
 /* ------------------------------------------------------------- Ask hero --- */
-
-.nornis-hero {
-    text-align: center;
-    padding: 34px 32px 30px 32px;
-}
+/* The mark and the small-capitals line are the hero band's (below); the Ask box is Home's. */
 
 .nornis-hero-mark {
     height: 34px;
     width: auto;
     display: block;
-}
-
-.nornis-hero-title {
-    font-family: var(--nornis-serif);
-    font-size: 2.6rem;
-    font-weight: 600;
-    color: var(--mud-palette-text-primary);
-    margin: 6px 0 4px 0;
 }
 
 .nornis-hero-sub {
@@ -820,6 +818,143 @@ a.nornis-tutorial-step-title:hover {
     gap: 10px;
     max-width: 720px;
     margin: 0 auto;
+}
+
+/* ------------------------------------------------------------ Hero band --- */
+
+/* The world's picture at the top of Home and the public page (feature 42). The picture sits in
+   the band's upper right and fades to the page colour leftwards and downwards, so the name, the
+   facts and the Ask box are always set on paper, never over the art. The picture's frame has a
+   fixed height, so a slow image fades in without moving anything. */
+.nornis-heroband {
+    --nornis-heroband-picture: 300px;
+    position: relative;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: var(--mud-palette-background);
+    container-type: inline-size;
+}
+
+.nornis-heroband-picture {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 74%;
+    height: var(--nornis-heroband-picture);
+}
+
+.nornis-heroband-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: nornis-heroband-in 0.6s ease-out both;
+}
+
+/* A map is a plan rather than a view: softer, so it reads as the world's shape behind the name. */
+.nornis-heroband-picture-map .nornis-heroband-img {
+    opacity: 0.55;
+    filter: saturate(0.7);
+    animation-name: nornis-heroband-in-map;
+}
+
+.nornis-heroband-picture::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to right, var(--mud-palette-background) 0%, transparent 42%),
+        linear-gradient(to top, var(--mud-palette-background) 0%, transparent 38%);
+    pointer-events: none;
+}
+
+@keyframes nornis-heroband-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes nornis-heroband-in-map {
+    from { opacity: 0; }
+    to { opacity: 0.55; }
+}
+
+.nornis-heroband-head {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-width: 44%;
+    padding: 32px 0 18px 6px;
+}
+
+.nornis-heroband-pictured .nornis-heroband-head {
+    min-height: calc(var(--nornis-heroband-picture) - 84px);
+}
+
+.nornis-heroband-plain .nornis-heroband-head {
+    max-width: none;
+    align-items: center;
+    text-align: center;
+    padding-top: 30px;
+}
+
+.nornis-heroband-title {
+    font-family: var(--nornis-serif);
+    font-size: 2.9rem;
+    line-height: 1.1;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+    margin: 6px 0 6px 0;
+}
+
+.nornis-heroband-facts {
+    font-size: 0.88rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-heroband .nornis-heroband-caption {
+    margin: 14px 0 0 0;
+}
+
+.nornis-heroband-body {
+    position: relative;
+    padding: 12px 6px 8px 6px;
+}
+
+.nornis-heroband-pictured .nornis-ask,
+.nornis-heroband-pictured .nornis-suggestions {
+    margin-left: 0;
+}
+
+/* A phone's width: the picture becomes a strip above the name rather than beside it. */
+@container (max-width: 640px) {
+    .nornis-heroband-picture {
+        position: relative;
+        width: 100%;
+        height: 170px;
+    }
+
+    .nornis-heroband-picture::after {
+        background: linear-gradient(to top, var(--mud-palette-background) 0%, transparent 55%);
+    }
+
+    .nornis-heroband-head,
+    .nornis-heroband-pictured .nornis-heroband-head {
+        max-width: none;
+        min-height: 0;
+        padding-top: 4px;
+    }
+
+    .nornis-heroband-title {
+        font-size: 1.9rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nornis-heroband-img {
+        animation: none;
+    }
 }
 
 .nornis-ask .nornis-ask-input {
@@ -2112,14 +2247,6 @@ a.nornis-cite:hover {
 /* The content column at a phone's width — whether the window is a phone or the sidebar
    has taken the rest. */
 @container page (max-width: 600px) {
-    .nornis-hero {
-        padding: 24px 18px 22px 18px;
-    }
-
-    .nornis-hero-title {
-        font-size: 1.9rem;
-    }
-
     /* Let the label own a line so the two pickers can share the next one. */
     .nornis-cost-range-label {
         flex-basis: 100%;
@@ -5051,6 +5178,60 @@ a.nornis-cite:hover {
 .nornis-cover-option-chosen {
     border-color: var(--mud-palette-primary);
     cursor: default;
+}
+
+/* The Key art card (feature 42): the preview is the hero's proportions, so the GM sees the crop
+   Home will show; the options are landscape where a cover's are portrait. */
+.nornis-keyart-preview {
+    margin-top: 12px;
+    aspect-ratio: 16 / 5;
+    max-width: 720px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--mud-palette-lines-default);
+}
+
+.nornis-keyart-preview-image {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.nornis-keyart-preview-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    text-align: center;
+    border-style: dashed;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.86rem;
+}
+
+.nornis-keyart-current {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: 10px;
+}
+
+/* MudSelect sizes itself to its container, so the width is set on a wrapper. */
+.nornis-keyart-anchor-wrap {
+    flex: 0 0 200px;
+}
+
+.nornis-keyart-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    max-width: 720px;
+    margin-top: 4px;
+}
+
+.nornis-keyart-option img {
+    aspect-ratio: 3 / 2;
 }
 
 /* Handouts (feature 38): the chosen list, and a picker that scrolls rather than growing the rail. */

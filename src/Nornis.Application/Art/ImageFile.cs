@@ -1,29 +1,27 @@
 using System.Buffers.Binary;
 
-namespace Nornis.Application.Prep.Covers;
+namespace Nornis.Application.Art;
 
-/// <summary>What an uploaded cover file is, read from its own bytes rather than its name or the browser's word.</summary>
-public sealed record CoverImageInfo(string ContentType, string Extension, int Width, int Height);
+/// <summary>What an uploaded image is, read from its own bytes rather than its name or the browser's word.</summary>
+public sealed record ImageFileInfo(string ContentType, string Extension, int Width, int Height);
 
 /// <summary>
 /// Reads an image's type and size from its header (feature 38): PNG's IHDR, JPEG's first start of
-/// frame. Nothing is decoded, so a hostile file is never handed to an image library here.
+/// frame. Nothing is decoded, so a hostile file is never handed to an image library here. Covers
+/// and key art (feature 42) both take uploads through it.
 /// </summary>
-public static class CoverImageFile
+public static class ImageFile
 {
-    /// <summary>A cover this many pixels or more on its short side prints sharp on a page.</summary>
-    public const int SharpShortSide = 1_000;
-
     private static ReadOnlySpan<byte> PngSignature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>Null when the bytes are neither a PNG nor a JPEG with a readable size.</summary>
-    public static CoverImageInfo? Read(ReadOnlySpan<byte> bytes)
+    public static ImageFileInfo? Read(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length >= 24 && bytes[..8].SequenceEqual(PngSignature) && bytes[12..16].SequenceEqual("IHDR"u8))
         {
             var width = BinaryPrimitives.ReadInt32BigEndian(bytes[16..20]);
             var height = BinaryPrimitives.ReadInt32BigEndian(bytes[20..24]);
-            return width > 0 && height > 0 ? new CoverImageInfo("image/png", ".png", width, height) : null;
+            return width > 0 && height > 0 ? new ImageFileInfo("image/png", ".png", width, height) : null;
         }
 
         if (bytes.Length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xD8)
@@ -34,7 +32,7 @@ public static class CoverImageFile
         return null;
     }
 
-    private static CoverImageInfo? Jpeg(ReadOnlySpan<byte> bytes)
+    private static ImageFileInfo? Jpeg(ReadOnlySpan<byte> bytes)
     {
         var at = 2;
         while (at + 4 <= bytes.Length)
@@ -67,7 +65,7 @@ public static class CoverImageFile
 
                 var height = BinaryPrimitives.ReadUInt16BigEndian(bytes[(at + 5)..(at + 7)]);
                 var width = BinaryPrimitives.ReadUInt16BigEndian(bytes[(at + 7)..(at + 9)]);
-                return width > 0 && height > 0 ? new CoverImageInfo("image/jpeg", ".jpg", width, height) : null;
+                return width > 0 && height > 0 ? new ImageFileInfo("image/jpeg", ".jpg", width, height) : null;
             }
 
             at += 2 + length;

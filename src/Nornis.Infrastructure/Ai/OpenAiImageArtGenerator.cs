@@ -3,42 +3,50 @@ using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Nornis.Application.Ai;
-using Nornis.Application.Prep.Covers;
+using Nornis.Application.Art;
 using Nornis.Domain.Enums;
 using OpenAI.Images;
 
 // The image options gpt-image models take (quality, file format) and the usage they report are
-// marked experimental in the SDK. Cover art needs all three, and the price depends on the usage.
+// marked experimental in the SDK. The art needs all three, and the price depends on the usage.
 #pragma warning disable OPENAI001
 
 namespace Nornis.Infrastructure.Ai;
 
 /// <summary>
-/// Cover art on the key holder's OpenAI image model (feature 38), bound per call through
+/// Pictures on the key holder's OpenAI image model, bound per call through
 /// <see cref="IAiImageBinder"/>: the same funding rule, users' keys and failure translation as
-/// every chat call. Portrait, PNG, medium quality: a booklet page, not a poster.
+/// every chat call. Covers (feature 38) are portrait, key art (feature 42) landscape; both PNG at
+/// medium quality, a page or a band rather than a poster.
 /// </summary>
-public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
+public sealed class OpenAiImageArtGenerator : IImageArtGenerator
 {
-    private const string Operation = "CoverArt";
-
-    /// <summary>The portrait size closest to a US Letter page that the image models make.</summary>
-    public const int Width = 1024;
-    public const int Height = 1536;
-
     private readonly IAiImageBinder _binder;
     private readonly IAiFundingService _funding;
-    private readonly ILogger<OpenAiCoverArtGenerator> _logger;
+    private readonly ILogger<OpenAiImageArtGenerator> _logger;
 
-    public OpenAiCoverArtGenerator(IAiImageBinder binder, IAiFundingService funding, ILogger<OpenAiCoverArtGenerator> logger)
+    public OpenAiImageArtGenerator(IAiImageBinder binder, IAiFundingService funding, ILogger<OpenAiImageArtGenerator> logger)
     {
         _binder = binder;
         _funding = funding;
         _logger = logger;
     }
 
-    public async Task<CoverArtGeneration> GenerateAsync(AiCallScope scope, string prompt, int count, int timeoutSeconds, CancellationToken ct)
+    /// <summary>
+    /// The size the image models make for each shape: portrait is the nearest to a US Letter page,
+    /// landscape the same frame turned on its side.
+    /// </summary>
+    public static (int Width, int Height) SizeOf(ImageShape shape) => shape switch
     {
+        ImageShape.Portrait => (1024, 1536),
+        ImageShape.Landscape => (1536, 1024),
+        _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "Every image shape needs a size."),
+    };
+
+    public async Task<ImageArtGeneration> GenerateAsync(
+        AiCallScope scope, string prompt, ImageShape shape, int count, int timeoutSeconds, string operation, CancellationToken ct)
+    {
+        var (width, height) = SizeOf(shape);
         var binding = await _binder.BindImagesAsync(scope, AiTask.CoverArt, ct);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
@@ -49,7 +57,7 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
         {
             var options = new ImageGenerationOptions
             {
-                Size = new GeneratedImageSize(Width, Height),
+                Size = new GeneratedImageSize(width, height),
                 Quality = GeneratedImageQuality.MediumQuality,
                 OutputFileFormat = GeneratedImageFileFormat.Png,
             };
@@ -64,10 +72,10 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
             Exception failure;
             if (ex is OperationCanceledException)
             {
-                _logger.LogWarning("{Operation} AI call timed out after {TimeoutSeconds}s", Operation, timeoutSeconds);
-                failure = new AiTimeoutException($"{Operation} AI call timed out after {timeoutSeconds} seconds.");
+                _logger.LogWarning("{Operation} AI call timed out after {TimeoutSeconds}s", operation, timeoutSeconds);
+                failure = new AiTimeoutException($"{operation} AI call timed out after {timeoutSeconds} seconds.");
             }
-            else if (OpenAiProviderTraits.Instance.TranslateFailure(ex, binding.Funding, Operation, _logger) is { } translated)
+            else if (OpenAiProviderTraits.Instance.TranslateFailure(ex, binding.Funding, operation, _logger) is { } translated)
             {
                 failure = translated is { StatusCode: 400 } && ex is ClientResultException rejected
                     ? Rejection(rejected, translated)
@@ -75,8 +83,8 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
             }
             else
             {
-                _logger.LogError(ex, "Unexpected error during {Operation} AI call", Operation);
-                failure = new AiHttpException($"Unexpected error during {Operation} AI call.", null, ex);
+                _logger.LogError(ex, "Unexpected error during {Operation} AI call", operation);
+                failure = new AiHttpException($"Unexpected error during {operation} AI call.", null, ex);
             }
 
             await _binder.ReportAsync(binding, failure, CancellationToken.None);
@@ -97,16 +105,16 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
         };
         var pictures = images
             .Where(i => i.ImageBytes is not null)
-            .Select(i => new GeneratedCoverImage(i.ImageBytes.ToArray(), i.RevisedPrompt))
+            .Select(i => new Nornis.Application.Art.GeneratedImage(i.ImageBytes.ToArray(), i.RevisedPrompt))
             .ToList();
-        return new CoverArtGeneration(pictures, usage);
+        return new ImageArtGeneration(pictures, usage);
     }
 
     /// <summary>
     /// A 400 from the image endpoint, read from OpenAI's error body: its safety system's codes
     /// mean the prompt was turned down; anything else is passed on in OpenAI's own words.
     /// </summary>
-    internal static CoverArtRejectedException Rejection(ClientResultException ex, Exception inner)
+    internal static ImageArtRejectedException Rejection(ClientResultException ex, Exception inner)
     {
         string? code = null;
         string? message = null;
@@ -130,7 +138,7 @@ public sealed class OpenAiCoverArtGenerator : ICoverArtGenerator
 
         var moderation = code is "moderation_blocked" or "content_policy_violation"
             || (message?.Contains("safety system", StringComparison.OrdinalIgnoreCase) ?? false);
-        return new CoverArtRejectedException(moderation, message, inner);
+        return new ImageArtRejectedException(moderation, message, inner);
     }
 
     public async Task<bool> CanGenerateAsync(AiCallScope scope, CancellationToken ct)

@@ -1,0 +1,62 @@
+@* The top of Home and of a public world's page (feature 42): the world's picture with its name and
+   a line of facts set beside it on paper. Which picture (key art, else the map the caller may see,
+   else none) is the API's choice, read once into Hero; this only lays it out. The band's height is
+   fixed while a picture is on its way, so a slow image fades in without moving the page. *@
+
+<section class="nornis-heroband @(PictureUrl is null ? "nornis-heroband-plain" : "nornis-heroband-pictured")"
+         aria-label="@(Title ?? "The world")">
+    @if (PictureUrl is { } url)
+    {
+        <div class="nornis-heroband-picture @(IsMap ? "nornis-heroband-picture-map" : null)" aria-hidden="true">
+            <img class="nornis-heroband-img" src="@url" alt="" decoding="async"
+                 style="object-position: center @(FocusY)%;" />
+        </div>
+    }
+
+    <div class="nornis-heroband-head">
+        @if (PictureUrl is null && Title is not null)
+        {
+            <img src="images/mini-logo.png" alt="" class="nornis-hero-mark nornis-logo-ink" />
+        }
+        @if (Title is not null)
+        {
+            <h1 class="nornis-heroband-title">@Title</h1>
+        }
+        @if (Hero is not null)
+        {
+            <div class="nornis-heroband-facts">@string.Join(" · ", HeroDisplay.Facts(Hero))</div>
+        }
+        @if (Caption is not null)
+        {
+            <div class="nornis-hero-sub nornis-heroband-caption">@Caption</div>
+        }
+    </div>
+
+    @if (ChildContent is not null)
+    {
+        <div class="nornis-heroband-body">@ChildContent</div>
+    }
+</section>
+
+@code {
+    /// <summary>The world's name as the band's heading; null where the page already names it.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>The API's hero read: the facts line and the picture. Null while loading or on failure.</summary>
+    [Parameter] public WorldHeroDto? Hero { get; set; }
+
+    /// <summary>Where the picture is fetched (<see cref="HeroDisplay.PictureUrl"/>); null shows no picture.</summary>
+    [Parameter] public string? PictureUrl { get; set; }
+
+    /// <summary>The small capitals line under the facts, such as "Ask the Loremaster".</summary>
+    [Parameter] public string? Caption { get; set; }
+
+    /// <summary>What sits under the heading: Home's Ask box and suggestions.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private int FocusY => Math.Clamp(Hero?.Picture.FocusY ?? 50, 0, 100);
+
+    // A map is a plan, not a view: it's shown whole-width and softer so it reads as the world's
+    // shape behind the name rather than as art.
+    private bool IsMap => Hero?.Picture.Kind == "Map";
+}

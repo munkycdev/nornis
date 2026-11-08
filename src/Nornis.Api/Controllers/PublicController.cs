@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
@@ -8,6 +8,8 @@ using Nornis.Api.Contracts.Requests;
 using Nornis.Api.Contracts.Responses;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
+using Nornis.Application.Hero;
+using Nornis.Application.KeyArt;
 using Nornis.Application.Models;
 using Nornis.Application.Services;
 using Nornis.Domain.Entities;
@@ -39,6 +41,8 @@ public class PublicController : ControllerBase
     private readonly IJourneyMapService _journeyService;
     private readonly ILoremasterService _loremasterService;
     private readonly IAiBudgetGuard _budgetGuard;
+    private readonly WorldHeroService _hero;
+    private readonly WorldKeyArtService _keyArt;
     private readonly DemoWorldOptions _demoOptions;
 
     public PublicController(
@@ -48,8 +52,12 @@ public class PublicController : ControllerBase
         IJourneyMapService journeyService,
         ILoremasterService loremasterService,
         IAiBudgetGuard budgetGuard,
+        WorldHeroService hero,
+        WorldKeyArtService keyArt,
         IOptions<DemoWorldOptions> demoOptions)
     {
+        _hero = hero;
+        _keyArt = keyArt;
         _worldRepository = worldRepository;
         _artifactService = artifactService;
         _sourceService = sourceService;
@@ -70,6 +78,38 @@ public class PublicController : ControllerBase
             : Ok(new PublicWorldResponse(
                 world.PublicSlug!, world.Name, world.Description, world.GameSystem,
                 AskEnabled: world.PublicAskMonthlyBudgetUsd is > 0m));
+    }
+
+    /// <summary>
+    /// The public world page's hero (feature 42): the facts and picture an Observer would see, so
+    /// a GM-only map or session never reaches it.
+    /// </summary>
+    [HttpGet("hero")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
+    public async Task<IActionResult> GetHero(string slug, CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        if (world is null)
+        {
+            return PublicNotFound();
+        }
+
+        var result = await _hero.GetForPublicAsync(world, ct);
+        return result.IsSuccess ? Ok(HeroController.ToResponse(result.Value!)) : PublicNotFound();
+    }
+
+    /// <summary>
+    /// The key art, for the public world page. Served only for a world resolved by slug with public
+    /// access on (correctness property 2); the Web proxies it with the art's stamp in its URL.
+    /// </summary>
+    [HttpGet("key-art")]
+    [OutputCache(PolicyName = PublicOutputCache.PolicyName)]
+    public async Task<IActionResult> GetKeyArt(string slug, CancellationToken ct)
+    {
+        var world = await ResolveAsync(slug, ct);
+        return world is null
+            ? PublicNotFound()
+            : KeyArtController.ImageResult(this, await _keyArt.OpenForPublicAsync(world, ct), shared: true);
     }
 
     /// <summary>

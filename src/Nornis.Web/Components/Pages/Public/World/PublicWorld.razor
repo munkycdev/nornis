@@ -1,4 +1,4 @@
-@page "/w/{Slug}"
+﻿@page "/w/{Slug}"
 @layout PublicLayout
 @using System.Text.RegularExpressions
 @implements IDisposable
@@ -9,6 +9,15 @@
 <PublicWorldFrame Slug="@Slug" Active="home">
     <ChildContent Context="world">
         <PageTitle>@world.Name — Nornis</PageTitle>
+
+        @* The world's picture under the frame's own name (feature 42): key art, else the map the
+           party has seen. A world with neither keeps the plain page. *@
+        @if (_hero is { } hero && HeroDisplay.PictureUrl(hero, Slug) is { } picture)
+        {
+            <div class="mb-4">
+                <HeroBand Hero="hero" PictureUrl="@picture" />
+            </div>
+        }
 
         @* Ask the Loremaster — shown only when the GM has funded a monthly public budget.
            Single-shot (no thread) and Library-free; the API enforces the spend cap. *@
@@ -158,18 +167,28 @@
     private string? _askError;
     private string? _loadedSlug;
 
-    protected override void OnParametersSet()
+    private WorldHeroDto? _hero;
+
+    protected override async Task OnParametersSetAsync()
     {
         // Reset the ask state when navigating between worlds so one world's answer never
         // lingers on another's page.
         if (Slug != _loadedSlug)
         {
             _loadedSlug = Slug;
+            _hero = null;
             _question = string.Empty;
             _answer = null;
             _streaming = null;
             _askError = null;
             _asking = false;
+
+            var slug = Slug;
+            var hero = await Api.GetPublicWorldHeroAsync(slug);
+            if (Slug == slug)
+            {
+                _hero = hero.IsSuccess ? hero.Value : null;
+            }
         }
     }
 

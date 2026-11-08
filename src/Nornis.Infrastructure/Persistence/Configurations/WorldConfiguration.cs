@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nornis.Domain.Entities;
+using Nornis.Domain.Models;
 
 namespace Nornis.Infrastructure.Persistence.Configurations;
 
@@ -47,6 +48,25 @@ public class WorldConfiguration : IEntityTypeConfiguration<World>
 
         builder.Property(c => c.RowVersion)
             .IsRowVersion();
+
+        // Feature 42: the key art, five nullable KeyArt_* columns. Optional: BlobPath is required
+        // inside, so a world with no art reads back with a null KeyArt.
+        builder.OwnsOne(c => c.KeyArt, art =>
+        {
+            art.Property(a => a.BlobPath).IsRequired().HasMaxLength(500);
+            art.Property(a => a.ContentType).IsRequired().HasMaxLength(50);
+            art.Property(a => a.Source).HasConversion<string>().HasMaxLength(20);
+            art.Property(a => a.Brief).HasMaxLength(WorldKeyArt.MaxBriefChars);
+            art.Property(a => a.Anchor).HasConversion<string>().HasMaxLength(20);
+            art.Property(a => a.UpdatedAt).HasColumnType("datetimeoffset");
+        });
+
+        builder.Property(c => c.KeyArtBrief).HasMaxLength(WorldKeyArt.MaxBriefChars);
+
+        // A JSON array of ids: one generation's options at most, never queried into.
+        builder.Property(c => c.KeyArtOptionIds).HasMaxLength(1000);
+
+        builder.Property(c => c.KeyArtImagesMonth).HasMaxLength(7);
 
         builder.HasOne(c => c.CreatedByUser)
             .WithMany()

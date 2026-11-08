@@ -98,6 +98,12 @@
             }
         </MudPaper>
 
+        @if (_isGm)
+        {
+            <KeyArtCard WorldId="Worlds.Current.Id" PublicAccessEnabled="Worlds.Current.PublicAccessEnabled"
+                        OnChanged="() => Worlds.ForgetHero(Worlds.Current!.Id)" />
+        }
+
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
             <div class="nornis-detail-section-title">Campaigns and members</div>
             <MudText Typo="Typo.body2" Color="Color.Secondary">

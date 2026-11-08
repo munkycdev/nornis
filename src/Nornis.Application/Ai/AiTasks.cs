@@ -37,6 +37,7 @@ public static class AiTasks
         AiOperationType.CoverArtBrief => AiTask.Prep,
 
         AiOperationType.CoverArt => AiTask.CoverArt,
+        AiOperationType.KeyArt => AiTask.CoverArt,
 
         AiOperationType.WorldNaming => AiTask.Chores,
         AiOperationType.ConvergenceNarration => AiTask.Chores,
