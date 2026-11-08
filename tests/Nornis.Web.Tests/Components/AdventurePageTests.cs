@@ -549,7 +549,7 @@ public class AdventurePageTests : BunitContext
     {
         var cut = await RenderAsync();
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-mode button"), Has.Count.EqualTo(3)));
-        Assert.That(cut.FindAll(".nornis-book-details"), Is.Empty, "not on the Sections tab");
+        Assert.That(cut.FindAll(".nornis-book-details"), Is.Empty, "not on the Structure tab");
 
         await cut.InvokeAsync(() => ModeButton(cut, "Book").Click());
 
@@ -610,7 +610,7 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheOutline_IsOnlyOnTheSectionsTab()
+    public async Task TheOutline_IsOnlyOnTheStructureTab()
     {
         var cut = await RenderAsync();
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-outline"), Has.Count.EqualTo(1)));
@@ -657,7 +657,7 @@ public class AdventurePageTests : BunitContext
         cut.FindAll(".nornis-prep-mode button").First(b => b.TextContent.Trim() == label);
 
     [Test]
-    public async Task AnAdventureWithAWrittenSection_OpensOnSections()
+    public async Task AnAdventureWithAWrittenSection_OpensOnStructure()
     {
         var cut = await RenderAsync();
 
@@ -725,7 +725,7 @@ public class AdventurePageTests : BunitContext
         await cut.InvokeAsync(() => ModeButton(cut, "Design").Click());
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-design"), Has.Count.EqualTo(1)));
 
-        await cut.InvokeAsync(() => ModeButton(cut, "Sections").Click());
+        await cut.InvokeAsync(() => ModeButton(cut, "Structure").Click());
 
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
         Assert.That(JsonDocument.Parse(_handler.LastDraftSaveBody!).RootElement.GetProperty("markdown").GetString(),
@@ -971,7 +971,7 @@ public class AdventurePageTests : BunitContext
             Assert.That(split.GetProperty("mode").GetString(), Is.EqualTo("Replace"));
             Assert.That(split.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.DraftStamp));
         });
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1), "the Sections tab opens"));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1), "the Structure tab opens"));
         Assert.That(cut.FindAll("button.nornis-prep-outline-title").Select(b => b.TextContent.Trim()), Is.EqualTo(["Arrival", "The Baths"]));
     }
 
