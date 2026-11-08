@@ -558,7 +558,7 @@ public class AdventurePageTests : BunitContext
         {
             Assert.That(cut.Find(".nornis-book-details").TextContent, Does.Contain("From the world"));
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-cover-card"), Has.Count.EqualTo(1));
-            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-typography"), Has.Count.EqualTo(1));
+            Assert.That(cut.FindAll(".nornis-prep-book-catalog .nornis-typography"), Has.Count.EqualTo(1), "Typography sits above Book details");
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-handouts"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-adventure-documents"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-talk-column .nornis-prep-talk"), Has.Count.EqualTo(1), "Talk it through is beside the book");
@@ -566,20 +566,34 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheTitlePitchAndCampaign_AreEditedFromTheBookTab_NotTheHeader()
+    public async Task TheTitlePitchAndCampaign_AreEditedInThePageHead_AboveEveryTab()
     {
-        var cut = await RenderOnBookAsync();
-        var dialogs = Render<MudDialogProvider>();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-about"), Has.Count.EqualTo(1)));
+        var cut = await RenderAsync();
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-head .nornis-prep-heading"), Has.Count.EqualTo(1)));
         Assert.Multiple(() =>
         {
-            Assert.That(cut.Find(".nornis-prep-about-title").TextContent, Is.EqualTo("The Silver Key"));
+            Assert.That(cut.Find(".nornis-prep-heading-title").TextContent.Trim(), Is.EqualTo("The Silver Key"));
+            Assert.That(cut.Find(".nornis-prep-heading-pitch").TextContent.Trim(), Is.EqualTo("A heist."));
+            Assert.That(cut.FindAll(".nornis-prep-heading-campaign-select"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-page-head-actions button").Select(b => b.TextContent.Trim()), Has.None.EqualTo("Details"));
         });
 
-        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-about-edit").Click());
+        await cut.InvokeAsync(() => ModeButton(cut, "Book").Click());
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(1)));
+        Assert.That(cut.FindAll(".nornis-prep-heading"), Has.Count.EqualTo(1), "the head stays above the Book tab");
 
-        dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Adventure details")));
+        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-heading-title").Click());
+        cut.Find(".nornis-prep-heading-title-input input").Input("The Golden Key");
+        await cut.InvokeAsync(() => cut.Find(".nornis-prep-heading-save").Click());
+
+        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-heading-title").TextContent.Trim(), Is.EqualTo("The Golden Key")));
+        using var body = JsonDocument.Parse(_handler.LastUpdateBody!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(body.RootElement.GetProperty("title").GetString(), Is.EqualTo("The Golden Key"));
+            Assert.That(body.RootElement.GetProperty("pitch").GetString(), Is.EqualTo("A heist."), "every save sends all three");
+            Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(1), "the tab is kept");
+        });
     }
 
     [Test]
@@ -1073,6 +1087,11 @@ public class AdventurePageTests : BunitContext
         public string? LastSendBody { get; private set; }
         public string? LastPutBody { get; private set; }
         public string? LastPutPath { get; private set; }
+
+        /// <summary>The body of the last title, pitch and campaign save.</summary>
+        public string? LastUpdateBody { get; private set; }
+        public string Title { get; private set; } = "The Silver Key";
+        public string Pitch { get; private set; } = "A heist.";
         public bool Cleared { get; private set; }
 
         /// <summary>A gauge of these candidates, strongest first: (anchor, description) each.</summary>
@@ -1274,6 +1293,15 @@ public class AdventurePageTests : BunitContext
                 return Json(Adventure(OverviewId, SceneId));
             }
 
+            if (request.Method == HttpMethod.Put && path.EndsWith($"/prep/{_adventureId}", StringComparison.Ordinal))
+            {
+                LastUpdateBody = await request.Content!.ReadAsStringAsync(ct);
+                using var update = JsonDocument.Parse(LastUpdateBody);
+                Title = update.RootElement.GetProperty("title").GetString()!;
+                Pitch = update.RootElement.GetProperty("pitch").GetString() ?? string.Empty;
+                return Json(Adventure(OverviewId, SceneId));
+            }
+
             if (request.Method == HttpMethod.Get && path.Contains("/prep/", StringComparison.Ordinal))
             {
                 return Json(Adventure(OverviewId, SceneId));
@@ -1294,8 +1322,8 @@ public class AdventurePageTests : BunitContext
                 : $$"""{"id":"{{id}}","kind":"Scene","title":"Scene 1: The Docks","bodyMarkdown":"","sortOrder":{{order}},"updatedAt":"2026-11-02T10:00:00+00:00","revisionCount":0,"isFilled":false}""";
 
             return $$"""
-                {"id":"{{_adventureId}}","worldId":"{{_worldId}}","campaignId":null,"title":"The Silver Key",
-                 "slug":"the-silver-key","pitch":"A heist.","lastPrintedDocumentId":null,
+                {"id":"{{_adventureId}}","worldId":"{{_worldId}}","campaignId":null,"title":{{JsonSerializer.Serialize(Title)}},
+                 "slug":"the-silver-key","pitch":{{JsonSerializer.Serialize(Pitch)}},"lastPrintedDocumentId":null,
                  "createdAt":"2026-11-02T09:00:00+00:00","updatedAt":"2026-11-02T10:00:00+00:00",
                  "sections":[{{Section(first, 1)}},{{Section(second, 2)}}{{Chapter()}}],
                  "details":{"gameSystem":null,"edition":null,"levels":null,"year":null},

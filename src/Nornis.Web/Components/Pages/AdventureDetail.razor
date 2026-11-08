@@ -39,239 +39,240 @@ else if (_error is not null && _adventure is null)
 }
 else if (_adventure is not null)
 {
-    <div class="nornis-page-head">
-        <div>
-            <MudText Typo="Typo.h4" Class="nornis-serif">@_adventure.Title</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                @(_adventure.Pitch ?? "No pitch yet.")
-            </MudText>
-        </div>
-        <div class="nornis-page-head-actions">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="nornis-prep-print"
-                       StartIcon="@Icons.Material.Outlined.Print" OnClick="PrintAsync" Disabled="_busy">
-                Print
-            </MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-export"
-                       StartIcon="@Icons.Material.Outlined.MoveToInbox" OnClick="ExportAsync" Disabled="_busy">
-                Export to Nornis
-            </MudButton>
-            @* Delete is hard and cascades (every section, draft and conversation), so it does not
-               sit beside Print at the same weight; it is one step away, behind the menu. *@
-            <MudMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="More actions" Class="nornis-prep-more"
-                     AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Disabled="_busy">
-                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconColor="Color.Error" OnClick="DeleteAdventureAsync">
-                    Delete adventure…
-                </MudMenuItem>
-            </MudMenu>
-        </div>
-    </div>
-
-    @* The three tabs (Nornis 3.13): Design, Structure (called Sections before 3.16) and Book, in
-       the order a GM works. The tab is kept in the URL; moving between tabs saves what was typed
-       on the one being left, and no tab changes while a Talk it through turn runs. *@
-    <div class="nornis-prep-mode nornis-prep-tabs" role="tablist" aria-label="Adventure">
-        @foreach (var mode in Modes)
-        {
-            var tab = mode;
-            <button type="button" role="tab" class="nornis-prep-tab @(tab == _mode ? "nornis-prep-tab-active" : null)"
-                    aria-selected="@(tab == _mode ? "true" : "false")" disabled="@(_busy || _talkRunning)"
-                    @onclick="() => SwitchModeAsync(tab)">
-                @tab
-            </button>
-        }
-    </div>
-
-    <div class="nornis-prep-layout nornis-prep-layout-@_mode.ToLowerInvariant()">
-        @if (_mode == StructureMode)
-        {
-            <div class="nornis-prep-side">
-                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
-                    <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
-                    @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
-                    {
-                        var sectionId = row.Id;
-                        var position = index;
-                        @* dragover carries preventDefault with no handler, as on the import backlog: a
-                           .NET callback per dragover event would re-render the outline continuously. *@
-                        <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
-                             draggable="@(_busy ? "false" : "true")"
-                             @ondragstart="() => _dragId = sectionId"
-                             @ondragenter="() => OnDragEnter(sectionId)"
-                             @ondragover:preventDefault="true"
-                             @ondrop="() => OnDropAsync(sectionId)"
-                             @ondragend="OnDragEnd">
-                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
-                                     Class="nornis-drag-grip" title="Drag to reorder" />
-                            <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
-                                     Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
-                                     title="@PrepDisplay.Label(row.Kind)" />
-                            <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
-                                    @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
-                                @row.Title
-                            </button>
-                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
-                                           Disabled="@(_busy || position == 0)" aria-label="Move up"
-                                           OnClick="() => MoveAsync(sectionId, -1)" />
-                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
-                                           Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
-                                           OnClick="() => MoveAsync(sectionId, 1)" />
-                        </div>
-                    }
-                    <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
-                             Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
-                        @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
-                        {
-                            <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
-                        }
-                    </MudMenu>
-                </MudPaper>
+    @* A workspace (3.18): on a wide window the page is the window, and its editors, columns and
+       conversation scroll inside it, so Save and Send are always in view. *@
+    <div class="nornis-workspace nornis-prep-workspace">
+        <div class="nornis-page-head nornis-prep-head">
+            @* The adventure's own details, edited where they are shown, above every tab (3.18). *@
+            <AdventureHeading WorldId="Worlds.Current.Id" Adventure="_adventure" Campaigns="_campaigns" Disabled="_busy"
+                              OnSaved="OnHeadingSaved" />
+            <div class="nornis-page-head-actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="nornis-prep-print"
+                           StartIcon="@Icons.Material.Outlined.Print" OnClick="PrintAsync" Disabled="_busy">
+                    Print
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-export"
+                           StartIcon="@Icons.Material.Outlined.MoveToInbox" OnClick="ExportAsync" Disabled="_busy">
+                    Export to Nornis
+                </MudButton>
+                @* Delete is hard and cascades (every section, draft and conversation), so it does not
+                   sit beside Print at the same weight; it is one step away, behind the menu. *@
+                <MudMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="More actions" Class="nornis-prep-more"
+                         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Disabled="_busy">
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconColor="Color.Error" OnClick="DeleteAdventureAsync">
+                        Delete adventure…
+                    </MudMenuItem>
+                </MudMenu>
             </div>
-        }
+        </div>
 
-        <div class="nornis-prep-editor">
-            @* Design (feature 37) works on the one draft; Structure on the outline's sections. *@
-            @if (_mode == BookMode)
+        @* The three tabs (Nornis 3.13): Design, Structure (called Sections before 3.16) and Book, in
+           the order a GM works. The tab is kept in the URL; moving between tabs saves what was typed
+           on the one being left, and no tab changes while a Talk it through turn runs. *@
+        <div class="nornis-prep-mode nornis-prep-tabs" role="tablist" aria-label="Adventure">
+            @foreach (var mode in Modes)
             {
-                <AdventureBookTab WorldId="Worlds.Current.Id" Adventure="_adventure" Campaigns="_campaigns" Disabled="_busy"
-                                  OnEditDetails="EditDetailsAsync" OnCoverChanged="OnCoverChangedAsync"
-                                  OnBookDetailsSaved="OnBookDetailsSaved" OnHandoutsSaved="Merge"
-                                  OnTypographySaved="Merge" />
-            }
-            else if (_mode == DesignMode)
-            {
-                @* Read-only while a Design turn runs: its edits land in the draft as it ends (feature 41). *@
-                <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy" Locked="_talkRunning"
-                                      OnDraftChanged="OnDraftChanged" OnSplit="OnSplit" />
-            }
-            else if (Selected is { } selected)
-            {
-                @if (_conflict)
-                {
-                    <MudAlert Severity="Severity.Warning" Class="mb-3">
-                        This section changed somewhere else since you opened it, in another tab or window.
-                        Nothing you typed was saved over it.
-                        <div class="mt-2 d-flex gap-2">
-                            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="OverwriteAsync">Save mine over it</MudButton>
-                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="DiscardMineAsync">Load the saved version</MudButton>
-                        </div>
-                    </MudAlert>
-                }
-                @if (_restoredAt is { } restoredAt)
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" ShowCloseIcon="true"
-                              CloseIconClicked="() => _restoredAt = null">
-                        Unsaved changes from @RelativeTime.Ago(restoredAt) were brought back. Save to keep them.
-                    </MudAlert>
-                }
-
-                <div class="d-flex gap-3 mb-3 flex-wrap">
-                    <MudSelect T="string" @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Margin="Margin.Dense"
-                               Class="nornis-prep-kind" Disabled="_busy">
-                        @foreach (var (kind, label, _) in PrepDisplay.Kinds)
-                        {
-                            <MudSelectItem T="string" Value="@kind">@label</MudSelectItem>
-                        }
-                    </MudSelect>
-                    <MudTextField @bind-Value="_title" Label="Section title" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  MaxLength="200" Class="flex-grow-1" Immediate="true" Disabled="_busy" />
-                </div>
-
-                @* Read-only while a draft is written, so nothing typed can be lost under it; the
-                   key change remounts it either way, with the text that was saved first. *@
-                <NotesEditor @key="@($"{selected.Id}:{_editorVersion}:{_drafting}")" @ref="_editor"
-                             InitialMarkdown="@selected.BodyMarkdown" ReadOnly="_drafting"
-                             Placeholder="Write the section. Use Read-aloud for boxed text, Prop and Ask for handouts and questions."
-                             PrepTools="true" AllowMaximize="true"
-                             BackupKey="@BackupKey(selected.Id)" PreferBackup="true"
-                             Restored="at => _restoredAt = at" />
-
-                @* What the section's game blocks would lose on export (feature 35). The server
-                   decides them on every load, save and draft; they never change the text. *@
-                @if (selected.BlockWarnings is { Count: > 0 } warnings)
-                {
-                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 nornis-prep-block-warnings">
-                        @foreach (var warning in warnings)
-                        {
-                            <div>@warning</div>
-                        }
-                    </MudAlert>
-                }
-
-                <div class="d-flex gap-2 mt-3 flex-wrap align-center">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
-                               StartIcon="@Icons.Material.Outlined.Save" Disabled="_busy">
-                        @(_saving ? "Saving…" : "Save")
-                    </MudButton>
-                    <MudTooltip Text="@(selected.RevisionCount == 0 ? "Nothing to undo yet: Undo steps back through AI drafts." : $"Step back to the text before the last draft ({selected.RevisionCount} kept).")">
-                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Undo"
-                                   Disabled="@(_busy || selected.RevisionCount == 0)" OnClick="UndoAsync">
-                            Undo@(selected.RevisionCount > 0 ? $" ({selected.RevisionCount})" : "")
-                        </MudButton>
-                    </MudTooltip>
-                    <span class="flex-grow-1"></span>
-                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Delete"
-                               Disabled="_busy" OnClick="DeleteSectionAsync">
-                        Delete section
-                    </MudButton>
-                </div>
-
-                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-draft mt-3">
-                    <MudText Typo="Typo.overline" Color="Color.Secondary">Draft with the Loremaster</MudText>
-                    @if (selected.Kind == OverviewKind)
-                    {
-                        <ThreadsToUseCard WorldId="Worlds.Current.Id" Disabled="_busy" OnUse="UseThread" />
-                    }
-                    <MudTextField @bind-Value="_instruction" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Label="@(selected.IsFilled ? "How should it change? (optional)" : "What should this section do? (optional)")"
-                                  Lines="3" MaxLength="@MaxInstructionChars" Immediate="true" Disabled="_busy" />
-                    <div class="d-flex gap-2 mt-2 flex-wrap align-center">
-                        @if (_drafting)
-                        {
-                            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Stop" OnClick="StopDraft">
-                                Stop
-                            </MudButton>
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">Writing…</MudText>
-                        }
-                        else
-                        {
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.AutoAwesome"
-                                       OnClick="DraftAsync" Disabled="_busy">
-                                @(selected.IsFilled ? "Revise" : "Draft")
-                            </MudButton>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                Drafts from your world's record, Hidden truth included. Undo steps back.
-                            </MudText>
-                        }
-                    </div>
-                    @if (_draftError is not null)
-                    {
-                        <AiErrorAlert Error="_draftError" OtherSeverity="Severity.Warning" Class="mt-3" />
-                    }
-                    @if (_draftText is not null)
-                    {
-                        <div class="nornis-prep-draft-preview mt-3" aria-live="polite">@_draftText</div>
-                    }
-                </MudPaper>
-            }
-            else
-            {
-                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                    <MudText Typo="Typo.body1">This adventure has no sections. Add one from the outline.</MudText>
-                </MudPaper>
+                var tab = mode;
+                <button type="button" role="tab" class="nornis-prep-tab @(tab == _mode ? "nornis-prep-tab-active" : null)"
+                        aria-selected="@(tab == _mode ? "true" : "false")" disabled="@(_busy || _talkRunning)"
+                        @onclick="() => SwitchModeAsync(tab)">
+                    @tab
+                </button>
             }
         </div>
 
-        @* One rail for every tab, so the conversation (and anything typed in its box) stays put
-           across them. Each tab sends what it shows: the open section, the draft or the book. *@
-        <div class="nornis-prep-talk-column">
-            <LoremasterReadsPanel Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
-            <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
-                                        Sections="_adventure.Sections" SelectedSectionId="_selectedId"
-                                        PutInSection="PutAnswerAsync" Scope="@ConversationScopeOf(_mode)"
-                                        ApplyEdit="ApplyEditAsync" PutInDraft="PutAnswerInDraftAsync"
-                                        BeforeSend="SaveDraftBeforeTurnAsync" OnTurnRunning="OnTalkRunning"
-                                        OnDraftEdited="ReloadDraftAsync" />
+        <div class="nornis-prep-layout nornis-prep-layout-@_mode.ToLowerInvariant()">
+            @if (_mode == StructureMode)
+            {
+                <div class="nornis-prep-side">
+                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-outline">
+                        <MudText Typo="Typo.overline" Color="Color.Secondary">Outline</MudText>
+                        @foreach (var (row, index) in _adventure.Sections.Select((s, i) => (s, i)))
+                        {
+                            var sectionId = row.Id;
+                            var position = index;
+                            @* dragover carries preventDefault with no handler, as on the import backlog: a
+                               .NET callback per dragover event would re-render the outline continuously. *@
+                            <div class="nornis-list-row nornis-prep-outline-row @(sectionId == _selectedId ? "nornis-prep-outline-selected" : null) @DragClass(sectionId)"
+                                 draggable="@(_busy ? "false" : "true")"
+                                 @ondragstart="() => _dragId = sectionId"
+                                 @ondragenter="() => OnDragEnter(sectionId)"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => OnDropAsync(sectionId)"
+                                 @ondragend="OnDragEnd">
+                                <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"
+                                         Class="nornis-drag-grip" title="Drag to reorder" />
+                                <MudIcon Icon="@PrepDisplay.Icon(row.Kind)" Size="Size.Small"
+                                         Color="@(row.IsFilled ? Color.Default : Color.Secondary)"
+                                         title="@PrepDisplay.Label(row.Kind)" />
+                                <button type="button" class="nornis-prep-outline-title @(row.IsFilled ? null : "nornis-prep-outline-empty")"
+                                        @onclick="() => SelectAsync(sectionId)" disabled="@_busy">
+                                    @row.Title
+                                </button>
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                               Disabled="@(_busy || position == 0)" aria-label="Move up"
+                                               OnClick="() => MoveAsync(sectionId, -1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                               Disabled="@(_busy || position == _adventure.Sections.Count - 1)" aria-label="Move down"
+                                               OnClick="() => MoveAsync(sectionId, 1)" />
+                            </div>
+                        }
+                        <MudMenu Label="Add section" StartIcon="@Icons.Material.Outlined.Add" Variant="Variant.Text"
+                                 Color="Color.Primary" Dense="true" Class="mt-2" Disabled="_busy">
+                            @foreach (var (kind, label, icon) in PrepDisplay.Kinds)
+                            {
+                                <MudMenuItem Icon="@icon" OnClick="() => AddSectionAsync(kind, label)">@label</MudMenuItem>
+                            }
+                        </MudMenu>
+                    </MudPaper>
+                </div>
+            }
+
+            <div class="nornis-prep-editor">
+                @* Design (feature 37) works on the one draft; Structure on the outline's sections. *@
+                @if (_mode == BookMode)
+                {
+                    <AdventureBookTab WorldId="Worlds.Current.Id" Adventure="_adventure" Disabled="_busy"
+                                      OnCoverChanged="OnCoverChangedAsync"
+                                      OnBookDetailsSaved="OnBookDetailsSaved" OnHandoutsSaved="Merge"
+                                      OnTypographySaved="Merge" />
+                }
+                else if (_mode == DesignMode)
+                {
+                    @* Read-only while a Design turn runs: its edits land in the draft as it ends (feature 41). *@
+                    <AdventureDesignPanel @ref="_designPanel" Adventure="_adventure" Disabled="_busy" Locked="_talkRunning"
+                                          OnDraftChanged="OnDraftChanged" OnSplit="OnSplit" />
+                }
+                else if (Selected is { } selected)
+                {
+                    @if (_conflict)
+                    {
+                        <MudAlert Severity="Severity.Warning" Class="mb-3">
+                            This section changed somewhere else since you opened it, in another tab or window.
+                            Nothing you typed was saved over it.
+                            <div class="mt-2 d-flex gap-2">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="OverwriteAsync">Save mine over it</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="DiscardMineAsync">Load the saved version</MudButton>
+                            </div>
+                        </MudAlert>
+                    }
+                    @if (_restoredAt is { } restoredAt)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" ShowCloseIcon="true"
+                                  CloseIconClicked="() => _restoredAt = null">
+                            Unsaved changes from @RelativeTime.Ago(restoredAt) were brought back. Save to keep them.
+                        </MudAlert>
+                    }
+
+                    <div class="d-flex gap-3 mb-3 flex-wrap">
+                        <MudSelect T="string" @bind-Value="_kind" Label="Kind" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Class="nornis-prep-kind" Disabled="_busy">
+                            @foreach (var (kind, label, _) in PrepDisplay.Kinds)
+                            {
+                                <MudSelectItem T="string" Value="@kind">@label</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_title" Label="Section title" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      MaxLength="200" Class="flex-grow-1" Immediate="true" Disabled="_busy" />
+                    </div>
+
+                    @* Read-only while a draft is written, so nothing typed can be lost under it; the
+                       key change remounts it either way, with the text that was saved first. *@
+                    <NotesEditor @key="@($"{selected.Id}:{_editorVersion}:{_drafting}")" @ref="_editor"
+                                 InitialMarkdown="@selected.BodyMarkdown" ReadOnly="_drafting"
+                                 Placeholder="Write the section. Use Read-aloud for boxed text, Prop and Ask for handouts and questions."
+                                 PrepTools="true" AllowMaximize="true"
+                                 BackupKey="@BackupKey(selected.Id)" PreferBackup="true"
+                                 Restored="at => _restoredAt = at" />
+
+                    @* What the section's game blocks would lose on export (feature 35). The server
+                       decides them on every load, save and draft; they never change the text. *@
+                    @if (selected.BlockWarnings is { Count: > 0 } warnings)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 nornis-prep-block-warnings">
+                            @foreach (var warning in warnings)
+                            {
+                                <div>@warning</div>
+                            }
+                        </MudAlert>
+                    }
+
+                    <div class="d-flex gap-2 mt-3 flex-wrap align-center">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+                                   StartIcon="@Icons.Material.Outlined.Save" Disabled="_busy">
+                            @(_saving ? "Saving…" : "Save")
+                        </MudButton>
+                        <MudTooltip Text="@(selected.RevisionCount == 0 ? "Nothing to undo yet: Undo steps back through AI drafts." : $"Step back to the text before the last draft ({selected.RevisionCount} kept).")">
+                            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Undo"
+                                       Disabled="@(_busy || selected.RevisionCount == 0)" OnClick="UndoAsync">
+                                Undo@(selected.RevisionCount > 0 ? $" ({selected.RevisionCount})" : "")
+                            </MudButton>
+                        </MudTooltip>
+                        <span class="flex-grow-1"></span>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Delete"
+                                   Disabled="_busy" OnClick="DeleteSectionAsync">
+                            Delete section
+                        </MudButton>
+                    </div>
+
+                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-draft mt-3">
+                        <MudText Typo="Typo.overline" Color="Color.Secondary">Draft with the Loremaster</MudText>
+                        @if (selected.Kind == OverviewKind)
+                        {
+                            <ThreadsToUseCard WorldId="Worlds.Current.Id" Disabled="_busy" OnUse="UseThread" />
+                        }
+                        <MudTextField @bind-Value="_instruction" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Label="@(selected.IsFilled ? "How should it change? (optional)" : "What should this section do? (optional)")"
+                                      Lines="3" MaxLength="@MaxInstructionChars" Immediate="true" Disabled="_busy" />
+                        <div class="d-flex gap-2 mt-2 flex-wrap align-center">
+                            @if (_drafting)
+                            {
+                                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Stop" OnClick="StopDraft">
+                                    Stop
+                                </MudButton>
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Writing…</MudText>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.AutoAwesome"
+                                           OnClick="DraftAsync" Disabled="_busy">
+                                    @(selected.IsFilled ? "Revise" : "Draft")
+                                </MudButton>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Drafts from your world's record, Hidden truth included. Undo steps back.
+                                </MudText>
+                            }
+                        </div>
+                        @if (_draftError is not null)
+                        {
+                            <AiErrorAlert Error="_draftError" OtherSeverity="Severity.Warning" Class="mt-3" />
+                        }
+                        @if (_draftText is not null)
+                        {
+                            <div class="nornis-prep-draft-preview mt-3" aria-live="polite">@_draftText</div>
+                        }
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+                        <MudText Typo="Typo.body1">This adventure has no sections. Add one from the outline.</MudText>
+                    </MudPaper>
+                }
+            </div>
+
+            @* One rail for every tab, so the conversation (and anything typed in its box) stays put
+               across them. Each tab sends what it shows: the open section, the draft or the book. *@
+            <div class="nornis-prep-talk-column">
+                <LoremasterReadsPanel Adventure="_adventure" Disabled="_busy" OnSaved="Merge" />
+                <AdventureConversationPanel WorldId="Worlds.Current.Id" AdventureId="_adventure.Id"
+                                            Sections="_adventure.Sections" SelectedSectionId="_selectedId"
+                                            PutInSection="PutAnswerAsync" Scope="@ConversationScopeOf(_mode)"
+                                            ApplyEdit="ApplyEditAsync" PutInDraft="PutAnswerInDraftAsync"
+                                            BeforeSend="SaveDraftBeforeTurnAsync" OnTurnRunning="OnTalkRunning"
+                                            OnDraftEdited="ReloadDraftAsync" />
+            </div>
         </div>
     </div>
 }
@@ -1076,30 +1077,31 @@ else if (_adventure is not null)
         }
     }
 
-    private async Task EditDetailsAsync()
+    /// <summary>
+    /// Takes the heading's save: the title, pitch and campaign, and the print preview that shows
+    /// the title. Nothing open on a tab is replaced. A new title gives a new slug, so the URL follows.
+    /// </summary>
+    private void OnHeadingSaved(AdventureDto updated)
     {
-        if (Worlds.Current is null || _adventure is null)
+        if (_adventure is null)
         {
             return;
         }
 
-        var parameters = new DialogParameters<AdventureDetailsDialog>
+        _adventure = _adventure with
         {
-            { d => d.WorldId, Worlds.Current.Id },
-            { d => d.Campaigns, _campaigns },
-            { d => d.Existing, _adventure },
+            Title = updated.Title,
+            Slug = updated.Slug,
+            Pitch = updated.Pitch,
+            CampaignId = updated.CampaignId,
+            PrintDetails = updated.PrintDetails,
+            UpdatedAt = updated.UpdatedAt,
         };
-        var dialog = await DialogService.ShowAsync<AdventureDetailsDialog>("Adventure details", parameters,
-            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
-        var result = await dialog.Result;
-        if (result is { Canceled: false, Data: AdventureDto updated })
+        Crumbs.Set(Links.Adventure(updated.Slug, updated.Id), new Crumb("Prep", "/prep"), new Crumb(updated.Title));
+        if (!Links.IsCanonical(Key, updated.Slug))
         {
-            Show(updated);
-            if (!Links.IsCanonical(Key, updated.Slug))
-            {
-                _loadedKey = updated.Slug;
-                Nav.NavigateTo(AdventureUrl(updated), replace: true);
-            }
+            _loadedKey = updated.Slug;
+            Nav.NavigateTo(AdventureUrl(_adventure), replace: true);
         }
     }
 

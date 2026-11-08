@@ -4739,21 +4739,92 @@ a.nornis-cite:hover {
     gap: 10px;
 }
 
-.nornis-prep-about-row + .nornis-prep-about-row {
-    margin-top: 8px;
+.nornis-prep-head {
+    align-items: flex-start;
 }
 
-.nornis-prep-about-title {
-    font-weight: 500;
+/* The adventure's head (3.18): the title and pitch are buttons that open into a box, a pencil
+   showing on hover or focus; the campaign menu sits under them. */
+.nornis-prep-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
 }
 
-.nornis-prep-about-pitch {
+.nornis-prep-heading-title,
+.nornis-prep-heading-pitch {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    max-width: 100%;
+    padding: 2px 4px;
+    margin: 0 -4px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: text;
+}
+
+.nornis-prep-heading-pitch {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.875rem;
     white-space: pre-wrap;
 }
 
-.nornis-prep-about-none {
+.nornis-prep-heading-title:hover:not(:disabled),
+.nornis-prep-heading-pitch:hover:not(:disabled) {
+    background: var(--mud-palette-action-default-hover);
+}
+
+.nornis-prep-heading-title:focus-visible,
+.nornis-prep-heading-pitch:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 1px;
+}
+
+.nornis-prep-heading-title:disabled,
+.nornis-prep-heading-pitch:disabled {
+    cursor: default;
+}
+
+.nornis-prep-heading-pencil {
+    flex: 0 0 auto;
+    opacity: 0;
     color: var(--mud-palette-text-secondary);
+}
+
+.nornis-prep-heading-title:hover:not(:disabled) .nornis-prep-heading-pencil,
+.nornis-prep-heading-title:focus-visible .nornis-prep-heading-pencil,
+.nornis-prep-heading-pitch:hover:not(:disabled) .nornis-prep-heading-pencil,
+.nornis-prep-heading-pitch:focus-visible .nornis-prep-heading-pencil {
+    opacity: 1;
+}
+
+.nornis-prep-heading-none {
     font-style: italic;
+}
+
+.nornis-prep-heading-edit {
+    width: min(100%, 720px);
+}
+
+.nornis-prep-heading-title-input input {
+    font-family: var(--nornis-serif);
+    font-size: 1.5rem;
+}
+
+.nornis-prep-heading-campaign {
+    width: min(100%, 320px);
+    margin-top: 4px;
+}
+
+.nornis-prep-heading-error {
+    display: block;
 }
 
 /* Typography on the Book tab: three fields in a row, then a sample set like a booklet column
@@ -4804,20 +4875,20 @@ a.nornis-cite:hover {
     }
 }
 
-/* On Sections the rail goes under the editor and scrolls with the page again; Design and Book
+/* On Structure the rail goes under the editor and scrolls with the page again; Design and Book
    keep it beside the main column down to the narrow breakpoint. */
 @container page (max-width: 1300px) {
-    .nornis-prep-layout-sections {
+    .nornis-prep-layout-structure {
         grid-template-columns: 300px minmax(0, 1fr);
     }
 
-    .nornis-prep-layout-sections .nornis-prep-talk-column {
+    .nornis-prep-layout-structure .nornis-prep-talk-column {
         grid-column: 2;
         position: static;
         max-height: none;
     }
 
-    .nornis-prep-layout-sections .nornis-prep-talk-column .nornis-prep-talk-messages {
+    .nornis-prep-layout-structure .nornis-prep-talk-column .nornis-prep-talk-messages {
         max-height: 60vh;
     }
 }
@@ -4826,12 +4897,12 @@ a.nornis-cite:hover {
     .nornis-prep-layout,
     .nornis-prep-layout-design,
     .nornis-prep-layout-book,
-    .nornis-prep-layout-sections {
+    .nornis-prep-layout-structure {
         grid-template-columns: minmax(0, 1fr);
     }
 
     .nornis-prep-talk-column,
-    .nornis-prep-layout-sections .nornis-prep-talk-column {
+    .nornis-prep-layout-structure .nornis-prep-talk-column {
         grid-column: auto;
         position: static;
         max-height: none;
@@ -4840,6 +4911,129 @@ a.nornis-cite:hover {
     .nornis-prep-talk-column .nornis-prep-talk-messages {
         max-height: 60vh;
     }
+}
+
+/* Prep's editors (the open section and the Design draft) are a fixed height and scroll
+   inside, so Save and the buttons under them never move off the bottom of the window. In a
+   workspace (below) they fill what the window leaves instead. */
+.nornis-prep-editor .nornis-editor:not(.nornis-editor-max) {
+    display: flex;
+    flex-direction: column;
+    height: clamp(320px, calc(100dvh - 360px), 1400px);
+}
+
+.nornis-prep-editor .nornis-editor:not(.nornis-editor-max) .nornis-editor-toolbar {
+    flex: 0 0 auto;
+}
+
+.nornis-prep-editor .nornis-editor:not(.nornis-editor-max) .nornis-editor-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* A workspace page (3.18) is the window on a wide screen: the top bar and the page's head stay
+   put, the footer steps aside, and what is left belongs to the page's columns, each of which
+   scrolls on its own. The editors and the conversation fill their columns with their buttons
+   pinned below them. Narrower than this, or when the columns stack, the page scrolls as before. */
+@media (min-width: 1200px) and (min-height: 600px) {
+    .nornis-main:has(.nornis-workspace) {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .nornis-main:has(.nornis-workspace) > .nornis-topbar {
+        flex: 0 0 auto;
+    }
+
+    .nornis-main:has(.nornis-workspace) > .nornis-page {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 16px;
+    }
+
+    .nornis-main:has(.nornis-workspace) > .nornis-footer {
+        display: none;
+    }
+
+    .nornis-workspace {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nornis-prep-workspace > .nornis-page-head,
+    .nornis-prep-workspace > .nornis-prep-tabs {
+        flex: 0 0 auto;
+    }
+
+    /* Stacked columns scroll here, inside the window, rather than the page. */
+    .nornis-prep-workspace > .nornis-prep-layout {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    @container page (min-width: 901px) {
+        .nornis-prep-workspace > .nornis-prep-layout-design,
+        .nornis-prep-workspace > .nornis-prep-layout-book {
+            grid-template-rows: minmax(0, 1fr);
+            align-items: stretch;
+            overflow: hidden;
+        }
+
+        .nornis-prep-workspace > :is(.nornis-prep-layout-design, .nornis-prep-layout-book) > :is(.nornis-prep-editor, .nornis-prep-talk-column) {
+            min-height: 0;
+            max-height: none;
+            position: static;
+            overflow-y: auto;
+        }
+    }
+
+    @container page (min-width: 1301px) {
+        .nornis-prep-workspace > .nornis-prep-layout-structure {
+            grid-template-rows: minmax(0, 1fr);
+            align-items: stretch;
+            overflow: hidden;
+        }
+
+        .nornis-prep-workspace > .nornis-prep-layout-structure > :is(.nornis-prep-side, .nornis-prep-editor, .nornis-prep-talk-column) {
+            min-height: 0;
+            max-height: none;
+            position: static;
+            overflow-y: auto;
+        }
+    }
+
+    /* In a column that fills the window, the editor takes what the fields and buttons leave. */
+    .nornis-prep-workspace .nornis-prep-editor:has(> .nornis-editor, > .nornis-prep-design) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nornis-prep-workspace .nornis-prep-editor > :not(.nornis-editor, .nornis-prep-design),
+    .nornis-prep-workspace .nornis-prep-design > :not(.nornis-editor) {
+        flex: 0 0 auto;
+    }
+
+    .nornis-prep-workspace .nornis-prep-design {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nornis-prep-workspace .nornis-prep-editor .nornis-editor:not(.nornis-editor-max) {
+        flex: 1 1 0;
+        height: auto;
+        min-height: 240px;
+    }
+
 }
 
 .nornis-prep-outline-row {
