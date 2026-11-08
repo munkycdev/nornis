@@ -4760,20 +4760,22 @@ a.nornis-cite:hover {
 .nornis-dark .nornis-editor-toolbar-sep { background: var(--nornis-onside-border); }
 .nornis-dark .nornis-editor-content.nornis-editor-empty::before { color: var(--nornis-onside-muted); }
 
-/* ------------------------------------------------------------------ Prep --- */
+/* ------------------------------------------------------------------ Tabs --- */
 
-/* The Adventure page (Nornis 3.13): three tabs over one grid. Design is the draft with Talk it
-   through as a right rail; Sections adds the outline as a fixed left column, so long titles wrap
-   rather than squeezing the editor; Book is one column holding its own grid. Below the
-   breakpoints the rail goes under the editor, and on a narrow page everything stacks. */
-.nornis-prep-tabs {
+/* The row of tabs over a page (TabStrip): Prep's Adventure page and Settings. */
+.nornis-tabs {
     display: flex;
     gap: 4px;
     margin-bottom: 16px;
     border-bottom: 1px solid var(--mud-palette-lines-default);
+    /* On a phone the row scrolls sideways rather than wrapping each label. */
+    overflow-x: auto;
+    scrollbar-width: none;
 }
 
-.nornis-prep-tab {
+.nornis-tab {
+    flex: none;
+    white-space: nowrap;
     padding: 8px 16px;
     margin-bottom: -1px;
     border: none;
@@ -4787,25 +4789,59 @@ a.nornis-cite:hover {
     cursor: pointer;
 }
 
-.nornis-prep-tab:hover:not(:disabled) {
+.nornis-tab:hover:not(:disabled) {
     color: var(--mud-palette-text-primary);
 }
 
-.nornis-prep-tab:focus-visible {
+.nornis-tab:focus-visible {
     outline: 2px solid var(--mud-palette-primary);
     outline-offset: -2px;
 }
 
-.nornis-prep-tab:disabled {
+.nornis-tab:disabled {
     cursor: default;
     opacity: 0.6;
 }
 
-.nornis-prep-tab-active {
+.nornis-tab-active {
     color: var(--mud-palette-text-primary);
     border-bottom-color: var(--mud-palette-text-primary);
 }
 
+/* -------------------------------------------------------------- Settings --- */
+
+/* The world's Settings page (Nornis 3.23): five tabs, one card of fields with its own Save on
+   each. A form card keeps a reading measure rather than stretching across a wide window; the
+   World tab sets the key art beside the world's name once the page is wide enough for both. */
+.nornis-settings-card,
+.nornis-settings-tab-export .nornis-card {
+    max-width: 760px;
+}
+
+.nornis-settings-world-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.nornis-settings-world-grid > .nornis-settings-card {
+    max-width: none;
+}
+
+@container page (min-width: 1000px) {
+    .nornis-settings-world-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+    }
+}
+
+/* ------------------------------------------------------------------ Prep --- */
+
+/* The Adventure page (Nornis 3.13): three tabs over one grid. Design is the draft with Talk it
+   through as a right rail; Sections adds the outline as a fixed left column, so long titles wrap
+   rather than squeezing the editor; Book is one column holding its own grid. Below the
+   breakpoints the rail goes under the editor, and on a narrow page everything stacks. */
 .nornis-prep-layout {
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr) 360px;

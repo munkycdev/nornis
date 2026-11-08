@@ -1,9 +1,9 @@
 @page "/costs"
 @inject NavigationManager Nav
 
-@* Costs moved into the GM-only Admin page (Costs tab). This stub keeps old
-   bookmarks working. *@
+@* Costs moved into the GM-only Settings page (its AI and costs tab since Nornis 3.23). This
+   stub keeps old bookmarks working. *@
 
 @code {
-    protected override void OnInitialized() => Nav.NavigateTo("/admin", replace: true);
+    protected override void OnInitialized() => Nav.NavigateTo("/admin?tab=ai", replace: true);
 }
