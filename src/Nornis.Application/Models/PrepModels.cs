@@ -115,6 +115,13 @@ public record UpdateAdventureDetailsCommand(
     string? GameSystem, string? Edition, string? Levels, int? Year);
 
 /// <summary>
+/// Replaces the type the booklet is set in, all three fields: each is the new value, and null
+/// means the default (Newsreader, 10 pt, 1.3).
+/// </summary>
+public record UpdateBookTypographyCommand(
+    Guid WorldId, Guid AdventureId, WorldRole ActingUserRole, BookFont? Font, decimal? Size, decimal? LineSpacing);
+
+/// <summary>
 /// The GM's own "AI was used" tick (feature 38), for AI used outside Nornis. A no-op once AI use
 /// is recorded: the box is then ticked and locked.
 /// </summary>

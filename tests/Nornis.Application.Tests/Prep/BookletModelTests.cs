@@ -292,6 +292,21 @@ public class BookletModelTests
         Assert.That(BookletModel.Build(Adventure("The Silver Key"), Bare, Imprint).Chapters, Is.Empty);
 
     [Test]
+    public void TheGmsType_TravelsToTheBooklet_AndToItsProps()
+    {
+        var adventure = Adventure("The Silver Key", ("Chapter 1", AdventureSectionKind.Chapter, "> [!PROP]\n> A note."));
+        adventure.Typography = new BookTypography { Font = BookFont.Literata, Size = 12m };
+
+        var booklet = BookletModel.Build(adventure, Bare, Imprint);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(booklet.Typography, Is.EqualTo(adventure.Typography));
+            Assert.That(BookletModel.Props(booklet).Typography, Is.EqualTo(adventure.Typography));
+        });
+    }
+
+    [Test]
     public void AnEmptyChapter_StillPrintsItsTitle() =>
         Assert.That(BookletModel.Build(Adventure("The Silver Key", ("Chapter 1", AdventureSectionKind.Chapter, "")), Bare, Imprint).Chapters,
             Is.EqualTo([new BookletChapter("Chapter 1", [])]).Using<BookletChapter>((a, b) => a.Title == b.Title && a.Blocks.Count == b.Blocks.Count));

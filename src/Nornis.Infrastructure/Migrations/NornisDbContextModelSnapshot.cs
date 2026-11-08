@@ -2355,6 +2355,31 @@ namespace Nornis.Infrastructure.Migrations
                                 .HasForeignKey("AdventureId");
                         });
 
+                    b.OwnsOne("Nornis.Domain.Models.BookTypography", "Typography", b1 =>
+                        {
+                            b1.Property<Guid>("AdventureId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Font")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<decimal?>("LineSpacing")
+                                .HasPrecision(3, 2)
+                                .HasColumnType("decimal(3,2)");
+
+                            b1.Property<decimal?>("Size")
+                                .HasPrecision(3, 1)
+                                .HasColumnType("decimal(3,1)");
+
+                            b1.HasKey("AdventureId");
+
+                            b1.ToTable("Adventures");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AdventureId");
+                        });
+
                     b.Navigation("AiUse")
                         .IsRequired();
 
@@ -2368,6 +2393,9 @@ namespace Nornis.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("LastPrintedDocument");
+
+                    b.Navigation("Typography")
+                        .IsRequired();
 
                     b.Navigation("World");
                 });

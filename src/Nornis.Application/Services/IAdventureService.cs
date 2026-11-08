@@ -32,6 +32,9 @@ public interface IAdventureService
     /// <summary>Replaces the four editable details. 400 <c>invalid_details</c>, with nothing saved, when any is out of bounds.</summary>
     Task<AppResult<AdventureView>> UpdateDetailsAsync(UpdateAdventureDetailsCommand command, CancellationToken ct);
 
+    /// <summary>Sets the type the booklet is set in. GM only; a value outside its bound is a 400 <c>invalid_typography</c>.</summary>
+    Task<AppResult<AdventureView>> UpdateTypographyAsync(UpdateBookTypographyCommand command, CancellationToken ct);
+
     /// <summary>The GM's own AI-use tick (feature 38); a no-op once AI use is recorded.</summary>
     Task<AppResult<AdventureView>> SetAiDeclaredAsync(SetAiDeclaredCommand command, CancellationToken ct);
 

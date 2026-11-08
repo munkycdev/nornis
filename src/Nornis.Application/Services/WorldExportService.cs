@@ -460,6 +460,7 @@ public class WorldExportService : IWorldExportService
                     a.Slug,
                     a.Pitch,
                     a.Details,
+                    a.Typography,
                     a.LastPrintedDocumentId,
                     a.CreatedByUserId,
                     a.CreatedAt,

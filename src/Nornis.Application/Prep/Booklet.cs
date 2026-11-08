@@ -1,14 +1,18 @@
 using Nornis.Domain.Enums;
+using Nornis.Domain.Models;
 
 namespace Nornis.Application.Prep;
 
 /// <summary>
 /// The booklet's structure (feature 34): what <see cref="BookletModel"/> builds from an Adventure
 /// and what <see cref="IBookletPdfRenderer"/> lays out. It carries no fonts, sizes or pages, so
-/// every markup convention is decided before layout and every layout rule after it.
+/// every markup convention is decided before layout and every layout rule after it. The one
+/// exception is the GM's <see cref="Typography"/>, which names a face, size and spacing but
+/// leaves every point size and column to the renderer; null is the default type.
 /// </summary>
 public sealed record Booklet(
-    BookletCover Cover, BookletRights Rights, IReadOnlyList<BookletChapter> Chapters, IReadOnlyList<BookletHandout>? Handouts = null);
+    BookletCover Cover, BookletRights Rights, IReadOnlyList<BookletChapter> Chapters, IReadOnlyList<BookletHandout>? Handouts = null,
+    BookTypography? Typography = null);
 
 /// <summary>
 /// One entry of the "Handouts and maps" appendix (feature 38), in the GM's order. The printer
@@ -26,7 +30,7 @@ public sealed record BookletHandoutPdf(string Title, byte[] Pdf) : BookletHandou
 public sealed record BookletHandoutMissing(string Title, string Reason) : BookletHandout(Title);
 
 /// <summary>The props to cut out and hand over (feature 38): every <c>[!PROP]</c> box, each on its own page.</summary>
-public sealed record BookletProps(string Title, IReadOnlyList<BookletBox> Props);
+public sealed record BookletProps(string Title, IReadOnlyList<BookletBox> Props, BookTypography? Typography = null);
 
 /// <summary>
 /// The cover's lines, each already worded; a null line is left off (feature 32). The credits

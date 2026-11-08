@@ -148,6 +148,32 @@ public class AdventureConversationPromptTests
     }
 
     [Test]
+    public void OnTheBook_ItsTypeIsShown_WithTheOnlyFacesTheGmCanChoose()
+    {
+        var adventure = AnAdventure(out _);
+        adventure.Typography = new BookTypography { Font = BookFont.CrimsonPro, Size = 11.5m, LineSpacing = 1.45m };
+
+        var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
+            new PrepPromptContext(null, null, null, "WORLD-CONTEXT"), adventure, null, [], "Which font?", 100, ConversationScope.Book));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prompt, Does.Contain("### Type"));
+            Assert.That(prompt, Does.Contain("Body text: Crimson Pro, 11.5 pt, line spacing 1.45."));
+            Assert.That(prompt, Does.Contain("one of these faces only: Newsreader, EB Garamond, Literata, Crimson Pro, Source Serif 4, Lora, Alegreya."));
+        });
+    }
+
+    [Test]
+    public void OnTheBook_TheDefaultTypeIsNamed()
+    {
+        var prompt = AdventureConversationPrompt.BuildUserMessage(new AdventureConversationInput(
+            new PrepPromptContext(null, null, null, "WORLD-CONTEXT"), AnAdventure(out _), null, [], "Which font?", 100, ConversationScope.Book));
+
+        Assert.That(prompt, Does.Contain("Body text: Newsreader, 10 pt, line spacing 1.3."));
+    }
+
+    [Test]
     public void TheSystemPrompt_KeepsHiddenTruthAndLetteringOffACover()
     {
         Assert.Multiple(() =>

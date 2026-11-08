@@ -116,6 +116,25 @@ public class PrepController : ControllerBase
         return result.IsSuccess ? Ok(ToResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
+    [HttpPut("{adventureId:guid}/typography")]
+    public async Task<IActionResult> UpdateTypography(
+        Guid worldId, Guid adventureId, [FromBody] UpdateBookTypographyRequest request, CancellationToken ct)
+    {
+        BookFont? font = null;
+        if (!string.IsNullOrWhiteSpace(request.Font))
+        {
+            if (!EnumParsing.TryParseDefined<BookFont>(request.Font, out var parsed))
+            {
+                return BadRequest(new ErrorResponse("invalid_typography", $"'{request.Font}' isn't one of the booklet's fonts."));
+            }
+
+            font = parsed;
+        }
+
+        return Respond(await _adventures.UpdateTypographyAsync(new UpdateBookTypographyCommand(
+            worldId, adventureId, HttpContext.GetWorldMember().Role, font, request.Size, request.LineSpacing), ct));
+    }
+
     [HttpPut("{adventureId:guid}/ai-declared")]
     public async Task<IActionResult> SetAiDeclared(
         Guid worldId, Guid adventureId, [FromBody] SetAiDeclaredRequest request, CancellationToken ct) =>
@@ -410,7 +429,8 @@ public class PrepController : ControllerBase
                     h.LibraryDocumentId, h.LibraryDocument.Title, h.LibraryDocument.Slug,
                     LibraryCategories.Of(h.LibraryDocument).ToString(), h.LibraryDocument.ContentType,
                     h.LibraryDocument.Visibility.ToString()))
-                .ToList());
+                .ToList(),
+            new BookTypographyResponse(a.Typography.Font?.ToString(), a.Typography.Size, a.Typography.LineSpacing));
     }
 
     private static PrintDetailsResponse ToPrintDetails(PrintDetails p) =>

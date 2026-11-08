@@ -49,6 +49,12 @@ public class Adventure : ISlugged
     public AdventureDetails Details { get; set; } = new();
 
     /// <summary>
+    /// The type the booklet is set in. Never null: an Adventure with none chosen has an empty
+    /// instance, which prints in the defaults. Each Adventure owns its own instance.
+    /// </summary>
+    public BookTypography Typography { get; set; } = new();
+
+    /// <summary>
     /// The design draft (feature 37): one Markdown document the GM and the Loremaster iterate on
     /// before it is split into sections. Null means no draft. It lives outside
     /// <see cref="Sections"/> on purpose, so no booklet, export or outline count can ever read it.

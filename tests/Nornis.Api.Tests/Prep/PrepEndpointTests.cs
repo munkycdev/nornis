@@ -47,6 +47,8 @@ public class PrepEndpointTests
         yield return ("update", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}", new UpdateAdventureRequest("Renamed", null, null)));
         yield return ("details", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/details",
             new UpdateAdventureDetailsRequest("Mine", null, null, null)));
+        yield return ("typography", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/typography",
+            new UpdateBookTypographyRequest("Lora", null, null)));
         yield return ("ai declared", (c, w, a, _) => c.PutAsJsonAsync($"{Base(w)}/{a}/ai-declared", new SetAiDeclaredRequest(true)));
         yield return ("delete", (c, w, a, _) => c.DeleteAsync($"{Base(w)}/{a}"));
         yield return ("save section", (c, w, a, s) => c.PutAsJsonAsync($"{Base(w)}/{a}/sections/{s}",
@@ -606,6 +608,38 @@ public class PrepEndpointTests
             Assert.That(reloaded.PrintDetails.Publisher, Is.EqualTo("Nornis Press"));
             Assert.That(reloaded.PrintDetails.Author, Is.Not.Empty);
         });
+    }
+
+    [Test]
+    public async Task Gm_SetsTheBooksType_AndTheAdventureCarriesIt()
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+        Assert.That(adventure.Typography, Is.EqualTo(new BookTypographyResponse(null, null, null)), "nothing chosen yet");
+
+        var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/typography",
+            new UpdateBookTypographyRequest("EbGaramond", 11.5m, 1.4m));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        var reloaded = (await scenario.GmClient.GetFromJsonAsync<AdventureResponse>($"{Base(worldId)}/{adventure.Id}"))!;
+
+        Assert.That(reloaded.Typography, Is.EqualTo(new BookTypographyResponse("EbGaramond", 11.5m, 1.4m)));
+    }
+
+    [TestCase("Comic Sans", null, null)]
+    [TestCase(null, 20.0, null)]
+    [TestCase(null, null, 1.33)]
+    public async Task Gm_SetsATypeOutsideTheBounds_Is400(string? font, double? size, double? spacing)
+    {
+        var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
+        var worldId = scenario.World.Id;
+        var adventure = await CreateAsync(scenario.GmClient, worldId);
+
+        var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/typography",
+            new UpdateBookTypographyRequest(font, (decimal?)size, (decimal?)spacing));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("invalid_typography"));
     }
 
     [Test]

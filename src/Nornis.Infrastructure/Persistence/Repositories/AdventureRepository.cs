@@ -79,6 +79,7 @@ public class AdventureRepository : IAdventureRepository
 
         // A copy, so the caller's instance never becomes this row's tracked owned entity.
         row.Details = adventure.Details with { };
+        row.Typography = adventure.Typography with { };
 
         // Only the GM's own tick. The recorded flags are never copied from a caller, so no
         // update (or Undo) can clear them; only TryAcceptDraftAsync and TrySaveDraftAsync set one.

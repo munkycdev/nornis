@@ -1189,7 +1189,17 @@ public record AdventureDto(
     string? TableBrief = null,
     IReadOnlyList<AdventureSourceBookDto>? SourceBooks = null,
     AdventureAiUseDto? AiUse = null,
-    IReadOnlyList<AdventureHandoutDto>? Handouts = null);
+    IReadOnlyList<AdventureHandoutDto>? Handouts = null,
+    BookTypographyDto? Typography = null);
+
+/// <summary>
+/// The type the booklet is set in, as the GM chose it; a null is the default. <see cref="Font"/>
+/// is a <c>BookFont</c> name. Mirrors <c>BookTypographyResponse</c>.
+/// </summary>
+public record BookTypographyDto(string? Font, decimal? Size, decimal? LineSpacing);
+
+/// <summary>All three: each is the new value, and null means the default.</summary>
+public record UpdateBookTypographyRequest(string? Font, decimal? Size, decimal? LineSpacing);
 
 /// <summary>
 /// A handout the booklet prints at its back (feature 38), in print order. <see cref="Category"/> is

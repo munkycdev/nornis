@@ -1,5 +1,34 @@
 # Design Document
 
+> **Amendment (2026-11-08, Nornis 3.17): the GM chooses the type.** Asked for on the Book tab:
+> "specify the font name, font size, and line spacing". The text and the earlier amendment are
+> left as written.
+>
+> - **A curated list, not any font.** The PDF is laid out on the server, so a face on the GM's
+>   PC can't be used. `BookFont` lists seven open-licence serifs: Newsreader (the default),
+>   EB Garamond, Literata, Crimson Pro, Source Serif 4, Lora and Alegreya, each embedded as four
+>   Latin WOFFs (400/600, roman/italic, from Fontsource) beside its OFL text.
+>   `BookTypography.NameOf` is both the name the GM reads and the family the WOFFs register under.
+> - **Stored per Adventure** as `BookTypography` (an owned type: `Typography_Font`, `_Size`
+>   decimal(3,1), `_LineSpacing` decimal(3,2); migration `AddBookTypography`). Every field null
+>   is the default (Newsreader, 10 pt, 1.3), so an untouched Adventure prints as before. Size
+>   8–14 pt in half points; line spacing 1.0–2.0 in twentieths. `PUT .../typography` sends all
+>   three; a default is sent as null. A filed print keeps the type it was printed in.
+> - **What follows it.** The renderer resolves a `Typeset` (face, size, line height) and passes
+>   it down. The body, read-aloud and props take all three. Every other body size (chapter
+>   title, headings, stat blocks, tables, code, list markers and checkboxes) was set for the
+>   10 pt body and scales by size / 10 through `Typeset.Pt`; stat blocks and tables keep their
+>   own 1.25 line height. The heading keep-with-next estimate (`HeadingRoomPt`, line height,
+>   characters per line) scales the same way. The cover, rights page, handout pages and the
+>   props sheet take the face only, at their own sizes.
+> - **Booklet** gains `Typography` (and `BookletProps` too), the one thing in it that names
+>   type; it still carries no point sizes.
+> - **The Book tab's Loremaster** sees the type and the faces on offer, so it never suggests a
+>   face Nornis can't print.
+> - **The Typography card** shows a sample in the chosen type at a booklet column's width
+>   (252 pt), loading the six new faces from Google Fonts for the card only. Its list and bounds
+>   are mirrors pinned by `TypographyMirrorTests`.
+
 > **Amendment (2026-11-03, Phases B and C):** what building the booklet changed. The text
 > below is left as written.
 >

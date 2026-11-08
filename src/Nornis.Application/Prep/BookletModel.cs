@@ -73,14 +73,15 @@ public static class BookletModel
             chapters.Add(new BookletChapter(title, blocks));
         }
 
-        return new Booklet(Cover(adventure, details, art), Rights(details, imprint), chapters);
+        return new Booklet(Cover(adventure, details, art), Rights(details, imprint), chapters, Typography: adventure.Typography);
     }
 
     /// <summary>The cover's lines (feature 32): system and edition, levels, author and pitch.</summary>
     /// <summary>Every prop box in the booklet, in reading order (feature 38): the props sheet.</summary>
     public static BookletProps Props(Booklet booklet) => new(
         booklet.Cover.Title,
-        booklet.Chapters.SelectMany(c => c.Blocks).OfType<BookletBox>().Where(b => b.Kind == BookletBoxKind.Prop).ToList());
+        booklet.Chapters.SelectMany(c => c.Blocks).OfType<BookletBox>().Where(b => b.Kind == BookletBoxKind.Prop).ToList(),
+        booklet.Typography);
 
     /// <param name="art">The cover art's bytes, which the printer read; null keeps the typeset cover.</param>
     private static BookletCover Cover(Adventure adventure, PrintDetails details, byte[]? art) => new(

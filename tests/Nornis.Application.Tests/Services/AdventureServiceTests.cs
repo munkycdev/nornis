@@ -451,6 +451,95 @@ public class AdventureServiceTests
         });
     }
 
+    // ----------------------------------------------------------------- Typography --
+
+    [Test]
+    public async Task UpdateTypography_SavesTheGmsType_AndAnswersWithIt()
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.UpdateTypographyAsync(
+            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, WorldRole.GM, BookFont.EbGaramond, 11.5m, 1.45m),
+            CancellationToken.None);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var expected = new BookTypography { Font = BookFont.EbGaramond, Size = 11.5m, LineSpacing = 1.45m };
+        Assert.Multiple(() =>
+        {
+            Assert.That(_adventures.Adventures.Single().Typography, Is.EqualTo(expected));
+            Assert.That(result.Value!.Adventure.Typography, Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    public async Task UpdateTypography_AllNull_IsTheDefaultAgain()
+    {
+        var view = await CreateAsync();
+        await _sut.UpdateTypographyAsync(
+            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, WorldRole.GM, BookFont.Lora, 12m, 1.5m), CancellationToken.None);
+
+        await _sut.UpdateTypographyAsync(
+            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, null, null), CancellationToken.None);
+
+        var stored = _adventures.Adventures.Single().Typography;
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Is.EqualTo(new BookTypography()));
+            Assert.That(stored.FontOrDefault, Is.EqualTo(BookFont.Newsreader));
+            Assert.That(stored.SizeOrDefault, Is.EqualTo(10m));
+            Assert.That(stored.LineSpacingOrDefault, Is.EqualTo(1.3m));
+        });
+    }
+
+    [TestCase(7.5, null)]
+    [TestCase(14.5, null)]
+    [TestCase(10.25, null)]
+    [TestCase(null, 0.9)]
+    [TestCase(null, 2.05)]
+    [TestCase(null, 1.33)]
+    public async Task UpdateTypography_OutsideItsBounds_Is400_AndSavesNothing(double? size, double? spacing)
+    {
+        var view = await CreateAsync();
+        var before = _adventures.Adventures.Single().UpdatedAt;
+
+        var result = await _sut.UpdateTypographyAsync(
+            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, (decimal?)size, (decimal?)spacing),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.StatusCode, Is.EqualTo(400));
+            Assert.That(result.Error.Code, Is.EqualTo("invalid_typography"));
+            Assert.That(_adventures.Adventures.Single().Typography, Is.EqualTo(new BookTypography()));
+            Assert.That(_adventures.Adventures.Single().UpdatedAt, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task UpdateTypography_ByAnyoneButTheGm_Is403_AndSavesNothing(WorldRole role)
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.UpdateTypographyAsync(
+            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, role, BookFont.Lora, null, null), CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_adventures.Adventures.Single().Typography, Is.EqualTo(new BookTypography()));
+    }
+
+    [Test]
+    public async Task UpdateTypography_InAnotherWorld_Is404()
+    {
+        var view = await CreateAsync();
+
+        var result = await _sut.UpdateTypographyAsync(
+            new UpdateBookTypographyCommand(Guid.NewGuid(), view.Adventure.Id, WorldRole.GM, BookFont.Lora, null, null),
+            CancellationToken.None);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(404));
+    }
+
     // ------------------------------------------------------------------ AI use (feature 38) --
 
     [Test]
