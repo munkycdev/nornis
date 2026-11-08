@@ -46,35 +46,39 @@
             </header>
         }
 
-        <div class="nornis-page">
-            @* Boot gate: nothing world-scoped renders until the saved world selection is
-               restored — otherwise pages flash the wrong world's content and re-fetch. *@
-            @if (Worlds.Ready)
-            {
-                @Body
-            }
-            else
-            {
-                <div class="nornis-boot" aria-busy="true" aria-label="Loading">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Secondary" Size="Size.Large" />
-                </div>
-            }
+        @* The pane under the top bar: on a desktop window it is what scrolls, not the window, so the
+           top bar stays put (see "App shell" in app.css). The footer scrolls with the page. *@
+        <div class="nornis-pane">
+            <div class="nornis-page">
+                @* Boot gate: nothing world-scoped renders until the saved world selection is
+                   restored — otherwise pages flash the wrong world's content and re-fetch. *@
+                @if (Worlds.Ready)
+                {
+                    @Body
+                }
+                else
+                {
+                    <div class="nornis-boot" aria-busy="true" aria-label="Loading">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Secondary" Size="Size.Large" />
+                    </div>
+                }
+            </div>
+
+            <footer class="nornis-footer">
+                <nav class="nornis-footer-links" aria-label="Legal and info">
+                    <a href="/about">About</a>
+                    <a href="/features">Features</a>
+                    <a href="/changelog">Changelog</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/terms">Terms</a>
+                    <a href="/licenses">Licenses</a>
+                </nav>
+                <span class="nornis-footer-made">Made with ❤️ by 👨 and 🤖 for people who love 🎲</span>
+                <a href="/welcome" class="nornis-footer-version">© @DateTime.UtcNow.Year Nornis · v@(Nornis.Web.AppVersion.Display)</a>
+            </footer>
         </div>
 
         <TutorialChecklist />
-
-        <footer class="nornis-footer">
-            <nav class="nornis-footer-links" aria-label="Legal and info">
-                <a href="/about">About</a>
-                <a href="/features">Features</a>
-                <a href="/changelog">Changelog</a>
-                <a href="/privacy">Privacy</a>
-                <a href="/terms">Terms</a>
-                <a href="/licenses">Licenses</a>
-            </nav>
-            <span class="nornis-footer-made">Made with ❤️ by 👨 and 🤖 for people who love 🎲</span>
-            <a href="/welcome" class="nornis-footer-version">© @DateTime.UtcNow.Year Nornis · v@(Nornis.Web.AppVersion.Display)</a>
-        </footer>
     </MudMainContent>
 </MudLayout>
 
@@ -82,6 +86,7 @@
     private bool _navOpen = true;
     private DotNetObjectReference<MainLayout>? _selfRef;
     private MudThemeProvider? _themeProvider;
+    private string _path = string.Empty;
 
     private void ToggleNav() => _navOpen = !_navOpen;
 
@@ -91,6 +96,7 @@
         Theme.Changed += OnThemeChanged;
         Nav.LocationChanged += OnLocationChanged;
         // The route default for the first page; a page that knows more replaces it.
+        _path = PathOf(Nav.Uri);
         Crumbs.SetFromRoute(Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0]);
     }
 
@@ -101,8 +107,34 @@
 
     // Fires before the new page renders, so the route default lands first and the page's own
     // trail (set from data it already holds) wins afterwards.
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
-        Crumbs.SetFromRoute(Nav.ToBaseRelativePath(e.Location).Split('?')[0]);
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var path = PathOf(e.Location);
+        Crumbs.SetFromRoute(path);
+        if (path != _path && !e.Location.Contains('#', StringComparison.Ordinal))
+        {
+            _ = ResetPaneAsync();
+        }
+
+        _path = path;
+    }
+
+    private string PathOf(string uri) => Nav.ToBaseRelativePath(uri).Split('?', '#')[0];
+
+    // Blazor puts the window back at the top on a new page, but on a desktop window it is the pane
+    // that scrolls; it goes back to the top here. A new query (a tab, a filter) or a #fragment
+    // keeps its place.
+    private async Task ResetPaneAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("nornisNav.resetPane");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            // No JS, or the circuit has gone: nothing to scroll.
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

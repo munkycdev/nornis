@@ -1,5 +1,17 @@
 # UI Design System
 
+> **Amendment (2026-11-08, Nornis 3.18 and 3.19, "the window stays still"):** Dave asked that
+> the window be the same height everywhere and the editing boxes be what scroll. On a desktop
+> window (at least 960px wide and 560px tall) the member app is an app shell: the sidebar and the
+> top bar stay put and the pane beneath the top bar (`.nornis-pane`, which holds the page and the
+> footer) is what scrolls. The pane is a size container, so anything that must fit what can be
+> seen sizes to `100cqh` rather than `100vh`; a sticky rail sticks inside the pane. An editable
+> notes editor never grows taller than the pane, scrolling its text under a toolbar that stays.
+> A page that is a workspace (`.nornis-workspace`, Prep today) fills the pane on a window at least
+> 1200px by 600px: nothing on it scrolls but its columns, and the footer steps aside. A phone, or
+> a window too short for a fixed frame, scrolls as a page, as before. The public site is
+> unchanged.
+
 > **Amendment (2026-11-07, feature 42, "the world is the hero"):** after a UX review found every
 > page the same white card on the same paper, so that one world looked like any other, Dave chose
 > to let the world's own imagery and a meaningful use of colour into the interface. What changes,

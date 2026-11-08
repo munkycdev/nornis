@@ -93,6 +93,32 @@ h1:focus {
     padding: 16px 28px;
 }
 
+/* App shell (3.19): on a desktop window the window itself never scrolls. The top bar stays
+   put and the pane beneath it, holding the page and the footer, is what scrolls. The pane is a
+   size container, so anything that has to fit what can be seen (a sticky rail, an editor)
+   sizes to 100cqh, the pane's height; where there is no pane container (a phone) 100cqh is
+   the window's. A workspace page (below, in the Prep section) goes further and fills the pane
+   itself. A phone, or a window too short for a fixed frame, scrolls as a page. */
+@media (min-width: 960px) and (min-height: 560px) {
+    .nornis-main {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .nornis-topbar {
+        flex: 0 0 auto;
+    }
+
+    .nornis-pane {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        container: pane / size;
+    }
+}
+
 .nornis-kbd {
     border: 1px solid var(--mud-palette-lines-default);
     border-radius: 6px;
@@ -3263,6 +3289,26 @@ a.nornis-cite:hover {
     right: max(24px, calc((100% - 680px) / 2));
 }
 
+/* In the app shell an editor never outgrows the pane: past what fits it scrolls inside, the
+   toolbar staying above the text, so the buttons under it are a short scroll away at most
+   rather than the length of the notes. A read-only editor is reading, and keeps its length. */
+@media (min-width: 960px) and (min-height: 560px) {
+    .nornis-pane .nornis-editor:not(.nornis-editor-max):not(.nornis-editor-ro) {
+        display: flex;
+        flex-direction: column;
+        max-height: max(360px, calc(100cqh - 160px));
+    }
+
+    .nornis-pane .nornis-editor:not(.nornis-editor-max):not(.nornis-editor-ro) > .nornis-editor-toolbar {
+        flex: 0 0 auto;
+    }
+
+    .nornis-pane .nornis-editor:not(.nornis-editor-max):not(.nornis-editor-ro) > .nornis-editor-content {
+        flex: 1 1 auto;
+        overflow-y: auto;
+    }
+}
+
 .nornis-editor-content {
     position: relative;
     padding: 14px 18px;
@@ -3473,7 +3519,7 @@ a.nornis-cite:hover {
 .nornis-lm {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 32px);
+    max-height: calc(100cqh - 32px);
 }
 
 .nornis-lm-thread {
@@ -4643,7 +4689,7 @@ a.nornis-cite:hover {
     flex-direction: column;
     gap: 12px;
     box-sizing: border-box;
-    max-height: calc(100vh - 32px);
+    max-height: calc(100cqh - 32px);
 }
 
 .nornis-prep-talk-column .nornis-prep-talk {
@@ -4919,7 +4965,7 @@ a.nornis-cite:hover {
 .nornis-prep-editor .nornis-editor:not(.nornis-editor-max) {
     display: flex;
     flex-direction: column;
-    height: clamp(320px, calc(100dvh - 360px), 1400px);
+    height: clamp(320px, calc(100cqh - 290px), 1400px);
 }
 
 .nornis-prep-editor .nornis-editor:not(.nornis-editor-max) .nornis-editor-toolbar {
@@ -4935,20 +4981,16 @@ a.nornis-cite:hover {
 /* A workspace page (3.18) is the window on a wide screen: the top bar and the page's head stay
    put, the footer steps aside, and what is left belongs to the page's columns, each of which
    scrolls on its own. The editors and the conversation fill their columns with their buttons
-   pinned below them. Narrower than this, or when the columns stack, the page scrolls as before. */
+   pinned below them. Narrower than this, or when the columns stack, the page scrolls in the
+   pane as any other page does. */
 @media (min-width: 1200px) and (min-height: 600px) {
-    .nornis-main:has(.nornis-workspace) {
-        height: 100dvh;
+    .nornis-pane:has(.nornis-workspace) {
         display: flex;
         flex-direction: column;
         overflow: hidden;
     }
 
-    .nornis-main:has(.nornis-workspace) > .nornis-topbar {
-        flex: 0 0 auto;
-    }
-
-    .nornis-main:has(.nornis-workspace) > .nornis-page {
+    .nornis-pane:has(.nornis-workspace) > .nornis-page {
         flex: 1 1 auto;
         min-height: 0;
         display: flex;
@@ -4956,7 +4998,7 @@ a.nornis-cite:hover {
         padding-bottom: 16px;
     }
 
-    .nornis-main:has(.nornis-workspace) > .nornis-footer {
+    .nornis-pane:has(.nornis-workspace) > .nornis-footer {
         display: none;
     }
 
@@ -5032,8 +5074,8 @@ a.nornis-cite:hover {
         flex: 1 1 0;
         height: auto;
         min-height: 240px;
+        max-height: none;
     }
-
 }
 
 .nornis-prep-outline-row {
@@ -5221,7 +5263,7 @@ a.nornis-cite:hover {
 .nornis-booklet-frame {
     display: block;
     width: 100%;
-    height: calc(100vh - 220px);
+    height: calc(100cqh - 150px);
     min-height: 480px;
     border: 1px solid var(--mud-palette-lines-default);
     border-radius: 4px;

@@ -3,6 +3,14 @@
 // The fallback covers direct deep links opened in a fresh tab, where there is no
 // history entry to go back to.
 window.nornisNav = {
+    // A new page starts at the top of the pane, which is what scrolls on a desktop window.
+    resetPane() {
+        const pane = document.querySelector('.nornis-pane');
+        if (pane) {
+            pane.scrollTop = 0;
+        }
+    },
+
     back(fallback) {
         if (window.history.length > 1) {
             window.history.back();
