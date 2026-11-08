@@ -4,7 +4,7 @@ Runs the test suite with coverage collection and builds a merged HTML report und
 artifacts/coverage/report (gitignored).
 
 Coverage in Nornis is signal, not a gate: this script never fails a run for being
-under some number. It fails only when tests fail. See docs/plans/test-quality.md.
+under some number. It fails only when tests fail. See .kiro/steering/testing-strategy.md.
 
 Test projects are run one at a time rather than via the solution, because the local
 dev servers hold locks on the Api/Web test binaries. A locked project is reported as

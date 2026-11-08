@@ -4,8 +4,7 @@
   Microsoft.Testing.Platform coverage flag, shared by scripts/coverage.ps1 and CI. Successor to coverlet.runsettings, ported when the
   test projects moved to Microsoft.Testing.Platform.
 
-  Coverage here is signal, not a gate — see .kiro/steering/testing-strategy.md and
-  docs/plans/test-quality.md.
+  Coverage here is signal, not a gate — see .kiro/steering/testing-strategy.md.
 
   The exclusions all serve one purpose: keep code nobody chooses to write out of the
   denominator. Hand-written logic is what the number is supposed to describe.

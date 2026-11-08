@@ -51,8 +51,8 @@ az containerapp show -n ca-nornis-api -g rg-nornis \
   --query "properties.template.containers[0].env[?starts_with(name,'ContinuityAudit')]" -o table
 ```
 
-If the alert is firing repeatedly and the work is not scheduled, raise it as a plan item
-rather than treating it as an incident. `docs/plans/` is where that belongs.
+If the alert is firing repeatedly and the work is not scheduled, raise it as feature work
+(a spec in `docs/features/`) rather than treating it as an incident.
 
 ## Verify
 
