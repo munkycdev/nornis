@@ -1,6 +1,7 @@
 ﻿@page "/admin"
 @implements IDisposable
 @inject WorldState Worlds
+@inject NavigationManager Nav
 
 <PageTitle>Settings — Nornis</PageTitle>
 
@@ -21,30 +22,109 @@ else if (!Worlds.IsGm)
         </MudText>
     </MudPaper>
 }
-else
+else if (_form is { } form)
 {
-    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
-             Color="Color.Transparent" SliderColor="Color.Secondary">
-        <MudTabPanel PanelClass="pt-4" Text="Settings" Icon="@Icons.Material.Outlined.Tune">
-            <WorldSettingsPanel />
-        </MudTabPanel>
-        <MudTabPanel PanelClass="pt-4" Text="Costs" Icon="@Icons.Material.Outlined.Paid">
-            <CostsPanel />
-        </MudTabPanel>
-        <MudTabPanel PanelClass="pt-4" Text="Processing" Icon="@Icons.Material.Outlined.Sync">
-            <ProcessingQueuePanel />
-        </MudTabPanel>
-    </MudTabs>
+    @* Five tabs (Nornis 3.23), the shown one in the URL so a link or a reload opens it again. Every
+       field card shares the one form, so moving between tabs keeps what was typed; each card's
+       Save sends only its own fields. *@
+    <TabStrip Tabs="Tabs" Active="@_tab" Selected="ShowTab" Label="Settings" Class="nornis-settings-tabs" />
+
+    <div class="nornis-settings nornis-settings-tab-@_tab">
+        @switch (_tab)
+        {
+            case PublicTab:
+                <WorldSettingsPanel Form="form" Section="WorldSettingsSection.PublicPage" />
+                break;
+
+            case AiTab:
+                <WorldSettingsPanel Form="form" Section="WorldSettingsSection.Budgets" Class="mb-6" />
+                <CostsPanel />
+                break;
+
+            case ProcessingTab:
+                <WorldSettingsPanel Form="form" Section="WorldSettingsSection.Review" Class="mb-6" />
+                <ProcessingQueuePanel />
+                break;
+
+            case ExportTab:
+                <WorldSettingsPanel Form="form" Section="WorldSettingsSection.Template" />
+                <ExportAndDeletePanel />
+                break;
+
+            default:
+                <div class="nornis-settings-world-grid">
+                    <WorldSettingsPanel Form="form" Section="WorldSettingsSection.World" />
+                    <KeyArtCard WorldId="Worlds.Current.Id" PublicAccessEnabled="Worlds.Current.PublicAccessEnabled"
+                                OnChanged="() => Worlds.ForgetHero(Worlds.Current!.Id)" />
+                </div>
+                break;
+        }
+    </div>
 }
 
 @code {
+    public const string WorldTab = "world";
+    public const string PublicTab = "public";
+    public const string AiTab = "ai";
+    public const string ProcessingTab = "processing";
+    public const string ExportTab = "export";
+
+    /// <summary>The tabs, in the order a GM reaches for them: what the world is, who can see it, what it spends, how it reads, and its end.</summary>
+    public static readonly IReadOnlyList<TabStrip.Item> Tabs =
+    [
+        new(WorldTab, "World"),
+        new(PublicTab, "Public page"),
+        new(AiTab, "AI and costs"),
+        new(ProcessingTab, "Processing"),
+        new(ExportTab, "Export and delete"),
+    ];
+
+    /// <summary>The tab a URL names, whatever its case; the World tab for none or one that isn't a tab.</summary>
+    public static string TabFromQuery(string? tab) =>
+        Tabs.FirstOrDefault(t => string.Equals(t.Key, tab?.Trim(), StringComparison.OrdinalIgnoreCase))?.Key ?? WorldTab;
+
+    [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
+
+    private string _tab = WorldTab;
+    private WorldSettingsForm? _form;
+
     protected override async Task OnInitializedAsync()
     {
         Worlds.Changed += OnWorldsChanged;
         await Worlds.EnsureLoadedAsync();
+        SyncForm();
     }
 
-    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+    // The URL is the authority on the tab, so Back and a pasted link both land where they say.
+    protected override void OnParametersSet() => _tab = TabFromQuery(Tab);
+
+    /// <summary>
+    /// Fills the form from the world when a different world is selected. A save reloads the same
+    /// world, and the form is left alone then, so what was typed on another tab is not wiped.
+    /// </summary>
+    private void SyncForm()
+    {
+        if (Worlds.Current is { } world && _form?.WorldId != world.Id)
+        {
+            _form = WorldSettingsForm.From(world);
+        }
+        else if (Worlds.Current is null)
+        {
+            _form = null;
+        }
+    }
+
+    private void ShowTab(string tab)
+    {
+        _tab = tab;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab), replace: true);
+    }
+
+    private void OnWorldsChanged() => InvokeAsync(() =>
+    {
+        SyncForm();
+        StateHasChanged();
+    });
 
     public void Dispose() => Worlds.Changed -= OnWorldsChanged;
 }

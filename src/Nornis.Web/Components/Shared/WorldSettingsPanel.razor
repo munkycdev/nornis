@@ -1,297 +1,121 @@
-﻿@implements IDisposable
-@inject WorldState Worlds
+﻿@inject WorldState Worlds
 @inject NornisApiClient Api
-@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
-@inject NavigationManager Nav
 
-@* World configuration, invite links, export and deletion. Campaigns and members moved to
-   pages of their own on 2026-09-09 (feature 24); this is the GM-only Admin page's Settings tab. *@
+@* One group of the world's settings as a card with its own Save (Nornis 3.23). The Settings page
+   owns the form, so what was typed on a tab survives moving to another; this card sends only its
+   own section, and the API leaves every other field as it is. GM-only: the page shows it to no one
+   else, and the API refuses the update to anyone below GM regardless. *@
 
-<div>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">World configuration.</MudText>
-
-    @if (Worlds.Current is null)
+<MudPaper Elevation="0" Class="@($"nornis-card nornis-card-pad nornis-settings-card nornis-settings-{Section.ToString().ToLowerInvariant()} {Class}")">
+    @switch (Section)
     {
-        <NoWorld />
-    }
-    else
-    {
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        case WorldSettingsSection.World:
             <div class="nornis-detail-section-title">World</div>
-            @if (_isGm)
-            {
-                <MudTextField @bind-Value="_name" Label="Name" Required="true" Immediate="true"
-                              MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
-                <MudTextField @bind-Value="_description" Label="Description" Lines="2"
-                              Variant="Variant.Outlined" Class="mb-3" />
-                <MudTextField @bind-Value="_gameSystem" Label="Game system" Placeholder="e.g. D&D 5e"
-                              Variant="Variant.Outlined" Class="mb-3" />
-                <MudNumericField T="decimal?" @bind-Value="_dailyAiBudget" Label="Daily AI budget (USD)"
-                                 Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
-                                 HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
-                                 Variant="Variant.Outlined" Class="mb-3" />
-                <MudSwitch T="bool" @bind-Value="_summaryReviewRequired" Color="Color.Secondary"
-                           Label="Review summary updates" Class="mb-1" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
-                    After you accept changes, Nornis refreshes the affected artifacts' summaries
-                    automatically. Turn this on to route those refreshed summaries through the
-                    review queue instead.
-                </MudText>
-                <MudSwitch T="bool" @bind-Value="_isTemplate" Color="Color.Secondary"
-                           Label="Template master" Class="mb-1" />
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
-                    Marks this world as a hand-authored master you export as a template. It moves
-                    into a separate "Templates" group at the bottom of the world switcher — still
-                    selectable, just out of the way of the worlds you actually play in.
-                </MudText>
+            <MudTextField @bind-Value="Form.Name" Label="Name" Required="true" Immediate="true"
+                          MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="Form.Description" Label="Description" Lines="3"
+                          Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="Form.GameSystem" Label="Game system" Placeholder="e.g. D&D 5e"
+                          Variant="Variant.Outlined" Class="mb-3" />
+            break;
 
-                <div class="nornis-detail-section-title mt-2">Public access</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                    Share this world's party-visible knowledge — codex, timeline, and sessions —
-                    with anyone via a read-only link. GM-only and private material never appears.
-                </MudText>
-                <MudTextField @bind-Value="_publicSlug" Label="Public URL slug" Immediate="true"
-                              Placeholder="@SuggestedSlug" MaxLength="60"
-                              HelperText="Lowercase letters, digits, and hyphens (3–60 characters)."
-                              Variant="Variant.Outlined" Class="mb-2"
-                              Adornment="Adornment.Start" AdornmentText="nornis.app/w/" />
-                <div class="d-flex align-center gap-3 mb-3">
-                    <MudSwitch T="bool" @bind-Value="_publicAccessEnabled" Color="Color.Secondary"
-                               Label="Publicly accessible" Disabled="@(string.IsNullOrWhiteSpace(_publicSlug))" />
-                    @if (_publicAccessEnabled && !string.IsNullOrWhiteSpace(_publicSlug))
-                    {
-                        <MudTooltip Text="Copy public link">
-                            <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
-                                           OnClick="CopyPublicLinkAsync" aria-label="Copy public link" />
-                        </MudTooltip>
-                        <a href="@PublicUrl" target="_blank" rel="noopener" class="nornis-link">@PublicUrl</a>
-                    }
-                </div>
-
-                <MudNumericField T="decimal?" @bind-Value="_publicAskMonthlyBudget" Label="Public Ask budget (USD / month)"
-                                 Placeholder="off" Min="0.01m" Max="1000m" Step="1m"
-                                 HelperText="Let anonymous visitors Ask the Loremaster on the public page, capped at this AI spend per calendar month. Leave empty to keep public questions off. Requires public access above."
-                                 Variant="Variant.Outlined" Class="mb-3" />
-
-                @* Prep's own pool (feature 29): drafting never spends the daily budget above. *@
-                <MudNumericField T="decimal?" @bind-Value="_prepMonthlyBudget" Label="Prep budget (USD / month)"
-                                 Placeholder="default" Min="0.01m" Max="1000m" Step="1m"
-                                 HelperText="The most AI drafting in Prep may spend each calendar month. Separate from the daily budget, so prep never holds up extraction. Leave empty for the default."
-                                 Variant="Variant.Outlined" Class="mb-3" />
-
-                @if (_worldError is not null)
-                {
-                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_worldError</MudAlert>
-                }
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveWorldAsync" Disabled="_savingWorld">
-                    Save changes
-                </MudButton>
-            }
-            else
-            {
-                <div class="nornis-kv"><span class="nornis-kv-key">Name</span><span class="nornis-kv-value">@Worlds.Current.Name</span></div>
-                <div class="nornis-kv"><span class="nornis-kv-key">Description</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Worlds.Current.Description) ? "—" : Worlds.Current.Description)</span></div>
-                <div class="nornis-kv"><span class="nornis-kv-key">Game system</span><span class="nornis-kv-value">@(string.IsNullOrWhiteSpace(Worlds.Current.GameSystem) ? "—" : Worlds.Current.GameSystem)</span></div>
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Only GMs can edit world settings.</MudText>
-            }
-        </MudPaper>
-
-        @if (_isGm)
-        {
-            <KeyArtCard WorldId="Worlds.Current.Id" PublicAccessEnabled="Worlds.Current.PublicAccessEnabled"
-                        OnChanged="() => Worlds.ForgetHero(Worlds.Current!.Id)" />
-        }
-
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-            <div class="nornis-detail-section-title">Campaigns and members</div>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                Both have pages of their own now — <a href="/campaigns" class="nornis-link">Campaigns</a>
-                and <a href="/members" class="nornis-link">Members</a>, under Table in the sidebar —
-                readable by everyone at the table and editable here by you.
+        case WorldSettingsSection.PublicPage:
+            <div class="nornis-detail-section-title">Public page</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Share this world's party-visible knowledge (codex, timeline and sessions) with anyone
+                through a read-only link. GM-only and private material never appears.
             </MudText>
-        </MudPaper>
-
-        @if (_isGm)
-        {
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">Invite links</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                    Share a link and anyone who opens it can sign in (or create an account) and join this
-                    world with the role you choose. Set an expiry or a use limit, and revoke a link any time.
-                </MudText>
-
-                @if (_loadingInvites)
+            <MudTextField @bind-Value="Form.PublicSlug" Label="Public URL slug" Immediate="true"
+                          Placeholder="@SuggestedSlug" MaxLength="60"
+                          HelperText="Lowercase letters, digits, and hyphens (3–60 characters)."
+                          Variant="Variant.Outlined" Class="mb-2"
+                          Adornment="Adornment.Start" AdornmentText="nornis.app/w/" />
+            <div class="d-flex align-center flex-wrap gap-3 mb-3">
+                <MudSwitch T="bool" @bind-Value="Form.PublicAccessEnabled" Color="Color.Secondary"
+                           Label="Publicly accessible" Disabled="@(string.IsNullOrWhiteSpace(Form.PublicSlug))" />
+                @if (Form.PublicAccessEnabled && !string.IsNullOrWhiteSpace(Form.PublicSlug))
                 {
-                    <LoadingRows Rows="2" Height="48px" />
+                    <MudTooltip Text="Copy public link">
+                        <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
+                                       OnClick="CopyPublicLinkAsync" aria-label="Copy public link" />
+                    </MudTooltip>
+                    <a href="@PublicUrl" target="_blank" rel="noopener" class="nornis-link">@PublicUrl</a>
                 }
-                else if (_invitesError is not null)
-                {
-                    <MudAlert Severity="Severity.Error">@_invitesError</MudAlert>
-                }
-                else
-                {
-                    @if (ActiveInvites.Count == 0)
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">No invite links yet.</MudText>
-                    }
-                    @foreach (var invite in ActiveInvites)
-                    {
-                        <div class="nornis-member-row">
-                            <div class="nornis-list-body">
-                                <div class="nornis-list-title">@InviteUrl(invite)</div>
-                                <div class="nornis-list-sub">
-                                    Uses: @invite.UseCount@(invite.MaxUses is { } max ? $" / {max}" : " / ∞")
-                                    · @(invite.ExpiresAt is { } exp ? $"Expires {exp.LocalDateTime:MMM d, yyyy}" : "No expiry")
-                                    @if (invite.Status != "Active")
-                                    {
-                                        <span> · @invite.Status</span>
-                                    }
-                                </div>
-                            </div>
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
-                                     Color="@(invite.Status == "Active" ? Color.Success : Color.Default)">@RoleLabel(invite.Role)</MudChip>
-                            <MudTooltip Text="Copy invite link">
-                                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
-                                               OnClick="() => CopyInviteLinkAsync(invite)" aria-label="Copy invite link"
-                                               Disabled='@(invite.Status != "Active")' />
-                            </MudTooltip>
-                            <MudIconButton Icon="@Icons.Material.Filled.LinkOff" Color="Color.Error" Size="Size.Small"
-                                           OnClick="() => RevokeInviteAsync(invite)" Disabled="@_busyInvites.Contains(invite.Id)"
-                                           aria-label="Revoke invite" />
-                        </div>
-                    }
+            </div>
+            <MudNumericField T="decimal?" @bind-Value="Form.PublicAskMonthlyBudget" Label="Public Ask budget (USD / month)"
+                             Placeholder="off" Min="0.01m" Max="1000m" Step="1m"
+                             HelperText="Let visitors to the public page Ask the Loremaster, capped at this AI spend per calendar month. Leave empty to keep public questions off."
+                             Variant="Variant.Outlined" Class="mb-3" />
+            break;
 
-                    <div class="nornis-add-member mt-3">
-                        <MudSelect T="string" @bind-Value="_inviteRole" Label="Role" Dense="true"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-role-select">
-                            @foreach (var role in _roles)
-                            {
-                                <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
-                            }
-                        </MudSelect>
-                        <MudDatePicker @bind-Date="_inviteExpiry" Label="Expiry (optional)" MinDate="DateTime.Today"
-                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" Clearable="true" />
-                        <MudNumericField T="int?" @bind-Value="_inviteMaxUses" Label="Max uses" Min="1" Step="1"
-                                         Placeholder="∞" Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-role-select" />
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddLink"
-                                   OnClick="CreateInviteAsync" Disabled="_creatingInvite">
-                            Create
-                        </MudButton>
-                    </div>
-                    @if (_createInviteError is not null)
-                    {
-                        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_createInviteError</MudAlert>
-                    }
-                }
-            </MudPaper>
+        case WorldSettingsSection.Budgets:
+            <div class="nornis-detail-section-title">Budgets</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                The most this world's AI may spend. The public Ask budget is on the Public page tab.
+            </MudText>
+            <MudNumericField T="decimal?" @bind-Value="Form.DailyAiBudget" Label="Daily AI budget (USD)"
+                             Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
+                             HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
+                             Variant="Variant.Outlined" Class="mb-3" />
+            @* Prep's own pool (feature 29): drafting never spends the daily budget above. *@
+            <MudNumericField T="decimal?" @bind-Value="Form.PrepMonthlyBudget" Label="Prep budget (USD / month)"
+                             Placeholder="default" Min="0.01m" Max="1000m" Step="1m"
+                             HelperText="The most AI drafting in Prep may spend each calendar month. Separate from the daily budget, so prep never holds up extraction. Leave empty for the default."
+                             Variant="Variant.Outlined" Class="mb-3" />
+            break;
 
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">Export</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                    Download a copy of this world as a single zip file — pick which data types to
-                    include. JSON for the record, original files for attachments and library documents.
-                </MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.Download"
-                           OnClick="ExportWorldAsync">
-                    Export this world…
-                </MudButton>
-            </MudPaper>
+        case WorldSettingsSection.Review:
+            <div class="nornis-detail-section-title">Summary updates</div>
+            <MudSwitch T="bool" @bind-Value="Form.SummaryReviewRequired" Color="Color.Secondary"
+                       Label="Review summary updates" Class="mb-1" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
+                After you accept changes, Nornis refreshes the affected artifacts' summaries
+                automatically. Turn this on to route those refreshed summaries through the
+                review queue instead.
+            </MudText>
+            break;
 
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4" Style="border: 1px solid var(--mud-palette-error);">
-                <div class="nornis-detail-section-title" style="color: var(--mud-palette-error);">Danger zone</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                    Deleting this world permanently erases everything in it — sessions, codex, timeline,
-                    campaigns, characters, library files, members, and invite links. There is no archive
-                    and no way to recover it.
-                </MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Error"
-                           StartIcon="@Icons.Material.Filled.DeleteForever"
-                           OnClick="DeleteWorldAsync">
-                    Delete this world…
-                </MudButton>
-            </MudPaper>
-        }
+        case WorldSettingsSection.Template:
+            <div class="nornis-detail-section-title">Template master</div>
+            <MudSwitch T="bool" @bind-Value="Form.IsTemplate" Color="Color.Secondary"
+                       Label="Template master" Class="mb-1" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
+                Marks this world as a hand-authored master you export as a template. It moves
+                into a separate "Templates" group at the bottom of the world switcher: still
+                selectable, just out of the way of the worlds you actually play in.
+            </MudText>
+            break;
     }
-</div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+    }
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving"
+               Class="nornis-settings-save">
+        Save
+    </MudButton>
+</MudPaper>
 
 @code {
-    private readonly string[] _roles = [WorldRoles.Gm, WorldRoles.Player, WorldRoles.Observer];
+    /// <summary>The page's form, shared by every card on it.</summary>
+    [Parameter, EditorRequired] public WorldSettingsForm Form { get; set; } = null!;
 
-    private bool _isGm => Worlds.IsGm;
+    [Parameter, EditorRequired] public WorldSettingsSection Section { get; set; }
 
-    // World settings form
-    private string _name = string.Empty;
-    private string? _description;
-    private string? _gameSystem;
-    private decimal? _dailyAiBudget;
-    private string? _publicSlug;
-    private bool _publicAccessEnabled;
-    private decimal? _publicAskMonthlyBudget;
-    private decimal? _prepMonthlyBudget;
-    private bool _summaryReviewRequired;
-    private bool _isTemplate;
-    private bool _savingWorld;
-    private string? _worldError;
+    [Parameter] public string? Class { get; set; }
 
-    // Invite links (GM-only)
-    private bool _loadingInvites;
-    private string? _invitesError;
-    private IReadOnlyList<WorldInvite> _invites = [];
-    private readonly HashSet<Guid> _busyInvites = [];
-    private string _inviteRole = "Player";
-    private DateTime? _inviteExpiry;
-    private int? _inviteMaxUses;
-    private bool _creatingInvite;
-    private string? _createInviteError;
-
-    /// <summary>Non-revoked invites shown to the GM; revoked ones stay in the DB for audit but are hidden here.</summary>
-    private IReadOnlyList<WorldInvite> ActiveInvites =>
-        _invites.Where(i => i.RevokedAt is null).ToList();
-
-    private Guid _loadedWorldId;
-
-    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await Worlds.EnsureLoadedAsync();
-        SyncFromWorld();
-        await LoadInvitesAsync();
-    }
-
-    private void OnWorldChanged() => InvokeAsync(async () =>
-    {
-        SyncFromWorld();
-        await LoadInvitesAsync();
-    });
-
-    private void SyncFromWorld()
-    {
-        if (Worlds.Current is { } c && c.Id != _loadedWorldId)
-        {
-            _name = c.Name;
-            _description = c.Description;
-            _gameSystem = c.GameSystem;
-            _dailyAiBudget = c.DailyAiBudgetUsd;
-            _publicSlug = c.PublicSlug;
-            _publicAccessEnabled = c.PublicAccessEnabled;
-            _publicAskMonthlyBudget = c.PublicAskMonthlyBudgetUsd;
-            _prepMonthlyBudget = c.PrepMonthlyBudgetUsd;
-            _summaryReviewRequired = c.SummaryReviewRequired;
-            _isTemplate = c.IsTemplate;
-            _loadedWorldId = c.Id;
-        }
-    }
+    private bool _saving;
+    private string? _error;
 
     private string SuggestedSlug =>
-        Worlds.Current is { } c
-            ? new string(c.Name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-')
+        new string(Form.Name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') is { Length: > 0 } slug
+            ? slug
             : "my-world";
 
-    private string PublicUrl => $"https://nornis.app/w/{_publicSlug?.Trim().ToLowerInvariant()}";
+    private string PublicUrl => $"https://nornis.app/w/{Form.PublicSlug?.Trim().ToLowerInvariant()}";
 
     private async Task CopyPublicLinkAsync()
     {
@@ -299,188 +123,25 @@
         Snackbar.Add("Public link copied.", Severity.Info);
     }
 
-    private async Task SaveWorldAsync()
+    private async Task SaveAsync()
     {
-        if (Worlds.Current is null)
+        _error = Form.Problem(Section);
+        if (_error is not null)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_name))
-        {
-            _worldError = "Name is required.";
-            return;
-        }
+        _saving = true;
+        var result = await Api.UpdateWorldAsync(Form.WorldId, Form.RequestFor(Section));
+        _saving = false;
 
-        _savingWorld = true;
-        _worldError = null;
-
-        var result = await Api.UpdateWorldAsync(Worlds.Current.Id,
-            new UpdateWorldRequest(_name.Trim(), _description, _gameSystem,
-                DailyAiBudgetUsd: _dailyAiBudget,
-                ClearDailyAiBudget: _dailyAiBudget is null,
-                PublicSlug: string.IsNullOrWhiteSpace(_publicSlug) ? null : _publicSlug.Trim(),
-                PublicAccessEnabled: _publicAccessEnabled,
-                PublicAskMonthlyBudgetUsd: _publicAskMonthlyBudget,
-                ClearPublicAskBudget: _publicAskMonthlyBudget is null,
-                SummaryReviewRequired: _summaryReviewRequired,
-                IsTemplate: _isTemplate,
-                PrepMonthlyBudgetUsd: _prepMonthlyBudget,
-                ClearPrepBudget: _prepMonthlyBudget is null));
-
-        _savingWorld = false;
         if (!result.IsSuccess)
         {
-            _worldError = result.Error!.Message;
+            _error = result.Error!.Message;
             return;
         }
 
-        await Worlds.ReloadAsync(); // refresh the sidebar name
-        Snackbar.Add("World settings saved.", Severity.Success);
+        await Worlds.ReloadAsync(); // the sidebar's name, the switcher's Templates group, the hero's public line
+        Snackbar.Add("Saved.", Severity.Success);
     }
-
-    private async Task LoadInvitesAsync()
-    {
-        if (Worlds.Current is null || !_isGm)
-        {
-            _invites = [];
-            return;
-        }
-
-        _loadingInvites = true;
-        _invitesError = null;
-        StateHasChanged();
-
-        var result = await Api.GetWorldInvitesAsync(Worlds.Current.Id);
-
-        _loadingInvites = false;
-        if (result.IsSuccess)
-        {
-            _invites = result.Value!;
-        }
-        else
-        {
-            _invitesError = result.Error!.Message;
-            _invites = [];
-        }
-        StateHasChanged();
-    }
-
-    private string InviteUrl(WorldInvite invite) => $"{Nav.BaseUri}invite/{invite.Code}";
-
-    private async Task CopyInviteLinkAsync(WorldInvite invite)
-    {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", InviteUrl(invite));
-        Snackbar.Add("Invite link copied.", Severity.Info);
-    }
-
-    private async Task CreateInviteAsync()
-    {
-        if (Worlds.Current is null)
-        {
-            return;
-        }
-
-        _createInviteError = null;
-        _creatingInvite = true;
-
-        // MudDatePicker yields a local midnight DateTime?; treat the picked day as "valid through
-        // end of that day" and normalize to a UTC DateTimeOffset for the API.
-        DateTimeOffset? expiresAt = _inviteExpiry is { } day
-            ? new DateTimeOffset(DateTime.SpecifyKind(day.Date, DateTimeKind.Utc), TimeSpan.Zero).AddDays(1).AddSeconds(-1)
-            : null;
-
-        var result = await Api.CreateWorldInviteAsync(Worlds.Current.Id,
-            new CreateInviteRequest(_inviteRole, expiresAt, _inviteMaxUses));
-
-        _creatingInvite = false;
-        if (result.IsSuccess)
-        {
-            _invites = _invites.Prepend(result.Value!).ToList();
-            _inviteExpiry = null;
-            _inviteMaxUses = null;
-            Snackbar.Add("Invite link created.", Severity.Success);
-        }
-        else
-        {
-            _createInviteError = result.Error!.Message;
-        }
-        StateHasChanged();
-    }
-
-    private async Task RevokeInviteAsync(WorldInvite invite)
-    {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Revoke invite?",
-            "This link will stop working immediately. Anyone who already joined stays a member.",
-            yesText: "Revoke", cancelText: "Cancel");
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        _busyInvites.Add(invite.Id);
-        var result = await Api.RevokeWorldInviteAsync(Worlds.Current!.Id, invite.Id);
-        _busyInvites.Remove(invite.Id);
-
-        if (result.IsSuccess)
-        {
-            _invites = _invites.Where(i => i.Id != invite.Id).ToList();
-            Snackbar.Add("Invite revoked.", Severity.Info);
-        }
-        else
-        {
-            Snackbar.Add(result.Error!.Message, Severity.Error);
-        }
-        StateHasChanged();
-    }
-
-    private async Task ExportWorldAsync()
-    {
-        if (Worlds.Current is not { } world)
-        {
-            return;
-        }
-
-        var parameters = new DialogParameters<ExportWorldDialog>
-        {
-            { d => d.WorldId, world.Id },
-        };
-
-        var dialog = await DialogService.ShowAsync<ExportWorldDialog>("Export world", parameters);
-        var result = await dialog.Result;
-
-        if (result is { Canceled: false })
-        {
-            Snackbar.Add("Export ready — your download should begin shortly.", Severity.Success);
-        }
-    }
-
-    private async Task DeleteWorldAsync()
-    {
-        if (Worlds.Current is not { } world)
-        {
-            return;
-        }
-
-        var parameters = new DialogParameters<DeleteWorldDialog>
-        {
-            { d => d.WorldId, world.Id },
-            { d => d.WorldName, world.Name },
-        };
-
-        var dialog = await DialogService.ShowAsync<DeleteWorldDialog>("Delete world?", parameters);
-        var result = await dialog.Result;
-
-        if (result is { Canceled: false })
-        {
-            Snackbar.Add($"\"{world.Name}\" was permanently deleted.", Severity.Info);
-            await Worlds.ReloadAsync();
-            Nav.NavigateTo("/dashboard");
-        }
-    }
-
-    private static string RoleLabel(string role) => MemberDisplay.RoleLabel(role);
-
-    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

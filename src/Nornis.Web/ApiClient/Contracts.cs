@@ -28,10 +28,11 @@ public record CreateWorldRequest(
     string? Description,
     string? GameSystem);
 
+/// <summary>A partial update: the API leaves any field sent as null as it is.</summary>
 public record UpdateWorldRequest(
-    string Name,
-    string? Description,
-    string? GameSystem,
+    string? Name = null,
+    string? Description = null,
+    string? GameSystem = null,
     decimal? DailyAiBudgetUsd = null,
     bool ClearDailyAiBudget = false,
     string? PublicSlug = null,

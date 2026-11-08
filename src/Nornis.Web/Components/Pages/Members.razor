@@ -1,4 +1,5 @@
 @page "/members"
+@implements IDisposable
 @inject WorldState Worlds
 @inject BreadcrumbState Crumbs
 
@@ -6,8 +7,7 @@
 
 <MudText Typo="Typo.h4" Class="nornis-serif">Members</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Who is at the table, and as what. Invite links live in
-    <a href="/admin" class="nornis-link">settings</a>.
+    Who is at the table, and as what.@(Worlds.IsGm ? " Invite links to bring more people in are below." : "")
 </MudText>
 
 @if (Worlds.Current is null)
@@ -17,8 +17,20 @@
 else
 {
     <MembersPanel />
+    @if (Worlds.IsGm)
+    {
+        <InviteLinksCard />
+    }
 }
 
 @code {
-    protected override void OnInitialized() => Crumbs.Set("/members", new Crumb("Members"));
+    protected override void OnInitialized()
+    {
+        Crumbs.Set("/members", new Crumb("Members"));
+        Worlds.Changed += OnWorldsChanged; // the invite card follows the role, including viewing as a player
+    }
+
+    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
 }

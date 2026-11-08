@@ -1,0 +1,81 @@
+@inject WorldState Worlds
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+@* The Settings page's Export and delete tab (Nornis 3.23): take a copy of the world, or erase it.
+   GM-only, as the page is; the API refuses both to anyone else regardless. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-export">
+    <div class="nornis-detail-section-title">Export</div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        Download a copy of this world as a single zip file — pick which data types to
+        include. JSON for the record, original files for attachments and library documents.
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+               StartIcon="@Icons.Material.Filled.Download"
+               OnClick="ExportWorldAsync">
+        Export this world…
+    </MudButton>
+</MudPaper>
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-danger" Style="border: 1px solid var(--mud-palette-error);">
+    <div class="nornis-detail-section-title" style="color: var(--mud-palette-error);">Danger zone</div>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        Deleting this world permanently erases everything in it — sessions, codex, timeline,
+        campaigns, characters, library files, members, and invite links. There is no archive
+        and no way to recover it.
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+               StartIcon="@Icons.Material.Filled.DeleteForever"
+               OnClick="DeleteWorldAsync">
+        Delete this world…
+    </MudButton>
+</MudPaper>
+
+@code {
+    private async Task ExportWorldAsync()
+    {
+        if (Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<ExportWorldDialog>
+        {
+            { d => d.WorldId, world.Id },
+        };
+
+        var dialog = await DialogService.ShowAsync<ExportWorldDialog>("Export world", parameters);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add("Export ready — your download should begin shortly.", Severity.Success);
+        }
+    }
+
+    private async Task DeleteWorldAsync()
+    {
+        if (Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<DeleteWorldDialog>
+        {
+            { d => d.WorldId, world.Id },
+            { d => d.WorldName, world.Name },
+        };
+
+        var dialog = await DialogService.ShowAsync<DeleteWorldDialog>("Delete world?", parameters);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add($"\"{world.Name}\" was permanently deleted.", Severity.Info);
+            await Worlds.ReloadAsync();
+            Nav.NavigateTo("/dashboard");
+        }
+    }
+}

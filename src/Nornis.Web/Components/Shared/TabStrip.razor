@@ -1,0 +1,37 @@
+@* The row of tabs over a page (Prep's Adventure page since Nornis 3.13, Settings since 3.23): plain
+   buttons in a tablist, the shown one underlined. The page owns which tab is shown and keeps it in
+   its URL (?tab=); this only draws the row and says which one was picked. *@
+
+<div class="nornis-tabs @Class" role="tablist" aria-label="@Label">
+    @foreach (var item in Tabs)
+    {
+        var tab = item;
+        var active = tab.Key == Active;
+        <button type="button" role="tab" class="nornis-tab @(active ? "nornis-tab-active" : null)"
+                aria-selected="@(active ? "true" : "false")" disabled="@Disabled"
+                data-tab="@tab.Key" @onclick="() => Selected.InvokeAsync(tab.Key)">
+            @tab.Label
+        </button>
+    }
+</div>
+
+@code {
+    /// <summary>One tab: the key the page and its URL use, and the label shown.</summary>
+    public sealed record Item(string Key, string Label);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Item> Tabs { get; set; } = [];
+
+    /// <summary>The key of the tab shown.</summary>
+    [Parameter, EditorRequired] public string Active { get; set; } = string.Empty;
+
+    /// <summary>Called with a tab's key when it is clicked, including the one already shown.</summary>
+    [Parameter] public EventCallback<string> Selected { get; set; }
+
+    /// <summary>Holds every tab still, for while the page is busy.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>Extra classes for the row, for a page's own layout rules.</summary>
+    [Parameter] public string? Class { get; set; }
+}

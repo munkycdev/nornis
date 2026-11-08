@@ -69,17 +69,8 @@ else if (_adventure is not null)
         @* The three tabs (Nornis 3.13): Design, Structure (called Sections before 3.16) and Book, in
            the order a GM works. The tab is kept in the URL; moving between tabs saves what was typed
            on the one being left, and no tab changes while a Talk it through turn runs. *@
-        <div class="nornis-prep-mode nornis-prep-tabs" role="tablist" aria-label="Adventure">
-            @foreach (var mode in Modes)
-            {
-                var tab = mode;
-                <button type="button" role="tab" class="nornis-prep-tab @(tab == _mode ? "nornis-prep-tab-active" : null)"
-                        aria-selected="@(tab == _mode ? "true" : "false")" disabled="@(_busy || _talkRunning)"
-                        @onclick="() => SwitchModeAsync(tab)">
-                    @tab
-                </button>
-            }
-        </div>
+        <TabStrip Tabs="ModeTabs" Active="@_mode" Selected="SwitchModeAsync" Disabled="@(_busy || _talkRunning)"
+                  Label="Adventure" Class="nornis-prep-mode nornis-prep-tabs" />
 
         <div class="nornis-prep-layout nornis-prep-layout-@_mode.ToLowerInvariant()">
             @if (_mode == StructureMode)
@@ -318,6 +309,8 @@ else if (_adventure is not null)
 
     /// <summary>The tabs, in the order a GM works: the draft, then its sections, then the book they make.</summary>
     public static readonly IReadOnlyList<string> Modes = [DesignMode, StructureMode, BookMode];
+
+    private static readonly IReadOnlyList<TabStrip.Item> ModeTabs = [.. Modes.Select(m => new TabStrip.Item(m, m))];
 
     /// <summary>What Talk it through sends with each message on a tab: the section, the draft or the book.</summary>
     public static string ConversationScopeOf(string mode) => mode switch
