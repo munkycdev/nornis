@@ -1802,6 +1802,17 @@ span.nornis-list-meta {
     min-width: 0;
 }
 
+.nornis-detail-title-input {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+/* While a source is edited its title is edited where it is shown (3.20). */
+.nornis-detail-title-input input {
+    font-family: var(--nornis-serif);
+    font-size: 1.5rem;
+}
+
 .nornis-detail-chips {
     display: flex;
     align-items: center;
@@ -3527,6 +3538,21 @@ a.nornis-cite:hover {
     }
 }
 
+/* Capture's title and type share a row (3.20); the rest of the filing is in the rail. */
+.nornis-capture-what {
+    flex-wrap: wrap;
+}
+
+.nornis-capture-what > .nornis-capture-title {
+    flex: 2 1 280px;
+    min-width: 0;
+}
+
+.nornis-capture-what > .nornis-capture-type {
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
 /* The panel caps at the visible window (the rail is sticky at top:16px) and the
    thread gets its own scrollbar; exchanges render newest-first under the composer. */
 .nornis-lm {
@@ -5184,6 +5210,18 @@ a.nornis-cite:hover {
 
         .nornis-capture-workspace .nornis-capture-rail {
             position: static;
+        }
+
+        /* The Details card takes what it needs and the Loremaster the rest of the column;
+           its thread scrolls inside it, and the column scrolls only on a short window. */
+        .nornis-capture-workspace .nornis-capture-rail > .nornis-capture-details {
+            flex: none;
+        }
+
+        .nornis-capture-workspace .nornis-capture-rail > .nornis-lm {
+            flex: 1 1 auto;
+            min-height: 320px;
+            max-height: none;
         }
 
         .nornis-capture-workspace .nornis-fill {

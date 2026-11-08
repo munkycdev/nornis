@@ -17,6 +17,25 @@
                    StartIcon="@Icons.Material.Outlined.DriveFolderUpload" Href="/import">
             Import a whole vault
         </MudButton>
+        @if (Worlds.Current is not null)
+        {
+            @* The saves sit at the top (3.20), so they are in view however long the notes run. *@
+            <div class="d-flex gap-2 nornis-capture-actions">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           OnClick="() => SaveAsync(process: false)"
+                           Disabled="_busy">
+                    Save draft
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@(_extractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
+                           OnClick="() => SaveAsync(process: true)"
+                           Disabled="_busy">
+                    @(_extractionEnabled ? "Save & process" : "Save to record")
+                </MudButton>
+            </div>
+        }
     </div>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
         Add a source. Nornis reads it and proposes updates to your world record.
@@ -40,25 +59,20 @@
                                          DiscardLabel="Start fresh" OnDiscard="StartFreshAsync" Disabled="_busy" />
                     }
 
-                    <MudTextField @bind-Value="_title"
-                                  Label="Title"
-                                  Required="true"
-                                  Immediate="true"
-                                  MaxLength="200"
-                                  Variant="Variant.Outlined"
-                                  Class="mb-3" />
-
-                    <div class="d-flex gap-3 mb-3">
-                        <MudSelect @bind-Value="SelectedType" Label="Type" Variant="Variant.Outlined" Class="flex-grow-1">
+                    @* Title and type say what this is; the rest of the filing is in the Details card
+                       beside it (3.20), so the notes get the height. *@
+                    <div class="d-flex gap-3 mb-3 nornis-capture-what">
+                        <MudTextField @bind-Value="_title"
+                                      Label="Title"
+                                      Required="true"
+                                      Immediate="true"
+                                      MaxLength="200"
+                                      Variant="Variant.Outlined"
+                                      Class="nornis-capture-title" />
+                        <MudSelect @bind-Value="SelectedType" Label="Type" Variant="Variant.Outlined" Class="nornis-capture-type">
                             @foreach (var (value, label) in SourceTypeDisplay.CaptureOptionsFor(Worlds.IsGm))
                             {
                                 <MudSelectItem Value="@value">@label</MudSelectItem>
-                            }
-                        </MudSelect>
-                        <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Class="flex-grow-1">
-                            @foreach (var vis in VisibilityDisplay.Scopes)
-                            {
-                                <MudSelectItem Value="@vis">@vis</MudSelectItem>
                             }
                         </MudSelect>
                     </div>
@@ -209,17 +223,36 @@
                                       Class="mb-3" />
                     }
 
+                    @if (_error is not null)
+                    {
+                        <AiErrorAlert Error="ShownError(_error)" Class="mb-3" />
+                    }
+                </MudPaper>
+            </div>
+
+            <div class="nornis-rail nornis-capture-rail">
+                <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-capture-details">
+                    <div class="nornis-detail-section-title">Details</div>
+
+                    <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+                        @foreach (var vis in VisibilityDisplay.Scopes)
+                        {
+                            <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                        }
+                    </MudSelect>
+
                     <MudDatePicker @bind-Date="_occurredAt"
                                    Label="When it happened (optional)"
                                    Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
                                    Clearable="true"
                                    Class="mb-3" />
 
                     @if (_campaigns.Count > 0)
                     {
                         <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
-                                   Variant="Variant.Outlined" Class="mb-3"
-                                   HelperText="Which campaign these events happened in. Leave empty for world lore or prep.">
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                                   HelperText="Leave empty for world lore or prep.">
                             <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
                             @foreach (var c in _campaigns)
                             {
@@ -230,36 +263,13 @@
 
                     <MudCheckBox T="bool" @bind-Value="_extractionEnabled" Color="Color.Secondary" Dense="true" Class="mb-1"
                                  Label="Extract knowledge from this source" />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
                         @(_extractionEnabled
                             ? "Nornis will read it and propose artifacts, facts, and relationships for review."
                             : "Stored in the record as-is — no proposals, no changes to canon.")
                     </MudText>
-
-                    @if (_error is not null)
-                    {
-                        <AiErrorAlert Error="ShownError(_error)" Class="mb-3" />
-                    }
-
-                    <div class="d-flex gap-2">
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Primary"
-                                   OnClick="() => SaveAsync(process: false)"
-                                   Disabled="_busy">
-                            Save draft
-                        </MudButton>
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   StartIcon="@(_extractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
-                                   OnClick="() => SaveAsync(process: true)"
-                                   Disabled="_busy">
-                            @(_extractionEnabled ? "Save & process" : "Save to record")
-                        </MudButton>
-                    </div>
                 </MudPaper>
-            </div>
 
-            <div class="nornis-rail nornis-capture-rail">
                 <LoremasterPanel />
             </div>
         </div>
