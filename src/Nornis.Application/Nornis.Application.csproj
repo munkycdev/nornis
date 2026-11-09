@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <!-- Prep's importer and print model parse Markdown; the same version as the Web's. -->
-    <PackageReference Include="Markdig" Version="1.5.1" />
+    <PackageReference Include="Markdig" Version="1.6.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.14" />
   </ItemGroup>
