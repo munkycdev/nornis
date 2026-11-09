@@ -38,7 +38,7 @@ public class AiErrorAlertTests : BunitContext
         Assert.Multiple(() =>
         {
             Assert.That(cut.Find(".mud-alert").ClassList, Does.Contain("mud-alert-text-warning"));
-            Assert.That(cut.Find("a").GetAttribute("href"), Is.EqualTo("/profile#ai-keys"));
+            Assert.That(cut.Find("a").GetAttribute("href"), Is.EqualTo("/profile?tab=ai"));
         });
     }
 
@@ -62,7 +62,7 @@ public class AiErrorAlertTests : BunitContext
         var cut = RenderAlert("ai_credit_exhausted",
             "The OpenAI-compatible account behind this world's key is out of credit. Add credit there, then try again.");
 
-        Assert.That(cut.Find("a").GetAttribute("href"), Is.EqualTo("/profile#ai-keys"));
+        Assert.That(cut.Find("a").GetAttribute("href"), Is.EqualTo("/profile?tab=ai"));
     }
 
     [Test]
