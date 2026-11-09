@@ -14,6 +14,15 @@ public static class Links
 {
     public static string Artifact(string? slug, Guid id) => $"/codex/{Key(slug, id)}";
 
+    /// <summary>Your settings on its This world tab: display name, your characters, claiming a player.</summary>
+    public const string ProfileWorld = "/profile?tab=world";
+
+    /// <summary>Your settings on its AI tab: keys and models.</summary>
+    public const string ProfileAi = "/profile?tab=ai";
+
+    /// <summary>Your settings on its Account tab: sign-ins, Bibliotaph, appearance.</summary>
+    public const string ProfileAccount = "/profile?tab=account";
+
     public static string Campaign(string? slug, Guid id) => $"/campaigns/{Key(slug, id)}";
 
     public static string Character(string? slug, Guid id) => $"/characters/{Key(slug, id)}";
