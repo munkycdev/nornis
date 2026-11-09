@@ -50,6 +50,10 @@ public static partial class HtmlToMarkdownConverter
     [GeneratedRegex(@"<(/?)([uo])l\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex ListTag();
 
+    // A list closed and the same kind opened straight after: two lists in the editor's HTML.
+    [GeneratedRegex(@"</(ul|ol)>\s*<\1\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex AdjacentListSeam();
+
     [GeneratedRegex(@"<li[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex ListItemOpen();
 
@@ -251,10 +255,15 @@ public static partial class HtmlToMarkdownConverter
 
     internal static string ConvertLists(string html)
     {
+        // Lists of one kind side by side are joined first. Markdown has no way to write two of
+        // them apart: separated by a blank line they read back as one "loose" list, every
+        // bullet spaced as a paragraph. The editor makes them whenever a bullet is lifted out of
+        // the middle of a list, and on screen they already read as one.
+        var result = AdjacentListSeam().Replace(html, "");
+
         // Outermost list first, whatever its kind; ProcessList renders the lists nested inside
         // each <li> itself. The rendered markdown carries no list tags, so the next search
         // finds the next top-level list.
-        var result = html;
         while (FindList(result, 0) is { } list)
         {
             result = result[..list.Start]
@@ -298,31 +307,91 @@ public static partial class HtmlToMarkdownConverter
         var sb = new StringBuilder();
         var counter = 1;
 
-        var items = ExtractListItems(listContent);
-
-        foreach (var itemContent in items)
+        foreach (var itemContent in ExtractListItems(listContent))
         {
-            var (textContent, nestedListHtml) = SplitNestedList(itemContent);
-
-            textContent = StripInlineTags(textContent);
+            var blocks = SplitItemBlocks(itemContent);
+            var leads = blocks.Count > 0 && !blocks[0].IsList;
+            var lead = leads ? blocks[0].Html : "";
+            var rest = leads ? blocks.Skip(1).ToList() : blocks;
 
             var prefix = ordered ? $"{counter}. " : "- ";
-            sb.AppendLine($"{indent}{prefix}{textContent}");
-            counter++;
-
             // A child list nests only when indented to the parent item's content column, which
             // is the marker's width: two spaces under "- ", three under "1. ", four under "10. ".
             // A flat two spaces under a numbered item reads back as a sibling list.
-            if (!string.IsNullOrEmpty(nestedListHtml))
+            var contentIndent = indent + new string(' ', prefix.Length);
+
+            var leadText = ItemText(lead, contentIndent);
+
+            // An empty bullet (Enter pressed, nothing typed) is left out. Written, a bare "-"
+            // under a bullet's text is a setext underline and turns that text into a heading.
+            if (leadText.Length == 0 && rest.All(b => !b.IsList && ItemText(b.Html, contentIndent).Length == 0))
+                continue;
+
+            // Empty with sub-bullets under it: a no-break space holds the line, for the same reason.
+            sb.Append(indent).Append(prefix).Append(leadText.Length > 0 ? leadText : "\u00A0").Append('\n');
+            counter++;
+
+            foreach (var block in rest)
             {
-                sb.Append(RenderNestedList(nestedListHtml, indent + new string(' ', prefix.Length)));
+                if (block.IsList)
+                {
+                    sb.Append(RenderNestedList(block.Html, contentIndent));
+                    continue;
+                }
+
+                // Text after a sub-list stays in its bullet: a paragraph of the item, set apart
+                // by a blank line, where it used to be dropped.
+                var text = ItemText(block.Html, contentIndent);
+                if (text.Length > 0)
+                    sb.Append('\n').Append(contentIndent).Append(text).Append('\n');
             }
         }
 
         if (indent.Length == 0)
-            sb.AppendLine();
+            sb.Append('\n');
 
         return sb.ToString();
+    }
+
+    private readonly record struct ItemBlock(string Html, bool IsList);
+
+    /// <summary>An item's content in order: the runs of text, and each list nested in it.</summary>
+    private static List<ItemBlock> SplitItemBlocks(string itemContent)
+    {
+        var blocks = new List<ItemBlock>();
+        var from = 0;
+        while (FindList(itemContent, from) is { } list)
+        {
+            if (list.Start > from)
+                blocks.Add(new ItemBlock(itemContent[from..list.Start], IsList: false));
+            blocks.Add(new ItemBlock(itemContent[list.Start..list.End], IsList: true));
+            from = list.End;
+        }
+
+        if (from < itemContent.Length)
+            blocks.Add(new ItemBlock(itemContent[from..], IsList: false));
+
+        return blocks;
+    }
+
+    /// <summary>
+    /// A run of an item's text on one bullet: each paragraph and line break becomes a new line
+    /// at the item's content column, which keeps it inside the bullet. Paragraphs used to be run
+    /// together into one word ("onesecond"), and a line break with them.
+    /// </summary>
+    private static string ItemText(string html, string contentIndent)
+    {
+        var paragraphs = ParagraphTag().Matches(html).Select(p => p.Groups[1].Value).ToList();
+        if (paragraphs.Count == 0)
+            paragraphs.Add(html);
+
+        var lines = paragraphs
+            .SelectMany(p => BreakTag().Split(p))
+            .Select(line => AnyTag().Replace(line, "").Trim())
+            .Where(line => line.Length > 0);
+
+        // The renderer reads a single newline as a line break, as it does for a paragraph's <br>.
+        return string.Join("\n" + contentIndent, lines);
     }
 
     private static List<string> ExtractListItems(string listContent)
@@ -371,15 +440,6 @@ public static partial class HtmlToMarkdownConverter
         return items;
     }
 
-    private static (string text, string nestedHtml) SplitNestedList(string itemContent)
-    {
-        var nestedStart = ListTag().Match(itemContent);
-        if (!nestedStart.Success)
-            return (itemContent, "");
-
-        return (itemContent[..nestedStart.Index], itemContent[nestedStart.Index..]);
-    }
-
     private static string RenderNestedList(string nestedHtml, string indent)
     {
         var sb = new StringBuilder();
@@ -392,12 +452,6 @@ public static partial class HtmlToMarkdownConverter
         }
 
         return sb.ToString();
-    }
-
-    private static string StripInlineTags(string text)
-    {
-        var result = ParagraphTag().Replace(text, "$1");
-        return AnyTag().Replace(result, "").Trim();
     }
 
     // ── Paragraphs & Breaks ─────────────────────────────────

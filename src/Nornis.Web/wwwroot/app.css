@@ -3516,6 +3516,13 @@ a.nornis-cite:hover {
     margin-bottom: 0.2em;
 }
 
+/* A sub-list is part of its bullet, not a block after it: with the list's own bottom margin
+   the next bullet sat apart from the indented group above it, and read as a new list. */
+.nornis-editor-content li > ul, .nornis-markdown li > ul,
+.nornis-editor-content li > ol, .nornis-markdown li > ol {
+    margin-bottom: 0;
+}
+
 .nornis-editor-content blockquote, .nornis-markdown blockquote {
     margin: 0 0 0.7em;
     padding: 0.2em 0 0.2em 0.9em;
