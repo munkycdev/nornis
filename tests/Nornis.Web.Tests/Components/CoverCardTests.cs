@@ -166,9 +166,9 @@ public class CoverCardTests : BunitContext
     }
 
     [Test]
-    public void TheLayouts_AreTheThreeTheRendererKnows()
+    public void TheLayouts_AreTheFourTheRendererKnows()
     {
-        Assert.That(CoverCard.Layouts.Select(l => l.Value), Is.EqualTo((string[])["FullBleed", "Framed", "ClassicModule"]));
+        Assert.That(CoverCard.Layouts.Select(l => l.Value), Is.EqualTo((string[])["FullBleed", "Framed", "ClassicModule", "ScrollBanner"]));
     }
 
     private sealed class StubHandler : HttpMessageHandler

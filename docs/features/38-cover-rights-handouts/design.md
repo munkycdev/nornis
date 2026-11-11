@@ -1,5 +1,11 @@
 # Design Document
 
+> **Amendment (2026-11-11, feature 46):** a fourth layout, `ScrollBanner`: the art fills the page
+> and the title sits in a drawn gilded frame. It loosens the rule below that type never sits
+> on the art: the scroll banner's author line is set on the art, in white or ink by measured
+> contrast with a shade when the art behind it is uneven (`ArtContrast`). The other three layouts
+> keep the rule. See `docs/features/46-scroll-banner-cover`.
+
 > **Amendment (2026-11-11):** OpenAI shuts `gpt-image-2` down on 2027-02-10 and names
 > GPT-Image-2.6 Sunburst and Flare as its replacements. The catalog now lists
 > `openai/gpt-image-2.6-sunburst` (the default: detailed work, for a page that gets printed) and

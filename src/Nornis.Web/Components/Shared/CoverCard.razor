@@ -129,12 +129,13 @@
     /// <summary>Mirrors <c>PrepOptions.MaxCoverUploadBytes</c>' default; the API is the rule, this only stops a pointless send.</summary>
     public const long MaxUploadBytes = 10 * 1024 * 1024;
 
-    /// <summary>The three layouts, by their API names (<c>CoverLayout</c>), as the GM reads them.</summary>
+    /// <summary>The layouts, by their API names (<c>CoverLayout</c>), as the GM reads them.</summary>
     public static readonly IReadOnlyList<(string Value, string Label)> Layouts =
     [
         ("FullBleed", "Full bleed"),
         ("Framed", "Framed"),
         ("ClassicModule", "Classic module"),
+        ("ScrollBanner", "Scroll banner"),
     ];
 
     /// <summary>The working line while a refine runs (feature 45): a high-quality edit is slower than a draft.</summary>
