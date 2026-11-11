@@ -8,7 +8,13 @@ public static class AiTasks
     /// Work only a key holder's own key can run (feature 38): Nornis has no deployment for it, so
     /// neither Nornis nor the trial pays, and an OpenAI-compatible (chat) endpoint can't serve it.
     /// </summary>
-    public static bool OnlyKeysRun(AiTask task) => task == AiTask.CoverArt;
+    public static bool OnlyKeysRun(AiTask task) => IsImageTask(task);
+
+    /// <summary>
+    /// Work an image model does, not a chat model (features 38, 45). The catalog keeps the two
+    /// apart: an image model serves only these, and these only image models.
+    /// </summary>
+    public static bool IsImageTask(AiTask task) => task is AiTask.CoverArt or AiTask.ArtRefinement;
 
     /// <summary>
     /// The task an operation's model choice comes from. Null for <see cref="AiOperationType.Embedding"/>,
@@ -38,6 +44,9 @@ public static class AiTasks
 
         AiOperationType.CoverArt => AiTask.CoverArt,
         AiOperationType.KeyArt => AiTask.CoverArt,
+
+        AiOperationType.CoverArtRefinement => AiTask.ArtRefinement,
+        AiOperationType.KeyArtRefinement => AiTask.ArtRefinement,
 
         AiOperationType.WorldNaming => AiTask.Chores,
         AiOperationType.ConvergenceNarration => AiTask.Chores,

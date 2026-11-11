@@ -29,6 +29,9 @@ public record SaveCoverBriefCommand(Guid WorldId, Guid AdventureId, Guid ActingU
 
 public record ChooseCoverCommand(Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, Guid OptionId);
 
+/// <summary>Refine one generated option (feature 45): the result is a new option beside it.</summary>
+public record RefineCoverCommand(Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, Guid OptionId);
+
 public record UploadCoverCommand(Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole, byte[] Bytes);
 
 public record RemoveCoverCommand(Guid WorldId, Guid AdventureId, Guid ActingUserId, WorldRole ActingUserRole);

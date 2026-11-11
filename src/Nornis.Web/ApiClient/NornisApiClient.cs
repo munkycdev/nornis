@@ -665,6 +665,10 @@ public class NornisApiClient
     public Task<ApiResult<CoverStateDto>> ChooseCoverAsync(Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
         PostAsync<ChooseCoverRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/choose", new ChooseCoverRequest(optionId), ct);
 
+    /// <summary>Refines one option (feature 45): the answer has the refined picture as a new option.</summary>
+    public Task<ApiResult<CoverStateDto>> RefineCoverAsync(Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseCoverRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/refine", new ChooseCoverRequest(optionId), ct);
+
     /// <summary>The GM's own art as the request body; the API reads its type from its bytes.</summary>
     public Task<ApiResult<CoverStateDto>> UploadCoverAsync(Guid worldId, Guid adventureId, byte[] image, CancellationToken ct = default) =>
         SendForAsync<CoverStateDto>(HttpMethod.Put, $"{CoverUri(worldId, adventureId)}/image", new ByteArrayContent(image), ct);
@@ -699,6 +703,10 @@ public class NornisApiClient
 
     public Task<ApiResult<KeyArtStateDto>> ChooseKeyArtAsync(Guid worldId, Guid optionId, CancellationToken ct = default) =>
         PostAsync<ChooseKeyArtRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/choose", new ChooseKeyArtRequest(optionId), ct);
+
+    /// <summary>Refines one option (feature 45): the answer has the refined picture as a new option, first.</summary>
+    public Task<ApiResult<KeyArtStateDto>> RefineKeyArtAsync(Guid worldId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseKeyArtRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/refine", new ChooseKeyArtRequest(optionId), ct);
 
     /// <summary>The GM's own picture as the request body; the API reads its type from its bytes.</summary>
     public Task<ApiResult<KeyArtStateDto>> UploadKeyArtAsync(Guid worldId, byte[] image, CancellationToken ct = default) =>

@@ -232,6 +232,103 @@ public class AdventureCoverService
         return AppResult<CoverState>.Success(await StateAsync(await ReloadAsync(adventure.Id, ct), command.ActingUserId, ct));
     }
 
+    /// <summary>
+    /// Refines one generated option (feature 45): its picture and the current brief go to the
+    /// refining model as an edit, and the result is added as a new option, shown first. Nothing
+    /// else changes until the GM chooses. One image against the same cap, counted before the call
+    /// and given back when it fails or delivers nothing; spent from the Prep pool.
+    /// </summary>
+    public async Task<AppResult<CoverState>> RefineAsync(RefineCoverCommand command, CancellationToken ct)
+    {
+        var (adventure, error) = await LoadAsync(command.WorldId, command.AdventureId, command.ActingUserRole, ct);
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        if (!adventure!.CoverOptionIds.Contains(command.OptionId))
+        {
+            return Fail(OptionGone());
+        }
+
+        if (adventure.CoverImagesGenerated >= _options.MaxCoverImagesPerAdventure)
+        {
+            return Fail(CapReached());
+        }
+
+        var budgetError = await _budget.CheckPrepAsync(command.WorldId, ct);
+        if (budgetError is not null)
+        {
+            return Fail(budgetError);
+        }
+
+        if (!await _adventures.TryCountCoverImagesAsync(adventure.Id, 1, _options.MaxCoverImagesPerAdventure, ct))
+        {
+            return Fail(CapReached());
+        }
+
+        if (await ReadAsync(CoverBlobs.OptionPath(adventure.WorldId, adventure.Id, command.OptionId), ct) is not { } source)
+        {
+            await _adventures.ReleaseCoverImagesAsync(adventure.Id, 1, CancellationToken.None);
+            return Fail(OptionGone());
+        }
+
+        var scope = AiCallScope.ForWorld(command.WorldId, command.ActingUserId);
+        var prompt = ArtRefinePrompt.For(adventure.CoverBrief, CoverArtPrompt.ImageRules);
+        var stopwatch = Stopwatch.StartNew();
+        ImageArtGeneration refined;
+        try
+        {
+            refined = await _generator.RefineAsync(
+                scope, source, prompt, ImageShape.Portrait, _options.CoverTimeoutSeconds, nameof(AiOperationType.CoverArtRefinement), ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // As a generation: whether the provider charged is unknown, so the image stays counted.
+            await _usage.RecordAsync(
+                command.WorldId, command.ActingUserId, AiOperationType.CoverArtRefinement, null, succeeded: true, "Cancelled",
+                fallbackModel: UnboundModel, ct: CancellationToken.None);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await _adventures.ReleaseCoverImagesAsync(adventure.Id, 1, CancellationToken.None);
+            var (code, appError) = Classify(ex);
+            if (ex is not AiRefusalException)
+            {
+                _logger.LogWarning(ex, "A cover refine failed. AdventureId={AdventureId}", adventure.Id);
+            }
+
+            await _usage.RecordAsync(
+                command.WorldId, command.ActingUserId, AiOperationType.CoverArtRefinement, null, succeeded: false, code,
+                fallbackModel: UnboundModel, ct: CancellationToken.None);
+            return Fail(appError);
+        }
+
+        await _usage.RecordAsync(
+            command.WorldId, command.ActingUserId, AiOperationType.CoverArtRefinement,
+            refined.Usage with { DurationMs = (int)stopwatch.Elapsed.TotalMilliseconds },
+            succeeded: true, errorCode: null, ct: CancellationToken.None);
+
+        if (refined.Images.FirstOrDefault() is not { } image)
+        {
+            await _adventures.ReleaseCoverImagesAsync(adventure.Id, 1, CancellationToken.None);
+            return Fail(new AppError(503, "service_unavailable", "The image model sent nothing back. Nothing was counted. Please try again."));
+        }
+
+        var id = Guid.NewGuid();
+        using (var stream = new MemoryStream(image.Png, writable: false))
+        {
+            await _blobs.UploadAsync(CoverBlobs.OptionPath(adventure.WorldId, adventure.Id, id), stream, "image/png", CancellationToken.None);
+        }
+
+        // The brief is left as it is: appending the option is the only change.
+        await _adventures.SaveCoverWorkAsync(adventure.Id, adventure.CoverBrief, [id], CancellationToken.None);
+        _logger.LogInformation("cover_refined {AdventureId} from={OptionId}", adventure.Id, command.OptionId);
+
+        return AppResult<CoverState>.Success(await StateAsync(await ReloadAsync(adventure.Id, ct), command.ActingUserId, ct));
+    }
+
     /// <summary>Makes one generated option the cover, and records in the same save that AI made art.</summary>
     public async Task<AppResult<CoverState>> ChooseAsync(ChooseCoverCommand command, CancellationToken ct)
     {
@@ -243,7 +340,7 @@ public class AdventureCoverService
 
         if (!adventure!.CoverOptionIds.Contains(command.OptionId))
         {
-            return Fail(new AppError(404, "not_found", "That cover option is gone. Generate again or pick another."));
+            return Fail(OptionGone());
         }
 
         var cover = new AdventureCover
@@ -506,6 +603,8 @@ public class AdventureCoverService
         $"This adventure has used its {_options.MaxCoverImagesPerAdventure} generated images. You can still upload your own art.");
 
     private static AppError NotFound() => new(404, "not_found", "Adventure not found.");
+
+    private static AppError OptionGone() => new(404, "not_found", "That cover option is gone. Generate again or pick another.");
 
     private static AppResult<CoverState> Fail(AppError error) => AppResult<CoverState>.Fail(error);
 }
