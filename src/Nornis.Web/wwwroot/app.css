@@ -4845,8 +4845,8 @@ a.nornis-cite:hover {
 
 /* The Adventure page (Nornis 3.13): three tabs over one grid. Design is the draft with Talk it
    through as a right rail; Sections adds the outline as a fixed left column, so long titles wrap
-   rather than squeezing the editor; Book is one column holding its own grid. Below the
-   breakpoints the rail goes under the editor, and on a narrow page everything stacks. */
+   rather than squeezing the editor; Book is one column holding its own grid. Talk it through is
+   the right rail on every tab; only on a narrow page does everything stack. */
 .nornis-prep-layout {
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr) 360px;
@@ -5103,21 +5103,13 @@ a.nornis-cite:hover {
     }
 }
 
-/* On Structure the rail goes under the editor and scrolls with the page again; Design and Book
-   keep it beside the main column down to the narrow breakpoint. */
+/* On a mid-width page Structure narrows its outline and rail rather than moving Talk it through
+   under the editor (3.31), so the rail sits on the right on every tab down to the narrow
+   breakpoint. */
 @container page (max-width: 1300px) {
     .nornis-prep-layout-structure {
-        grid-template-columns: 300px minmax(0, 1fr);
-    }
-
-    .nornis-prep-layout-structure .nornis-prep-talk-column {
-        grid-column: 2;
-        position: static;
-        max-height: none;
-    }
-
-    .nornis-prep-layout-structure .nornis-prep-talk-column .nornis-prep-talk-messages {
-        max-height: 60vh;
+        grid-template-columns: 200px minmax(0, 1fr) 320px;
+        gap: 16px;
     }
 }
 
@@ -5224,29 +5216,13 @@ a.nornis-cite:hover {
     }
 
     @container page (min-width: 901px) {
-        .nornis-prep-workspace > .nornis-prep-layout-design,
-        .nornis-prep-workspace > .nornis-prep-layout-book {
+        .nornis-prep-workspace > :is(.nornis-prep-layout-design, .nornis-prep-layout-book, .nornis-prep-layout-structure) {
             grid-template-rows: minmax(0, 1fr);
             align-items: stretch;
             overflow: hidden;
         }
 
-        .nornis-prep-workspace > :is(.nornis-prep-layout-design, .nornis-prep-layout-book) > :is(.nornis-prep-editor, .nornis-prep-talk-column) {
-            min-height: 0;
-            max-height: none;
-            position: static;
-            overflow-y: auto;
-        }
-    }
-
-    @container page (min-width: 1301px) {
-        .nornis-prep-workspace > .nornis-prep-layout-structure {
-            grid-template-rows: minmax(0, 1fr);
-            align-items: stretch;
-            overflow: hidden;
-        }
-
-        .nornis-prep-workspace > .nornis-prep-layout-structure > :is(.nornis-prep-side, .nornis-prep-editor, .nornis-prep-talk-column) {
+        .nornis-prep-workspace > :is(.nornis-prep-layout-design, .nornis-prep-layout-book, .nornis-prep-layout-structure) > :is(.nornis-prep-side, .nornis-prep-editor, .nornis-prep-talk-column) {
             min-height: 0;
             max-height: none;
             position: static;
