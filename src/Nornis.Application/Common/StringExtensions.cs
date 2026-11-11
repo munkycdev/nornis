@@ -19,4 +19,13 @@ public static class StringExtensions
             ? value[..(maxLength - 1)].TrimEnd() + "…"
             : value[..maxLength];
     }
+
+    /// <summary>
+    /// A caller-supplied value made safe to write into a log: carriage returns and line feeds
+    /// are removed, so a crafted value can't start a line that reads as a separate entry.
+    /// Use it on anything a request can set (a query string, a file name, a content type)
+    /// before logging it; ids, numbers and enums need nothing.
+    /// </summary>
+    public static string? ForLog(this string? value) =>
+        value?.Replace("\r", string.Empty).Replace("\n", string.Empty);
 }

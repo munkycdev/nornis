@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Domain.Enums;
@@ -17,8 +18,11 @@ public interface IBibliotaphConnectService
     /// <summary>The Bibliotaph address that starts connecting. Its return address carries the protected state.</summary>
     Task<AppResult<string>> BeginAsync(Guid userId, CancellationToken ct);
 
-    /// <summary>The Auth0 address that asks for the grant, once Bibliotaph sent the browser back.</summary>
-    AppResult<string> AuthorizeUrl(Guid userId, string state);
+    /// <summary>
+    /// Where the browser goes once Bibliotaph sent it back: the Auth0 address that asks for the
+    /// grant when Bibliotaph said <c>connected</c>, otherwise Profile with Bibliotaph's outcome.
+    /// </summary>
+    AppResult<string> ResumeUrl(Guid userId, string state, string? outcome);
 
     /// <summary>Auth0's callback. Always answers with where to send the browser.</summary>
     Task<string> CompleteAsync(string? code, string? state, string? error, CancellationToken ct);
@@ -110,11 +114,21 @@ public sealed class BibliotaphConnectService : IBibliotaphConnectService
         return Task.FromResult(AppResult<string>.Success(url));
     }
 
-    public AppResult<string> AuthorizeUrl(Guid userId, string state)
+    public AppResult<string> ResumeUrl(Guid userId, string state, string? outcome)
     {
         if (!Configured)
         {
             return AppResult<string>.Fail(NotConfigured);
+        }
+
+        // Bibliotaph's outcome rides in the query string, so it is only ever a hint: it decides
+        // whether to go on to Auth0, never whether the attempt is genuine. The protected state
+        // below is what binds this to the user who began, and the ID token at the callback is
+        // what binds the grant. Anything but connected goes back to Profile, under a name the
+        // card knows, so a hand-edited address can't put arbitrary text into Profile's.
+        if (outcome != "connected")
+        {
+            return AppResult<string>.Success(Back(outcome is not null && BibliotaphOutcomes.Contains(outcome) ? outcome : "failed"));
         }
 
         var parsed = ReadState(state);
@@ -157,8 +171,9 @@ public sealed class BibliotaphConnectService : IBibliotaphConnectService
 
         if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code))
         {
-            // The GM declined consent, or Auth0 refused the request; its error code is safe to log.
-            _logger.LogInformation("Bibliotaph connect ended at Auth0. UserId={UserId}, Error={Error}", parsed.UserId, error);
+            // The GM declined consent, or Auth0 refused the request. The error arrives in the
+            // query string, so anyone can write it: it is logged with line breaks removed.
+            _logger.LogInformation("Bibliotaph connect ended at Auth0. UserId={UserId}, Error={Error}", parsed.UserId, error.ForLog());
             return Back("refused");
         }
 
@@ -228,6 +243,9 @@ public sealed class BibliotaphConnectService : IBibliotaphConnectService
         _logger.LogInformation("Bibliotaph disconnected. UserId={UserId}", userId);
         return AppResult.Success();
     }
+
+    /// <summary>The outcomes other than connected that Bibliotaph sends back and Profile names.</summary>
+    private static readonly HashSet<string> BibliotaphOutcomes = ["full", "invite-required", "refused"];
 
     private string Back(string outcome) => $"{WebOrigin}/profile?bibliotaph={outcome}";
 

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Frozen;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nornis.Application.Common;
 using Nornis.Application.Configuration;
 using Nornis.Application.Errors;
 using Nornis.Application.Messaging;
@@ -162,7 +163,7 @@ public class LibraryService : ILibraryService
         if (!string.Equals(command.ContentType, expectedContentType, StringComparison.OrdinalIgnoreCase))
         {
             // Mirror Chronicis: warn but do not reject — browsers report odd MIME types.
-            _logger.LogWarning("Library upload MIME mismatch: {ContentType} for {Extension}", command.ContentType, extension);
+            _logger.LogWarning("Library upload MIME mismatch: {ContentType} for {Extension}", command.ContentType.ForLog(), extension.ForLog());
         }
 
         // A GMOnly document a player couldn't see makes no sense — clamp, don't reject.

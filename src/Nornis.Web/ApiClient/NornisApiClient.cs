@@ -288,9 +288,10 @@ public class NornisApiClient
     public Task<ApiResult<BibliotaphRedirectDto>> BeginBibliotaphConnectAsync(CancellationToken ct = default) =>
         PostAsync<object?, BibliotaphRedirectDto>("/api/bibliotaph/connection/begin", null, ct);
 
-    public Task<ApiResult<BibliotaphRedirectDto>> AuthorizeBibliotaphAsync(string state, CancellationToken ct = default) =>
-        PostAsync<BibliotaphAuthorizeRequest, BibliotaphRedirectDto>(
-            "/api/bibliotaph/connection/authorize", new BibliotaphAuthorizeRequest(state), ct);
+    /// <summary>Where to send the browser once Bibliotaph sent it back; the API decides.</summary>
+    public Task<ApiResult<BibliotaphRedirectDto>> ResumeBibliotaphAsync(string state, string? outcome, CancellationToken ct = default) =>
+        PostAsync<BibliotaphResumeRequest, BibliotaphRedirectDto>(
+            "/api/bibliotaph/connection/resume", new BibliotaphResumeRequest(state, outcome), ct);
 
     public Task<ApiResult<bool>> DisconnectBibliotaphAsync(CancellationToken ct = default) =>
         DeleteAsync("/api/bibliotaph/connection", ct);

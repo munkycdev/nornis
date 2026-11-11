@@ -83,11 +83,11 @@ public class BibliotaphConnectServiceTests
     }
 
     [Test]
-    public async Task Authorize_asks_Auth0_for_the_contracts_scopes_with_PKCE()
+    public async Task Resuming_connected_asks_Auth0_for_the_contracts_scopes_with_PKCE()
     {
         var state = await StateFor(_dave.Id);
 
-        var url = Sut().AuthorizeUrl(_dave.Id, state).Value!;
+        var url = Sut().ResumeUrl(_dave.Id, state, "connected").Value!;
 
         var query = Query(url);
         Assert.Multiple(() =>
@@ -101,12 +101,48 @@ public class BibliotaphConnectServiceTests
         });
     }
 
+    [TestCase("full")]
+    [TestCase("invite-required")]
+    [TestCase("refused")]
+    public async Task Resuming_any_other_named_outcome_goes_back_to_Profile_with_it(string outcome)
+    {
+        var state = await StateFor(_dave.Id);
+
+        var url = Sut().ResumeUrl(_dave.Id, state, outcome).Value!;
+
+        Assert.That(url, Is.EqualTo($"{WebOrigin}/profile?bibliotaph={outcome}"));
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("Connected")]
+    [TestCase("x\r\nINFO forged entry")]
+    [TestCase("<script>")]
+    public async Task Resuming_an_unknown_or_missing_outcome_goes_back_to_Profile_as_failed(string? outcome)
+    {
+        var state = await StateFor(_dave.Id);
+
+        var url = Sut().ResumeUrl(_dave.Id, state, outcome).Value!;
+
+        Assert.That(url, Is.EqualTo($"{WebOrigin}/profile?bibliotaph=failed"));
+    }
+
+    [Test]
+    public void Resuming_a_non_connected_outcome_needs_no_readable_state()
+    {
+        // Going back to Profile grants nothing, so a stale or forged state still lands there
+        // with Bibliotaph's message rather than an error page.
+        var url = Sut().ResumeUrl(_dave.Id, "not-a-state", "full").Value!;
+
+        Assert.That(url, Is.EqualTo($"{WebOrigin}/profile?bibliotaph=full"));
+    }
+
     [Test]
     public async Task Another_users_state_is_refused()
     {
         var state = await StateFor(_dave.Id);
 
-        var result = Sut().AuthorizeUrl(Guid.NewGuid(), state);
+        var result = Sut().ResumeUrl(Guid.NewGuid(), state, "connected");
 
         Assert.That(result.Error!.Code, Is.EqualTo("connect_expired"));
     }
@@ -117,7 +153,7 @@ public class BibliotaphConnectServiceTests
         var state = await StateFor(_dave.Id);
         _time.Now = _time.Now.AddMinutes(11);
 
-        Assert.That(Sut().AuthorizeUrl(_dave.Id, state).Error!.Code, Is.EqualTo("connect_expired"));
+        Assert.That(Sut().ResumeUrl(_dave.Id, state, "connected").Error!.Code, Is.EqualTo("connect_expired"));
     }
 
     [Test]
@@ -257,7 +293,7 @@ public class BibliotaphConnectServiceTests
         return Uri.UnescapeDataString(returnAddress[(returnAddress.LastIndexOf('/') + 1)..]);
     }
 
-    private string VerifierSentFor(string state) => Query(Sut().AuthorizeUrl(_dave.Id, state).Value!)["code_challenge"];
+    private string VerifierSentFor(string state) => Query(Sut().ResumeUrl(_dave.Id, state, "connected").Value!)["code_challenge"];
 
     private static string Challenge(string verifier) =>
         Convert.ToBase64String(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))).TrimEnd('=').Replace('+', '-').Replace('/', '_');

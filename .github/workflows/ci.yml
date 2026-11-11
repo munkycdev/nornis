@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [main]
 
+# Read-only token: the job checks out, builds and tests, and writes nothing back to the repo.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

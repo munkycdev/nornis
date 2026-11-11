@@ -1,7 +1,9 @@
 @page "/profile/bibliotaph/{State}"
-@* Where Bibliotaph sends the browser back during Connect (feature 31, Requirement 1). On
-   "connected" the API hands over the Auth0 address for the grant; anything else goes back to
-   Profile with the outcome. The state is opaque here: only the API can read it. *@
+@* Where Bibliotaph sends the browser back during Connect (feature 31, Requirement 1). The page
+   decides nothing: the state and Bibliotaph's outcome both go to the API, which answers with the
+   Auth0 address for the grant on "connected" and Profile otherwise. The state is opaque here:
+   only the API can read it. Branching on the query string here would let the address decide
+   whether the authorization step runs, which is the API's call. *@
 @inject NornisApiClient Api
 @inject NavigationManager Nav
 
@@ -26,16 +28,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (Outcome != "connected")
-        {
-            Nav.NavigateTo($"/profile?bibliotaph={Uri.EscapeDataString(Outcome ?? "failed")}", replace: true);
-            return;
-        }
-
-        var result = await Api.AuthorizeBibliotaphAsync(State);
+        var result = await Api.ResumeBibliotaphAsync(State, Outcome);
         if (result.IsSuccess)
         {
-            Nav.NavigateTo(result.Value!.Url, forceLoad: true);
+            Nav.NavigateTo(result.Value!.Url, forceLoad: true, replace: true);
             return;
         }
 

@@ -1516,7 +1516,7 @@ public record BibliotaphConnectionDto(bool Configured, string Status, DateTimeOf
 /// <summary>An address the API wants the browser sent to.</summary>
 public record BibliotaphRedirectDto(string Url);
 
-public record BibliotaphAuthorizeRequest(string State);
+public record BibliotaphResumeRequest(string State, string? Outcome);
 
 // ---------------------------------------------------------------- AI keys (feature 39) --
 
