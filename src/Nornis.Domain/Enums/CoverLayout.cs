@@ -12,6 +12,6 @@ public enum CoverLayout
     /// <summary>The title at the top, the art in the middle, the details below.</summary>
     ClassicModule,
 
-    /// <summary>The art fills the page; the title sits on a parchment scroll near the top, the author on a smaller one at the foot.</summary>
+    /// <summary>The art fills the page; the title sits in a gilded frame near the top, the author on the art at the foot.</summary>
     ScrollBanner,
 }

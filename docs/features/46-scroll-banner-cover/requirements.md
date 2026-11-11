@@ -16,14 +16,16 @@ and `ScrollBanner` is 12.
 ### Requirement 1: The scroll banner layout
 
 **User Story:** As a GM, I want a cover where the art fills the page and the title sits on a
-parchment scroll, so the cover looks like an adventure's and the title still reads.
+gilded frame, so the cover looks like an adventure's and the title still reads.
 
 1. The Cover card's Layout list SHALL offer **Scroll banner** beside Full bleed, Framed and
    Classic module.
 2. With Scroll banner, the art SHALL fill the whole page.
-3. The title, game system and levels SHALL sit on a parchment scroll near the top of the page.
-   The scroll SHALL be drawn to the size the type needs, so a three-line title gets a taller
-   scroll, never a stretched one, and SHALL be opaque, so the title never depends on the art.
+3. The title, game system and levels SHALL sit on an ivory panel in an ornate gilded frame near
+   the top of the page (Dave, after the first samples: "more ornate ... like a gilded frame",
+   not shield-shaped, without elaborate branches). The frame SHALL be drawn to the size the type
+   needs, so a three-line title gets a taller frame with ornaments of the same size, never a
+   stretched one, and the panel SHALL be opaque, so the title never depends on the art.
 4. The title SHALL be clamped to three lines, as on the other art layouts; the cover SHALL stay
    one page whatever the title.
 5. The Loremaster SHALL see the layout described as "scroll banner".

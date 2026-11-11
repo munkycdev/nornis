@@ -251,8 +251,8 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         1 - AuthorBottom / PageSizes.Letter.Height);
 
     /// <summary>
-    /// The art fills the page; the title, system and levels sit on a parchment scroll near the top
-    /// (ScrollArt, drawn to the type's size), and the author line is set on the art in white or ink,
+    /// The art fills the page; the title, system and levels sit in a gilded frame near the top
+    /// (GildedFrameArt, drawn to the type's size), and the author line is set on the art in white or ink,
     /// on a soft shade when the art behind it is too uneven for either (ArtContrast).
     /// </summary>
     private static void ScrollBannerCover(PageDescriptor page, BookletCover cover, byte[] art, Typeset type)
@@ -262,10 +262,10 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
         page.Background().Image(art).FitUnproportionally();
         page.Header().PaddingTop(ScrollTop).PaddingHorizontal(ScrollSide).Layers(layers =>
         {
-            layers.Layer().Svg(size => ScrollArt.Svg(size.Width, size.Height));
+            layers.Layer().Svg(size => GildedFrameArt.Svg(size.Width, size.Height));
             layers.PrimaryLayer()
-                .PaddingLeft(ScrollArt.SideClearance).PaddingRight(ScrollArt.SideClearance + ScrollArt.ShadowOffset)
-                .PaddingTop(ScrollArt.EdgeClearance).PaddingBottom(ScrollArt.EdgeClearance + ScrollArt.ShadowOffset)
+                .PaddingLeft(GildedFrameArt.SideClearance).PaddingRight(GildedFrameArt.SideClearance + GildedFrameArt.ShadowOffset)
+                .PaddingTop(GildedFrameArt.TopClearance).PaddingBottom(GildedFrameArt.BottomClearance + GildedFrameArt.ShadowOffset)
                 .Column(scroll =>
             {
                 scroll.Spacing(5);

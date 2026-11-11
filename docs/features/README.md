@@ -55,7 +55,7 @@ simply never used, and it stays unused so that every existing reference keeps it
 | 42 | World as hero: key art, the Home hero, type colours (Nornis 3.15, 3.16) | 2026-11-08 (Phase B as 3.15, Phases C and D as 3.16); the surface fixes from the same review shipped as 3.14 | An image per codex entry; an accent derived from the art; the Loremaster writing a key-art brief |
 | 43 | Reduce noise: significance at extraction, a stricter Storyline, retired storylines seen (Nornis 3.21) | 2026-11-08 (Phase A; the measure on Symbaroum is Dave's) | A server-side cap on Storyline creates; significance stored on the proposal for queue tiering; the check-in and editorial brief (feature 44) |
 | 45 | Refine art: Flare drafts, a Sunburst refine of a chosen option (Nornis 3.27) | 2026-11-11 (Phase A; the live check is Dave's) | Picking the refine instruction; an exact re-render (the image API takes no seed); refining uploads |
-| 46 | Scroll banner cover: full-page art, the title on a drawn parchment scroll, the author line in a colour measured against the art (Nornis 3.29) | 2026-11-11 (Phase A; the live check is Dave's) | A bundled or generated scroll; a second scroll for the author |
+| 46 | Scroll banner cover: full-page art, the title in a drawn gilded frame, the author line in a colour measured against the art (Nornis 3.29) | 2026-11-11 (Phase A; the live check is Dave's) | A bundled or generated scroll; a second scroll for the author |
 
 Some work was sequenced outside this folder: the August operations and test-quality backlog
 lived in `docs/plans/` until 2026-09-10, when the finished plans were removed (they remain in

@@ -74,7 +74,7 @@ public class ArtContrastTests
         });
     }
 
-    /// <summary>Under a culture that writes "1,5", the SVG must still read "1.5", or the scroll and shade don't draw.</summary>
+    /// <summary>Under a culture that writes "1,5", the SVG must still read "1.5", or the frame and shade don't draw.</summary>
     [TestCase(504f, 120.5f)]
     [TestCase(80f, 30f)]
     public void TheScrollAndShade_AreWellFormedSvg_WhateverTheCulture(float width, float height)
@@ -83,7 +83,7 @@ public class ArtContrastTests
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
         try
         {
-            foreach (var svg in new[] { ScrollArt.Svg(width, height), ArtContrast.ShadeSvg(width, height, "#000000") })
+            foreach (var svg in new[] { GildedFrameArt.Svg(width, height), ArtContrast.ShadeSvg(width, height, "#000000") })
             {
                 var root = XDocument.Parse(svg).Root!;
                 Assert.Multiple(() =>

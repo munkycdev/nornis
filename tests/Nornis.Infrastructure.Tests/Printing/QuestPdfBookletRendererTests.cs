@@ -229,8 +229,8 @@ public class QuestPdfBookletRendererTests
         {
             Assert.That(image.Width, Is.EqualTo(PageWidth).Within(1));
             Assert.That(image.Height, Is.EqualTo(PageHeight).Within(1));
-            Assert.That(words.First(w => w.Text == "Silver").BoundingBox.Bottom, Is.GreaterThan(PageHeight * 0.8), "the title is on the scroll near the top");
-            Assert.That(words.First(w => w.Text == "Shadowdark").BoundingBox.Bottom, Is.GreaterThan(PageHeight * 0.75), "the system line is on the scroll too");
+            Assert.That(words.First(w => w.Text == "Silver").BoundingBox.Bottom, Is.GreaterThan(PageHeight * 0.8), "the title is in the frame near the top");
+            Assert.That(words.First(w => w.Text == "Shadowdark").BoundingBox.Bottom, Is.GreaterThan(PageHeight * 0.75), "the system line is in the frame too");
             Assert.That(words.First(w => w.Text == "Dave").BoundingBox.Top, Is.LessThan(PageHeight * 0.12), "the author is at the foot");
             Assert.That(words.Select(w => w.Text), Does.Not.Contain("heist"), "the scroll banner carries no pitch, as full bleed doesn't");
         });

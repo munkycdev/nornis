@@ -1,7 +1,7 @@
 # Design Document
 
 > **Amendment (2026-11-11, feature 46):** a fourth layout, `ScrollBanner`: the art fills the page
-> and the title sits on a drawn parchment scroll. It loosens the rule below that type never sits
+> and the title sits in a drawn gilded frame. It loosens the rule below that type never sits
 > on the art: the scroll banner's author line is set on the art, in white or ink by measured
 > contrast with a shade when the art behind it is uneven (`ArtContrast`). The other three layouts
 > keep the rule. See `docs/features/46-scroll-banner-cover`.

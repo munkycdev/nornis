@@ -10,11 +10,14 @@ value.
 
 - **A layout, not a modifier.** A "title treatment" switch would only mean anything over full
   bleed art and would need a new column. A new enum value needs neither.
-- **The scroll is drawn, not bundled or generated** (`ScrollArt.Svg(width, height)`). QuestPDF's
-  dynamic SVG hands the drawing the size of the type it sits behind (a `Layers` background), so
-  the scroll is drawn to fit: a sheet with gently waved edges between two shaded rolled ends.
-  Vector, so it prints sharp; no licensed asset; no extra AI spend; deterministic. It uses the
-  props boxes' parchment colours. A bundled PNG texture and a generated scroll were considered
+- **The frame is drawn, not bundled or generated** (`GildedFrameArt.Svg(width, height)`).
+  QuestPDF's dynamic SVG hands the drawing the size of the type it sits behind (a `Layers`
+  background), so the frame is drawn to fit: an ivory panel in a bevelled gold frame with
+  scooped corners, a rosette in each corner, gilt C-scrolls ending in spirals on each side and
+  along the top, a fan crest above and a small shell below. The scrolls are stroked three times
+  (dark edge, gold, highlight) to read as gilt wire. Vector, so it prints sharp; no licensed
+  asset; no extra AI spend; deterministic. The first build was a parchment scroll with rolled
+  ends; Dave asked for something more ornate after seeing it. A bundled PNG texture and a generated scroll were considered
   and declined (a stretched fixed shape and about 1 to 2 MB per booklet; cost, no repeatability
   and no reliable clean space for type).
 - **The author line's colour is measured, not chosen** (`ArtContrast`). It decodes the very
