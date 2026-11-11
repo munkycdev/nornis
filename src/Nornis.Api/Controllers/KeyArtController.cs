@@ -51,6 +51,11 @@ public class KeyArtController : ControllerBase
     public async Task<IActionResult> Choose(Guid worldId, [FromBody] ChooseKeyArtRequest request, CancellationToken ct) =>
         Respond(await _keyArt.ChooseAsync(new ChooseKeyArtCommand(worldId, UserId, Role, request.OptionId), ct));
 
+    /// <summary>Refines one option on the refining model (feature 45); the result is a new option.</summary>
+    [HttpPost("refine")]
+    public async Task<IActionResult> Refine(Guid worldId, [FromBody] ChooseKeyArtRequest request, CancellationToken ct) =>
+        Respond(await _keyArt.RefineAsync(new RefineKeyArtCommand(worldId, UserId, Role, request.OptionId), ct));
+
     /// <summary>The GM's own picture, as the raw request body. Its type is read from its bytes, not the header.</summary>
     [HttpPut("image")]
     public async Task<IActionResult> Upload(Guid worldId, CancellationToken ct)

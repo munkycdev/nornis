@@ -1,3 +1,4 @@
+using Nornis.Application.Ai;
 using Nornis.Domain.Enums;
 
 namespace Nornis.Application.Configuration;
@@ -45,7 +46,7 @@ public sealed class AiModelsOptions
     /// provider's catalog models searches.</remarks>
     public AiModelPrice? EstimateFor(AiProvider provider)
     {
-        var chat = Catalog.Where(m => m.Provider == provider && !m.Tasks.Contains(AiTask.CoverArt)).ToList();
+        var chat = Catalog.Where(m => m.Provider == provider && !m.IsImageModel).ToList();
         var dearest = chat
             .OrderByDescending(m => m.OutputPerMillionUsd)
             .ThenByDescending(m => m.InputPerMillionUsd)
@@ -77,8 +78,10 @@ public sealed class AiModelsOptions
                 { Model: null or "" } => $"'{model.Id}' has no Model",
                 _ when !CatalogProviders.Contains(model.Provider) => $"'{model.Id}' names {model.Provider}, which has no client yet",
                 { Tasks.Count: 0 } => $"'{model.Id}' serves no task",
-                _ when model.Tasks.Contains(AiTask.CoverArt) && model.Tasks.Count > 1 =>
-                    $"'{model.Id}' makes images, so it can serve only CoverArt",
+                _ when model.IsImageModel && !model.Tasks.All(AiTasks.IsImageTask) =>
+                    $"'{model.Id}' makes images, so it can serve only CoverArt and ArtRefinement",
+                _ when !model.IsImageModel && model.Tasks.Any(AiTasks.IsImageTask) =>
+                    $"'{model.Id}' serves ArtRefinement, which only an image model can, so it must serve CoverArt too",
                 _ when model.InputPerMillionUsd <= 0 || model.OutputPerMillionUsd <= 0 => $"'{model.Id}' has no price",
                 _ when model.CachedInputPerMillionUsd is < 0 => $"'{model.Id}' has a negative cached price",
                 { SupportsWebSearch: true, WebSearchPerThousandUsd: null or <= 0 } =>
@@ -140,6 +143,12 @@ public sealed class AiCatalogModel
 
     /// <summary>USD per 1,000 searches. Required, and above zero, exactly when <see cref="SupportsWebSearch"/>.</summary>
     public decimal? WebSearchPerThousandUsd { get; set; }
+
+    /// <summary>
+    /// An image model: it makes pictures (<see cref="AiTask.CoverArt"/>), and may also refine them.
+    /// Validation keeps image models and chat models from sharing a task.
+    /// </summary>
+    public bool IsImageModel => Tasks.Contains(AiTask.CoverArt);
 
     public AiModelPrice Price => new(InputPerMillionUsd, CachedInputPerMillionUsd, OutputPerMillionUsd, WebSearchPerThousandUsd);
 }

@@ -423,4 +423,127 @@ public class AdventureCoverServiceTests
 
         Assert.That(_renderer.Rendered.Single().Cover.Art, Is.Null);
     }
+
+    // ---------------------------------------------------------------- refine (feature 45) --
+
+    private Task<Nornis.Application.Errors.AppResult<CoverState>> RefineAsync(Guid option, WorldRole role = WorldRole.GM) =>
+        _sut.RefineAsync(new RefineCoverCommand(WorldId, _adventureId, GmUserId, role, option), default);
+
+    [Test]
+    public async Task Refine_SendsTheOptionAndTheBrief_AndAddsTheResultFirst_LeavingTheCoverAlone()
+    {
+        var drafts = (await GenerateAsync()).Value!;
+        var draft = drafts.Options[1];
+        await _sut.ChooseAsync(new ChooseCoverCommand(WorldId, _adventureId, GmUserId, WorldRole.GM, drafts.Options[0]), default);
+
+        var state = (await RefineAsync(draft)).Value!;
+
+        var refine = _generator.Refines.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(refine.Source, Is.EqualTo(_blobs.Blobs[CoverBlobs.OptionPath(WorldId, _adventureId, draft)].Content));
+            Assert.That(refine.Prompt, Does.StartWith(ArtRefinePrompt.Instruction));
+            Assert.That(refine.Prompt, Does.Contain(Brief));
+            Assert.That(refine.Prompt, Does.EndWith(CoverArtPrompt.ImageRules), "a refine can't drop the no-text rule");
+            Assert.That(refine.Shape, Is.EqualTo(ImageShape.Portrait));
+            Assert.That(refine.Operation, Is.EqualTo(nameof(AiOperationType.CoverArtRefinement)));
+            Assert.That(state.Options, Has.Count.EqualTo(3));
+            Assert.That(state.Options.Skip(1), Is.EqualTo(drafts.Options), "the refined option comes first; the drafts stay");
+            Assert.That(_blobs.Blobs.Keys, Does.Contain(CoverBlobs.OptionPath(WorldId, _adventureId, state.Options[0])));
+            Assert.That(state.ChosenOptionId, Is.EqualTo(drafts.Options[0]), "the cover is the GM's to change");
+            Assert.That(state.ImagesGenerated, Is.EqualTo(3));
+            Assert.That(state.Brief, Is.EqualTo(Brief));
+            Assert.That(_ledger.Records.Select(r => r.OperationType), Does.Contain(AiOperationType.CoverArtRefinement));
+            Assert.That(_budget.PrepChecks, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task ARefinedOption_IsChosenLikeAnyOther_AndRecordsAiArt()
+    {
+        var draft = (await GenerateAsync()).Value!.Options[0];
+        var refined = (await RefineAsync(draft)).Value!.Options[0];
+
+        var state = (await _sut.ChooseAsync(new ChooseCoverCommand(WorldId, _adventureId, GmUserId, WorldRole.GM, refined), default)).Value!;
+
+        Assert.That(state.ChosenOptionId, Is.EqualTo(refined));
+        Assert.That(Stored.AiUse.MadeArt, Is.True);
+    }
+
+    [Test]
+    public async Task Refine_CountsOneImage_AgainstTheSameCap()
+    {
+        _options.MaxCoverImagesPerAdventure = 3;
+        var draft = (await GenerateAsync()).Value!.Options[0];
+
+        var first = await RefineAsync(draft);
+        var second = await RefineAsync(draft);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Value!.ImagesGenerated, Is.EqualTo(3));
+            Assert.That(second.Error!.Code, Is.EqualTo("cover_cap"));
+            Assert.That(_generator.Refines, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task AFailedRefine_GivesItsImageBack_AndAddsNothing()
+    {
+        var drafts = (await GenerateAsync()).Value!;
+        _generator.Throw = new ImageArtRejectedException(moderation: true, "safety system");
+
+        var result = await RefineAsync(drafts.Options[0]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error!.Code, Is.EqualTo("cover_refused"));
+            Assert.That(Stored.CoverImagesGenerated, Is.EqualTo(2));
+            Assert.That(Stored.CoverOptionIds, Is.EquivalentTo(drafts.Options));
+            Assert.That(_ledger.Records.Last().OperationType, Is.EqualTo(AiOperationType.CoverArtRefinement));
+            Assert.That(_ledger.Records.Last().Succeeded, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ARefineThatSendsNothingBack_GivesItsImageBack()
+    {
+        var drafts = (await GenerateAsync()).Value!;
+        _generator.Deliver = 0;
+
+        var result = await RefineAsync(drafts.Options[0]);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(503));
+        Assert.That(Stored.CoverImagesGenerated, Is.EqualTo(2));
+        Assert.That(Stored.CoverOptionIds, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task RefiningAnOptionThatIsntOnOffer_OrWhosePictureIsGone_IsNotFound_AndCostsNothing()
+    {
+        var draft = (await GenerateAsync()).Value!.Options[0];
+        _blobs.Blobs.Remove(CoverBlobs.OptionPath(WorldId, _adventureId, draft));
+
+        var unknown = await RefineAsync(Guid.NewGuid());
+        var gone = await RefineAsync(draft);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unknown.Error!.StatusCode, Is.EqualTo(404));
+            Assert.That(gone.Error!.StatusCode, Is.EqualTo(404));
+            Assert.That(Stored.CoverImagesGenerated, Is.EqualTo(2), "a missing picture gives its count back");
+            Assert.That(_generator.Refines, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Refine_IsGmOnly()
+    {
+        var draft = (await GenerateAsync()).Value!.Options[0];
+
+        var result = await RefineAsync(draft, WorldRole.Player);
+
+        Assert.That(result.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_generator.Refines, Is.Empty);
+    }
 }

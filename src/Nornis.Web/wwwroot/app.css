@@ -5776,6 +5776,25 @@ a.nornis-cite:hover {
     cursor: default;
 }
 
+/* An option and its Refine button (feature 45), one grid cell. */
+.nornis-art-option {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+}
+
+.nornis-art-option > .nornis-cover-option {
+    width: 100%;
+}
+
+.nornis-art-refine {
+    min-width: 0;
+    padding-left: 2px;
+    padding-right: 2px;
+    font-size: 0.75rem;
+}
+
 /* The Key art card (feature 42): the preview is the hero's proportions, so the GM sees the crop
    Home will show; the options are landscape where a cover's are portrait. */
 .nornis-keyart-preview {

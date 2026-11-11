@@ -60,7 +60,7 @@ public class ImageArtRejectionTests
     {
         var ex = FakeChatClient.HttpFailure(400,
             """{"error":{"message":"Billing hard limit has been reached.","type":"image_generation_user_error","code":"billing_hard_limit_reached"}}""");
-        var funding = new AiFunding(AiProvider.OpenAi, "gpt-image-2", AiFundedBy.Key, Guid.NewGuid(), Guid.NewGuid());
+        var funding = new AiFunding(AiProvider.OpenAi, "gpt-image-2.6-sunburst", AiFundedBy.Key, Guid.NewGuid(), Guid.NewGuid());
 
         var translated = OpenAiProviderTraits.Instance.TranslateFailure(ex, funding, "CoverArt", NullLogger.Instance);
 
