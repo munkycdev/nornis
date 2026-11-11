@@ -1231,7 +1231,7 @@ public record CoverStateDto(
     CoverDto? Cover, string? Brief, IReadOnlyList<Guid> Options, Guid? ChosenOptionId,
     int ImagesGenerated, int ImagesCap, bool CanGenerate, string? GenerateBlocker, string? Warning);
 
-/// <summary>Source is Generated or Uploaded; Layout is FullBleed, Framed or ClassicModule.</summary>
+/// <summary>Source is Generated or Uploaded; Layout is FullBleed, Framed, ClassicModule or ScrollBanner.</summary>
 public record CoverDto(string Source, string Layout, string ContentType, DateTimeOffset UpdatedAt);
 
 /// <summary>The Key art card's state (feature 42). Mirrors the API's <c>KeyArtStateResponse</c>.</summary>
