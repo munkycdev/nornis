@@ -319,12 +319,42 @@ public class AiFundingServiceTests
     [Test]
     public async Task CoverArt_RunsOnTheCreatorsOpenAiKey_OnTheImageModel()
     {
-        _options.Catalog.Add(Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt));
         var key = _keys.Add(_creator, AiProvider.OpenAi);
 
         var funding = await ResolveCoverArt();
 
-        Assert.That((funding.Model, funding.FundedBy, funding.AiKeyId), Is.EqualTo(("gpt-image-2", AiFundedBy.Key, key.Id)));
+        Assert.That((funding.Model, funding.FundedBy, funding.AiKeyId), Is.EqualTo(("gpt-image-2.6-sunburst", AiFundedBy.Key, key.Id)));
+    }
+
+    [Test]
+    public async Task CoverArt_TheHoldersPickOfTheSecondImageModel_WinsOverTheDefault()
+    {
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-flare", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _keys.Add(_creator, AiProvider.OpenAi);
+        _keys.Choices.Add(new UserAiModelChoice { UserId = _creator, Task = AiTask.CoverArt, ModelId = "openai/gpt-image-2.6-flare" });
+
+        var funding = await ResolveCoverArt();
+
+        Assert.That((funding.Model, funding.ModelId), Is.EqualTo(("gpt-image-2.6-flare", "openai/gpt-image-2.6-flare")));
+    }
+
+    /// <summary>
+    /// OpenAI retired gpt-image-2 for the 2.6 models, and the catalog dropped it with no data
+    /// migration: a GM who had picked it is moved to the default image model, not left without one.
+    /// </summary>
+    [Test]
+    public async Task CoverArt_APickOfARetiredImageModel_FallsBackToTheDefaultImageModel()
+    {
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-flare", AiProvider.OpenAi, false, AiTask.CoverArt));
+        var key = _keys.Add(_creator, AiProvider.OpenAi);
+        _keys.Choices.Add(new UserAiModelChoice { UserId = _creator, Task = AiTask.CoverArt, ModelId = "openai/gpt-image-2" });
+
+        var funding = await ResolveCoverArt();
+
+        Assert.That((funding.ModelId, funding.AiKeyId), Is.EqualTo(("openai/gpt-image-2.6-sunburst", key.Id)));
     }
 
     [TestCase(AiFallback.Nornis)]
@@ -332,7 +362,7 @@ public class AiFundingServiceTests
     public async Task CoverArt_WithNoKey_IsRefused_UnderEitherFallback(AiFallback fallback)
     {
         _options.Fallback = fallback;
-        _options.Catalog.Add(Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt));
 
         var ex = await Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
 
@@ -351,7 +381,7 @@ public class AiFundingServiceTests
     [Test]
     public void CatalogValidation_RefusesAnImageModelThatAlsoServesChat()
     {
-        var mixed = Model("openai/gpt-image-2", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.Prep);
+        var mixed = Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.Prep);
 
         Assert.That(new AiModelsOptions { Catalog = [mixed] }.StartupProblem(), Does.Contain("only CoverArt"));
     }
