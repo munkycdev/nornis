@@ -21,5 +21,10 @@ public enum AiTask
     /// <summary>Generating pictures: an Adventure's cover (feature 38) and a world's key art
     /// (feature 42). An image model, not a chat model. Only a key holder's own key runs it;
     /// Nornis has no image deployment.</summary>
-    CoverArt
+    CoverArt,
+
+    /// <summary>Refining a generated picture (feature 45): one option sent back to an image model as
+    /// an edit, to keep its composition and redraw the detail. An image model, and only a key
+    /// holder's own key runs it, as <see cref="CoverArt"/>. Stored by name, at most 16 characters.</summary>
+    ArtRefinement
 }

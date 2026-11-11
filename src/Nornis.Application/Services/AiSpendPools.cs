@@ -44,6 +44,8 @@ public static class AiSpendPools
         AiOperationType.CoverArtBrief => AiSpendPool.PrepMonthly,
         AiOperationType.CoverArt => AiSpendPool.PrepMonthly,
         AiOperationType.KeyArt => AiSpendPool.PrepMonthly,
+        AiOperationType.CoverArtRefinement => AiSpendPool.PrepMonthly,
+        AiOperationType.KeyArtRefinement => AiSpendPool.PrepMonthly,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation,
             "This operation has no spend pool. Add it to AiSpendPools.PoolOf."),
     };

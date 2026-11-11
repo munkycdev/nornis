@@ -16,8 +16,9 @@ namespace Nornis.Infrastructure.Ai;
 /// <summary>
 /// Pictures on the key holder's OpenAI image model, bound per call through
 /// <see cref="IAiImageBinder"/>: the same funding rule, users' keys and failure translation as
-/// every chat call. Covers (feature 38) are portrait, key art (feature 42) landscape; both PNG at
-/// medium quality, a page or a band rather than a poster.
+/// every chat call. Covers (feature 38) are portrait, key art (feature 42) landscape; drafts are
+/// PNG at medium quality, a page or a band rather than a poster, and a refine (feature 45) redraws
+/// one at high quality through the edit endpoint.
 /// </summary>
 public sealed class OpenAiImageArtGenerator : IImageArtGenerator
 {
@@ -43,11 +44,48 @@ public sealed class OpenAiImageArtGenerator : IImageArtGenerator
         _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "Every image shape needs a size."),
     };
 
-    public async Task<ImageArtGeneration> GenerateAsync(
+    public Task<ImageArtGeneration> GenerateAsync(
         AiCallScope scope, string prompt, ImageShape shape, int count, int timeoutSeconds, string operation, CancellationToken ct)
     {
         var (width, height) = SizeOf(shape);
-        var binding = await _binder.BindImagesAsync(scope, AiTask.CoverArt, ct);
+        var options = new ImageGenerationOptions
+        {
+            Size = new GeneratedImageSize(width, height),
+            Quality = GeneratedImageQuality.MediumQuality,
+            OutputFileFormat = GeneratedImageFileFormat.Png,
+        };
+        return CallAsync(scope, AiTask.CoverArt, timeoutSeconds, operation,
+            (client, token) => client.GenerateImagesAsync(prompt, count, options, token), ct);
+    }
+
+    /// <summary>
+    /// The edit endpoint, at high quality: a refine is the finish, so it is worth the dearer image.
+    /// <c>input_fidelity</c> and <c>complexity</c> are not sent; the 2.6 models' support for them
+    /// is not documented, and an unsupported parameter fails the call.
+    /// </summary>
+    public Task<ImageArtGeneration> RefineAsync(
+        AiCallScope scope, byte[] sourcePng, string prompt, ImageShape shape, int timeoutSeconds, string operation, CancellationToken ct)
+    {
+        var (width, height) = SizeOf(shape);
+        var options = new ImageEditOptions
+        {
+            Size = new GeneratedImageSize(width, height),
+            Quality = GeneratedImageQuality.HighQuality,
+            OutputFileFormat = GeneratedImageFileFormat.Png,
+        };
+        return CallAsync(scope, AiTask.ArtRefinement, timeoutSeconds, operation, async (client, token) =>
+        {
+            using var image = new MemoryStream(sourcePng, writable: false);
+            return await client.GenerateImageEditsAsync(image, "draft.png", prompt, 1, options, token);
+        }, ct);
+    }
+
+    /// <summary>One bound image call: the binding, the timeout, the failure translation and the usage, shared by both kinds.</summary>
+    private async Task<ImageArtGeneration> CallAsync(
+        AiCallScope scope, AiTask task, int timeoutSeconds, string operation,
+        Func<ImageClient, CancellationToken, Task<ClientResult<GeneratedImageCollection>>> call, CancellationToken ct)
+    {
+        var binding = await _binder.BindImagesAsync(scope, task, ct);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         var stopwatch = Stopwatch.StartNew();
@@ -55,13 +93,7 @@ public sealed class OpenAiImageArtGenerator : IImageArtGenerator
         GeneratedImageCollection images;
         try
         {
-            var options = new ImageGenerationOptions
-            {
-                Size = new GeneratedImageSize(width, height),
-                Quality = GeneratedImageQuality.MediumQuality,
-                OutputFileFormat = GeneratedImageFileFormat.Png,
-            };
-            images = (await binding.Client.GenerateImagesAsync(prompt, count, options, timeout.Token)).Value;
+            images = (await call(binding.Client, timeout.Token)).Value;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

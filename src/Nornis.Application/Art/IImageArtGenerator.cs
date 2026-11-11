@@ -53,6 +53,18 @@ public interface IImageArtGenerator
     Task<ImageArtGeneration> GenerateAsync(
         AiCallScope scope, string prompt, ImageShape shape, int count, int timeoutSeconds, string operation, CancellationToken ct);
 
+    /// <summary>
+    /// Redraws one picture (feature 45): <paramref name="sourcePng"/> goes to the key holder's
+    /// refining model as an edit, with <paramref name="prompt"/>, and one picture of the same
+    /// shape comes back. Not deterministic: the image API takes no seed, so the instruction is
+    /// what keeps the composition. Same funding, failures and pricing as <see cref="GenerateAsync"/>.
+    /// </summary>
+    /// <exception cref="AiRefusalException">No key can refine, or the paying key was refused.</exception>
+    /// <exception cref="ImageArtRejectedException">The provider rejected the request: moderation, or a reason it names.</exception>
+    /// <exception cref="AiHttpException">The provider failed otherwise.</exception>
+    Task<ImageArtGeneration> RefineAsync(
+        AiCallScope scope, byte[] sourcePng, string prompt, ImageShape shape, int timeoutSeconds, string operation, CancellationToken ct);
+
     /// <summary>Whether a generation in <paramref name="scope"/> would find a key to pay: the Generate buttons.</summary>
     Task<bool> CanGenerateAsync(AiCallScope scope, CancellationToken ct);
 }

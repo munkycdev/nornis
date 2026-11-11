@@ -55,6 +55,11 @@ public class PrepCoverController : ControllerBase
     public async Task<IActionResult> Choose(Guid worldId, Guid adventureId, [FromBody] ChooseCoverRequest request, CancellationToken ct) =>
         Respond(await _covers.ChooseAsync(new ChooseCoverCommand(worldId, adventureId, UserId, Role, request.OptionId), ct));
 
+    /// <summary>Refines one option on the refining model (feature 45); the result is a new option.</summary>
+    [HttpPost("refine")]
+    public async Task<IActionResult> Refine(Guid worldId, Guid adventureId, [FromBody] ChooseCoverRequest request, CancellationToken ct) =>
+        Respond(await _covers.RefineAsync(new RefineCoverCommand(worldId, adventureId, UserId, Role, request.OptionId), ct));
+
     /// <summary>The GM's own art, as the raw request body. Its type is read from its bytes, not the header.</summary>
     [HttpPut("image")]
     public async Task<IActionResult> Upload(Guid worldId, Guid adventureId, CancellationToken ct)

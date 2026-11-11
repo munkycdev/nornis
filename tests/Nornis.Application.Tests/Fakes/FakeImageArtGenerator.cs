@@ -33,6 +33,23 @@ public sealed class FakeImageArtGenerator : IImageArtGenerator
         return Task.FromResult(new ImageArtGeneration(images, usage));
     }
 
+    /// <summary>Every refine: the picture it was sent, the prompt, the shape and the operation.</summary>
+    public List<(byte[] Source, string Prompt, ImageShape Shape, string Operation)> Refines { get; } = [];
+
+    public Task<ImageArtGeneration> RefineAsync(
+        AiCallScope scope, byte[] sourcePng, string prompt, ImageShape shape, int timeoutSeconds, string operation, CancellationToken ct)
+    {
+        Refines.Add((sourcePng, prompt, shape, operation));
+        if (Throw is not null)
+        {
+            throw Throw;
+        }
+
+        var images = Enumerable.Range(0, Deliver ?? 1).Select(i => new GeneratedImage(TestImages.Png(1024, 1536, (byte)(100 + i)), null)).ToList();
+        var usage = new AiUsage { Model = "refine-model", InputTokens = 1_500, OutputTokens = 4_000, TotalTokens = 5_500, DurationMs = 0 };
+        return Task.FromResult(new ImageArtGeneration(images, usage));
+    }
+
     public Task<bool> CanGenerateAsync(AiCallScope scope, CancellationToken ct) => Task.FromResult(HasKey);
 }
 

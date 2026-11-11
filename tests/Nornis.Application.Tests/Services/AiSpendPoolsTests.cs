@@ -19,8 +19,9 @@ public class AiSpendPoolsTests
         var prep = AiSpendPools.OperationsIn(AiSpendPool.PrepMonthly);
 
         Assert.That(prep, Is.EqualTo([AiOperationType.AdventureDrafting, AiOperationType.AdventureConversation,
-            AiOperationType.CoverArtBrief, AiOperationType.CoverArt, AiOperationType.KeyArt]),
-            "cover art (feature 38) and key art (feature 42) are Prep's spending too");
+            AiOperationType.CoverArtBrief, AiOperationType.CoverArt, AiOperationType.KeyArt,
+            AiOperationType.CoverArtRefinement, AiOperationType.KeyArtRefinement]),
+            "cover art (feature 38), key art (feature 42) and refining either (feature 45) are Prep's spending too");
         Assert.That(daily.Concat(prep), Is.EquivalentTo(Enum.GetValues<AiOperationType>()));
         Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureDrafting));
         Assert.That(daily, Does.Not.Contain(AiOperationType.AdventureConversation));

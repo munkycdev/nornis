@@ -374,4 +374,99 @@ public class WorldKeyArtServiceTests
 
         public override DateTimeOffset GetUtcNow() => Now;
     }
+
+    // ---------------------------------------------------------------- refine (feature 45) --
+
+    private Task<AppResult<KeyArtState>> RefineAsync(Guid option, WorldRole role = WorldRole.GM) =>
+        _sut.RefineAsync(new RefineKeyArtCommand(_worldId, GmUserId, role, option), default);
+
+    [Test]
+    public async Task Refine_SendsTheOptionLandscape_AndPutsTheResultFirst_LeavingTheArtAlone()
+    {
+        var drafts = (await GenerateAsync()).Value!;
+        await ChooseAsync(drafts.Options[0]);
+
+        var state = (await RefineAsync(drafts.Options[1])).Value!;
+
+        var refine = _generator.Refines.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(refine.Source, Is.EqualTo(_blobs.Blobs[KeyArtBlobs.OptionPath(_worldId, drafts.Options[1])].Content));
+            Assert.That(refine.Prompt, Does.StartWith(ArtRefinePrompt.Instruction));
+            Assert.That(refine.Prompt, Does.Contain(Brief));
+            Assert.That(refine.Prompt, Does.EndWith(KeyArtPrompt.ImageRules));
+            Assert.That((refine.Shape, refine.Operation), Is.EqualTo((ImageShape.Landscape, nameof(AiOperationType.KeyArtRefinement))));
+            Assert.That(state.Options, Has.Count.EqualTo(3));
+            Assert.That(state.Options.Skip(1), Is.EqualTo(drafts.Options));
+            Assert.That(state.ChosenOptionId, Is.EqualTo(drafts.Options[0]));
+            Assert.That(state.ImagesThisMonth, Is.EqualTo(3));
+            Assert.That(_ledger.Records.Last().OperationType, Is.EqualTo(AiOperationType.KeyArtRefinement));
+        });
+    }
+
+    [Test]
+    public async Task RefinedOptions_GoWithTheRest_WhenTheGmGeneratesAgain()
+    {
+        var drafts = (await GenerateAsync()).Value!;
+        var refined = (await RefineAsync(drafts.Options[0])).Value!.Options[0];
+
+        await GenerateAsync();
+
+        Assert.That(_blobs.DeletedPaths, Does.Contain(KeyArtBlobs.OptionPath(_worldId, refined)));
+        Assert.That(Stored.KeyArtOptionIds, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Refine_CountsAgainstTheMonth_AndAFailureGivesItBack()
+    {
+        _options.MaxImagesPerMonth = 3;
+        var drafts = (await GenerateAsync()).Value!;
+        _generator.Throw = new AiHttpException("down", 500);
+
+        var failed = await RefineAsync(drafts.Options[0]);
+        _generator.Throw = null;
+        var refined = await RefineAsync(drafts.Options[0]);
+        var capped = await RefineAsync(drafts.Options[0]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failed.IsSuccess, Is.False);
+            Assert.That(refined.Value!.ImagesThisMonth, Is.EqualTo(3), "the failed refine was given back");
+            Assert.That(capped.Error!.Code, Is.EqualTo("key_art_cap"));
+        });
+    }
+
+    [Test]
+    public async Task TheOptionsOnOffer_AreBounded_SoRefiningAcrossMonthsCantOutgrowTheColumn()
+    {
+        _options.MaxImagesPerMonth = 100;
+        var draft = (await GenerateAsync()).Value!.Options[0];
+        for (var i = 2; i < WorldKeyArtService.MaxOptionsOnOffer; i++)
+        {
+            Assert.That((await RefineAsync(draft)).IsSuccess, Is.True);
+        }
+
+        var full = await RefineAsync(draft);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Stored.KeyArtOptionIds, Has.Count.EqualTo(WorldKeyArtService.MaxOptionsOnOffer));
+            Assert.That(full.Error!.Code, Is.EqualTo("key_art_options_full"));
+            Assert.That(System.Text.Json.JsonSerializer.Serialize(Stored.KeyArtOptionIds).Length, Is.LessThanOrEqualTo(1000),
+                "the options column holds 1,000 characters");
+        });
+    }
+
+    [Test]
+    public async Task Refine_AnOptionNotOnOffer_IsNotFound_AndRefineIsTheGms()
+    {
+        var draft = (await GenerateAsync()).Value!.Options[0];
+
+        var unknown = await RefineAsync(Guid.NewGuid());
+        var player = await RefineAsync(draft, WorldRole.Player);
+
+        Assert.That(unknown.Error!.StatusCode, Is.EqualTo(404));
+        Assert.That(player.Error!.StatusCode, Is.EqualTo(403));
+        Assert.That(_generator.Refines, Is.Empty);
+    }
 }

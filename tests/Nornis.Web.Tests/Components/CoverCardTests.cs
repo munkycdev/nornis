@@ -127,6 +127,33 @@ public class CoverCardTests : BunitContext
     }
 
     [Test]
+    public void Refine_SendsThatOption_AndShowsTheRefinedOneFirst_WithoutTouchingTheCover()
+    {
+        var refined = Guid.NewGuid();
+        var cut = RenderCard(State(options: [OptionB, OptionA], used: 2));
+        _handler.Answer = State(options: [refined, OptionB, OptionA], used: 3);
+
+        cut.FindAll(".nornis-art-refine")[1].Click();
+
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-cover-option"), Has.Count.EqualTo(3)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.Last, Is.EqualTo("POST /api/worlds/" + WorldId + "/prep/" + AdventureId + "/cover/refine"));
+            Assert.That(_handler.LastBody, Does.Contain(OptionA.ToString()));
+            Assert.That(cut.Find(".nornis-cover-option img").GetAttribute("src"), Does.EndWith(refined.ToString()));
+            Assert.That(_changed, Is.Zero, "a refined option isn't the cover until it is picked");
+        });
+    }
+
+    [Test]
+    public void WithNoKey_RefineIsDisabled()
+    {
+        var cut = RenderCard(State(options: [OptionA], canGenerate: false, blocker: "Add an OpenAI key to generate covers."));
+
+        Assert.That(cut.Find(".nornis-art-refine").HasAttribute("disabled"), Is.True);
+    }
+
+    [Test]
     public void AnApiRefusal_IsShownInTheApisWords()
     {
         var cut = RenderCard(State(brief: "A bathhouse at dusk."));

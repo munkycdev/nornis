@@ -378,6 +378,55 @@ public class AiFundingServiceTests
         await Assert.ThrowsAsync<AiKeyRequiredException>(ResolveCoverArt);
     }
 
+    // ---------------------------------------------------------- refining art (feature 45) --
+
+    [Test]
+    public async Task Refining_RunsOnTheFirstImageModelThatRefines_NotThePicturesDefault()
+    {
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-flare", AiProvider.OpenAi, false, AiTask.CoverArt));
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.ArtRefinement));
+        var key = _keys.Add(_creator, AiProvider.OpenAi);
+        var scope = AiCallScope.ForWorld(_worldId, Guid.NewGuid());
+
+        var pictures = await Service().ResolveAsync(scope, AiTask.CoverArt, nornisModel: null, needsImages: false, CancellationToken.None);
+        var refining = await Service().ResolveAsync(scope, AiTask.ArtRefinement, nornisModel: null, needsImages: false, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pictures.ModelId, Is.EqualTo("openai/gpt-image-2.6-flare"));
+            Assert.That((refining.ModelId, refining.FundedBy, refining.AiKeyId),
+                Is.EqualTo(("openai/gpt-image-2.6-sunburst", AiFundedBy.Key, key.Id)));
+        });
+    }
+
+    [TestCase(AiFallback.Nornis)]
+    [TestCase(AiFallback.Trial)]
+    public async Task Refining_WithNoKey_IsRefused_UnderEitherFallback(AiFallback fallback)
+    {
+        _options.Fallback = fallback;
+        _options.Catalog.Add(Model("openai/gpt-image-2.6-sunburst", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.ArtRefinement));
+
+        var ex = await Assert.ThrowsAsync<AiKeyRequiredException>(() => Service().ResolveAsync(
+            AiCallScope.ForWorld(_worldId, Guid.NewGuid()), AiTask.ArtRefinement, nornisModel: null, needsImages: false, CancellationToken.None));
+
+        Assert.That(ex!.Task, Is.EqualTo(AiTask.ArtRefinement));
+    }
+
+    [Test]
+    public void CatalogValidation_KeepsImageAndChatModelsApart_ForRefiningToo()
+    {
+        var refinesAndChats = Model("openai/i", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.ArtRefinement, AiTask.Prep);
+        var chatThatRefines = Model("openai/c", AiProvider.OpenAi, false, AiTask.Prep, AiTask.ArtRefinement);
+        var imageThatRefines = Model("openai/ok", AiProvider.OpenAi, false, AiTask.CoverArt, AiTask.ArtRefinement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new AiModelsOptions { Catalog = [refinesAndChats] }.StartupProblem(), Does.Contain("only CoverArt and ArtRefinement"));
+            Assert.That(new AiModelsOptions { Catalog = [chatThatRefines] }.StartupProblem(), Does.Contain("only an image model can"));
+            Assert.That(new AiModelsOptions { Catalog = [imageThatRefines] }.StartupProblem(), Is.Null);
+        });
+    }
+
     [Test]
     public void CatalogValidation_RefusesAnImageModelThatAlsoServesChat()
     {
