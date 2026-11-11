@@ -100,7 +100,7 @@ public record PrintDetailsResponse(
 
 /// <summary>
 /// A side-conversation turn's server-sent event names. The names date from section drafting
-/// (removed in 3.29), which streamed under them first. Mirrored by
+/// (removed in 3.30), which streamed under them first. Mirrored by
 /// <c>DraftStreamEventNames</c> in the Web, which shares no project with the API.
 /// </summary>
 public static class DraftStreamEventNames

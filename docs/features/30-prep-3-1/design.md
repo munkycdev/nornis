@@ -1,6 +1,6 @@
 # Design Document
 
-> **Amendment (2026-11-11, Nornis 3.29):** Threads to use is gone with section drafting (see
+> **Amendment (2026-11-11, Nornis 3.30):** Threads to use is gone with section drafting (see
 > feature 29's amendment of the same date). `ThreadsToUseCard` only fed the draft card's
 > instruction box, so both went together; the convergence route and the Reveal page are
 > unchanged. Talk it through on Structure is unchanged too: it still sees the outline and the

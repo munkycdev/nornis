@@ -124,7 +124,7 @@ public class AdventurePageTests : BunitContext
     }
 
     /// <summary>
-    /// 3.29: Talk it through is the one way to ask the Loremaster on Structure. The section has
+    /// 3.30: Talk it through is the one way to ask the Loremaster on Structure. The section has
     /// no draft card of its own, and nothing on the page posts to the removed draft route.
     /// </summary>
     [Test]

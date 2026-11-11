@@ -1,6 +1,6 @@
 # Design Document
 
-> **Amendment (2026-11-11, Nornis 3.29):** section drafting is gone. Dave asked whether the
+> **Amendment (2026-11-11, Nornis 3.30):** section drafting is gone. Dave asked whether the
 > Structure tab needed both Talk it through and the "Draft with the Loremaster" card, and chose
 > to remove the card rather than fold it into Talk. `AdventureDraftingService`,
 > `AdventureDraftPrompt`, `POST prep/{id}/sections/{sectionId}/draft` and the Web's
