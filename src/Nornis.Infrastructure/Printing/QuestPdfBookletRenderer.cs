@@ -36,7 +36,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     internal const string Mono = "IBM Plex Mono";
     internal const string Fallback = "DejaVu Sans";
 
-    private static readonly string Ink = "#1C1F24";
+    private const string Ink = PrintColors.Ink;
     private static readonly string Accent = "#8B4A3C";
     private static readonly string Hairline = "#E3DED3";
     private static readonly string Muted = "#6B6F76";
@@ -176,6 +176,9 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             case { Layout: CoverLayout.ClassicModule } art when CoverArtImage.Fit(art.Image, ContentWidth, ModuleArtHeight) is { } image:
                 ClassicModuleCover(page, cover, image, type);
                 return;
+            case { Layout: CoverLayout.ScrollBanner } art when CoverArtImage.Fit(art.Image, PageSizes.Letter.Width, PageSizes.Letter.Height) is { } image:
+                ScrollBannerCover(page, cover, image, type);
+                return;
         }
 
         TypesetCover(page, cover, type);
@@ -183,8 +186,10 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
 
     // Feature 38's layouts. Every box the art fills has a fixed size, so the art is cropped to it
     // before layout and the cover can never spill onto the rights page. Type never sits on the art:
-    // it's on a solid band (full bleed) or beside it (the other two), so no layout depends on the
-    // art's colours.
+    // it's on a solid band (full bleed) or beside it (framed, classic module), so those layouts
+    // don't depend on the art's colours. The scroll banner (feature 46) is the one exception: its
+    // title is on an opaque scroll, but its author line is set on the art in whichever colour the
+    // art behind it reads best against (ArtContrast).
     private static readonly float ContentWidth = PageSizes.Letter.Width - 2 * Margin;
     private const float FrameWidth = 410;
     private const float FrameHeight = 500;
@@ -220,6 +225,78 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             }
         });
         page.Footer().Background(Ink).PaddingVertical(14).AlignCenter().Text(cover.AuthorLine).FontSize(12).FontColor(Colors.White);
+    }
+
+    /// <summary>How far the title's scroll sits below the top of the page, and in from its sides.</summary>
+    private const float ScrollTop = 40;
+    private const float ScrollSide = 44;
+
+    /// <summary>How far the author line's baseline area sits above the foot of the page.</summary>
+    private const float AuthorBottom = 34;
+
+    /// <summary>The author line's size, and the room around it its shade (if any) fills.</summary>
+    private const float AuthorSize = 13;
+    private const float AuthorPadVertical = 8;
+    private const float AuthorPadHorizontal = 30;
+
+    /// <summary>
+    /// The strip of the page the author line's colour is judged on, as fractions of the page: the
+    /// middle of the width (the line is centred and rarely wider) and the height the line and its
+    /// padding take above <see cref="AuthorBottom"/>.
+    /// </summary>
+    internal static readonly (float Left, float Top, float Right, float Bottom) AuthorStrip = (
+        0.15f,
+        1 - (AuthorBottom + AuthorSize * 1.2f + 2 * AuthorPadVertical) / PageSizes.Letter.Height,
+        0.85f,
+        1 - AuthorBottom / PageSizes.Letter.Height);
+
+    /// <summary>
+    /// The art fills the page; the title, system and levels sit on a parchment scroll near the top
+    /// (ScrollArt, drawn to the type's size), and the author line is set on the art in white or ink,
+    /// on a soft shade when the art behind it is too uneven for either (ArtContrast).
+    /// </summary>
+    private static void ScrollBannerCover(PageDescriptor page, BookletCover cover, byte[] art, Typeset type)
+    {
+        Setup(page, type);
+        page.Margin(0);
+        page.Background().Image(art).FitUnproportionally();
+        page.Header().PaddingTop(ScrollTop).PaddingHorizontal(ScrollSide).Layers(layers =>
+        {
+            layers.Layer().Svg(size => ScrollArt.Svg(size.Width, size.Height));
+            layers.PrimaryLayer()
+                .PaddingLeft(ScrollArt.SideClearance).PaddingRight(ScrollArt.SideClearance + ScrollArt.ShadowOffset)
+                .PaddingTop(ScrollArt.EdgeClearance).PaddingBottom(ScrollArt.EdgeClearance + ScrollArt.ShadowOffset)
+                .Column(scroll =>
+            {
+                scroll.Spacing(5);
+                scroll.Item().AlignCenter().Text(text =>
+                {
+                    text.AlignCenter();
+                    text.ClampLines(ArtTitleLines, "…");
+                    text.Span(cover.Title).FontSize(30).SemiBold().LineHeight(1.1f).FontColor(Ink);
+                });
+                foreach (var line in new[] { cover.SystemLine, cover.LevelsLine }.OfType<string>())
+                {
+                    scroll.Item().AlignCenter().Text(line).FontSize(12).FontColor(Accent);
+                }
+            });
+        });
+
+        var author = ArtContrast.For(art, AuthorStrip.Left, AuthorStrip.Top, AuthorStrip.Right, AuthorStrip.Bottom);
+        page.Footer().PaddingBottom(AuthorBottom).PaddingHorizontal(ScrollSide).AlignCenter().Layers(layers =>
+        {
+            if (author.Shade is { } shade)
+            {
+                layers.Layer().Svg(size => ArtContrast.ShadeSvg(size.Width, size.Height, shade));
+            }
+
+            layers.PrimaryLayer().PaddingVertical(AuthorPadVertical).PaddingHorizontal(AuthorPadHorizontal).Text(text =>
+            {
+                text.AlignCenter();
+                text.ClampLines(1, "…");
+                text.Span(cover.AuthorLine).FontSize(AuthorSize).SemiBold().LetterSpacing(0.02f).FontColor(author.Color);
+            });
+        });
     }
 
     /// <summary>The title and its lines above, the art in a ruled frame, the author below.</summary>

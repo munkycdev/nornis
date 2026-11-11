@@ -51,5 +51,5 @@ public record CoverBriefRequest(string? Brief);
 /// <summary>Makes one generated option the cover.</summary>
 public record ChooseCoverRequest(Guid OptionId);
 
-/// <summary>FullBleed, Framed or ClassicModule.</summary>
+/// <summary>A <c>CoverLayout</c> name: FullBleed, Framed, ClassicModule or ScrollBanner.</summary>
 public record SetCoverLayoutRequest(string? Layout);

@@ -77,7 +77,7 @@ public class PrepCoverController : ControllerBase
     {
         if (!EnumParsing.TryParseDefined<CoverLayout>(request.Layout ?? "", out var layout))
         {
-            return BadRequest(new ErrorResponse("invalid_layout", $"'{request.Layout}' is not FullBleed, Framed or ClassicModule."));
+            return BadRequest(new ErrorResponse("invalid_layout", $"'{request.Layout}' is not a cover layout: use one of {string.Join(", ", Enum.GetNames<CoverLayout>())}."));
         }
 
         return Respond(await _covers.SetLayoutAsync(new SetCoverLayoutCommand(worldId, adventureId, UserId, Role, layout), ct));

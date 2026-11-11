@@ -334,6 +334,7 @@ public static class AdventureConversationPrompt
         CoverLayout.FullBleed => "full bleed, the art filling the page under a title band",
         CoverLayout.Framed => "framed, the title above the art",
         CoverLayout.ClassicModule => "classic module, the title at the top and the details below the art",
+        CoverLayout.ScrollBanner => "scroll banner, the art filling the page with the title on a parchment scroll near the top",
         _ => layout.ToString(),
     };
 
