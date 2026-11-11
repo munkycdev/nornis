@@ -20,6 +20,12 @@ updates:
           - patch
     commit-message:
       prefix: "deps"
+    ignore:
+      # Microsoft.Extensions.AI.OpenAI (10.11.0 and 11.0.0) is built against OpenAI 2.14.0, and
+      # 2.15.0 broke it at run time (MissingMethodException on Responses streaming). OpenAI
+      # moves by hand with that adapter; drop this once the adapter depends on 2.15 or later.
+      - dependency-name: "OpenAI"
+        versions: [">= 2.15.0"]
 
   - package-ecosystem: github-actions
     directory: "/"

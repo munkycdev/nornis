@@ -1,5 +1,6 @@
 ﻿using System.Collections.Frozen;
 using Microsoft.Extensions.Logging;
+using Nornis.Application.Common;
 using Nornis.Application.Errors;
 using Nornis.Application.Models;
 using Nornis.Application.Storage;
@@ -107,7 +108,7 @@ public class SourceAttachmentService : ISourceAttachmentService
             if (!string.Equals(command.ContentType, expected, StringComparison.OrdinalIgnoreCase))
             {
                 // Same policy as the Library: warn, don't reject — browsers report odd MIME types.
-                _logger.LogWarning("Source attachment MIME mismatch: {ContentType} for {Extension}", command.ContentType, extension);
+                _logger.LogWarning("Source attachment MIME mismatch: {ContentType} for {Extension}", command.ContentType.ForLog(), extension.ForLog());
             }
         }
 
