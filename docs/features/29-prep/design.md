@@ -1,5 +1,17 @@
 # Design Document
 
+> **Amendment (2026-11-11, Nornis 3.29):** section drafting is gone. Dave asked whether the
+> Structure tab needed both Talk it through and the "Draft with the Loremaster" card, and chose
+> to remove the card rather than fold it into Talk. `AdventureDraftingService`,
+> `AdventureDraftPrompt`, `POST prep/{id}/sections/{sectionId}/draft` and the Web's
+> `StreamAdventureDraftAsync` are deleted, with `PrepOptions.MaxInstructionChars`. Talk it
+> through and Put in section (Append or Replace, one Undo) are now the only way the Loremaster
+> writes a section; the section editor is never read-only. The Prep budget read
+> (`GET prep-budget`) moved to `IAdventureService.GetBudgetAsync`. `AiOperationType.AdventureDrafting`
+> stays: ledger rows carry it and the draft plan still records under it. The SSE names
+> (`DraftStreamEventNames`) keep their names for the conversation stream. The text below is
+> left as written.
+
 > **Amendment (2026-11-08, Nornis 3.18):** the Adventure card is gone, and
 > `AdventureDetailsDialog` now only creates an adventure from the Prep list. The page head is `AdventureHeading`: the title and pitch are edited
 > where they are shown (a click opens a box; Enter saves the title, Ctrl+Enter the pitch, Escape

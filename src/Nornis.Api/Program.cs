@@ -323,7 +323,6 @@ builder.Services.AddScoped<IAdventureService, AdventureService>();
 builder.Services.AddScoped<IAdventureDesignService, AdventureDesignService>();
 builder.Services.AddScoped<IAdventureDraftPlanService, AdventureDraftPlanService>();
 builder.Services.AddScoped<PrepPromptContextBuilder>();
-builder.Services.AddScoped<IAdventureDraftingService, AdventureDraftingService>();
 builder.Services.AddScoped<IAdventureExportService, AdventureExportService>();
 builder.Services.AddScoped<IAdventureConversationService, AdventureConversationService>();
 // One draft per section across requests, so a singleton. A lease outlives the longest Prep call

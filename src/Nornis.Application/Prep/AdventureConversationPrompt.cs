@@ -27,8 +27,8 @@ public sealed record AdventureConversationInput(
     ConversationScope Scope = ConversationScope.Section);
 
 /// <summary>
-/// The prompt for one turn of an Adventure's side conversation (feature 30). Cache-ordered like
-/// <see cref="AdventureDraftPrompt"/>: the fixed system prompt, then the world, the Adventure,
+/// The prompt for one turn of an Adventure's side conversation (feature 30). Cache-ordered: the
+/// fixed system prompt, then the world, the Adventure,
 /// the section on screen, the conversation so far and the new message, from what changes least
 /// to what changes most.
 ///

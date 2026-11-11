@@ -167,17 +167,15 @@ else if (_adventure is not null)
                                       MaxLength="200" Class="flex-grow-1" Immediate="true" Disabled="_busy" />
                     </div>
 
-                    @* Read-only while a draft is written, so nothing typed can be lost under it; the
-                       key change remounts it either way, with the text that was saved first. *@
-                    <NotesEditor @key="@($"{selected.Id}:{_editorVersion}:{_drafting}")" @ref="_editor"
-                                 InitialMarkdown="@selected.BodyMarkdown" ReadOnly="_drafting"
+                    <NotesEditor @key="@($"{selected.Id}:{_editorVersion}")" @ref="_editor"
+                                 InitialMarkdown="@selected.BodyMarkdown"
                                  Placeholder="Write the section. Use Read-aloud for boxed text, Prop and Ask for handouts and questions."
                                  PrepTools="true" AllowMaximize="true"
                                  BackupKey="@BackupKey(selected.Id)" PreferBackup="true"
                                  Restored="at => _restoredAt = at" />
 
                     @* What the section's game blocks would lose on export (feature 35). The server
-                       decides them on every load, save and draft; they never change the text. *@
+                       decides them on every load and save; they never change the text. *@
                     @if (selected.BlockWarnings is { Count: > 0 } warnings)
                     {
                         <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2 nornis-prep-block-warnings">
@@ -193,7 +191,7 @@ else if (_adventure is not null)
                                    StartIcon="@Icons.Material.Outlined.Save" Disabled="_busy">
                             @(_saving ? "Saving…" : "Save")
                         </MudButton>
-                        <MudTooltip Text="@(selected.RevisionCount == 0 ? "Nothing to undo yet: Undo steps back through AI drafts." : $"Step back to the text before the last draft ({selected.RevisionCount} kept).")">
+                        <MudTooltip Text="@(selected.RevisionCount == 0 ? "Nothing to undo yet: Undo steps back through what the Loremaster put in." : $"Step back to the text before the Loremaster's last answer went in ({selected.RevisionCount} kept).")">
                             <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Undo"
                                        Disabled="@(_busy || selected.RevisionCount == 0)" OnClick="UndoAsync">
                                 Undo@(selected.RevisionCount > 0 ? $" ({selected.RevisionCount})" : "")
@@ -205,45 +203,6 @@ else if (_adventure is not null)
                             Delete section
                         </MudButton>
                     </div>
-
-                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-prep-draft mt-3">
-                        <MudText Typo="Typo.overline" Color="Color.Secondary">Draft with the Loremaster</MudText>
-                        @if (selected.Kind == OverviewKind)
-                        {
-                            <ThreadsToUseCard WorldId="Worlds.Current.Id" Disabled="_busy" OnUse="UseThread" />
-                        }
-                        <MudTextField @bind-Value="_instruction" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Label="@(selected.IsFilled ? "How should it change? (optional)" : "What should this section do? (optional)")"
-                                      Lines="3" MaxLength="@MaxInstructionChars" Immediate="true" Disabled="_busy" />
-                        <div class="d-flex gap-2 mt-2 flex-wrap align-center">
-                            @if (_drafting)
-                            {
-                                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Stop" OnClick="StopDraft">
-                                    Stop
-                                </MudButton>
-                                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">Writing…</MudText>
-                            }
-                            else
-                            {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.AutoAwesome"
-                                           OnClick="DraftAsync" Disabled="_busy">
-                                    @(selected.IsFilled ? "Revise" : "Draft")
-                                </MudButton>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Drafts from your world's record, Hidden truth included. Undo steps back.
-                                </MudText>
-                            }
-                        </div>
-                        @if (_draftError is not null)
-                        {
-                            <AiErrorAlert Error="_draftError" OtherSeverity="Severity.Warning" Class="mt-3" />
-                        }
-                        @if (_draftText is not null)
-                        {
-                            <div class="nornis-prep-draft-preview mt-3" aria-live="polite">@_draftText</div>
-                        }
-                    </MudPaper>
                 }
                 else
                 {
@@ -293,12 +252,6 @@ else if (_adventure is not null)
 
     private Guid? _dragId;
     private Guid? _dragOverId;
-
-    private string _instruction = string.Empty;
-    private bool _drafting;
-    private string? _draftText;
-    private ApiError? _draftError;
-    private CancellationTokenSource? _draftCts;
 
     private AdventureSectionDto? Selected => _adventure?.Sections.FirstOrDefault(s => s.Id == _selectedId);
 
@@ -433,7 +386,6 @@ else if (_adventure is not null)
             _title = keep.Title;
             _conflict = false;
             _restoredAt = null;
-            ClearDraft();
             _editorVersion++;
         }
     }
@@ -652,7 +604,6 @@ else if (_adventure is not null)
         _title = next.Title;
         _conflict = false;
         _restoredAt = null;
-        ClearDraft();
         _editorVersion++;
     }
 
@@ -763,120 +714,6 @@ else if (_adventure is not null)
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
     }
-
-    /// <summary>The longest instruction the API takes. Mirrors <c>PrepOptions.MaxInstructionChars</c>; pinned by a test.</summary>
-    public const int MaxInstructionChars = 2_000;
-
-    private const string OverviewKind = "Overview";
-
-    /// <summary>
-    /// Use in this adventure: the thread's line goes on the end of the instruction box, where the
-    /// GM can edit it before drafting. A line already there isn't added twice, and one that
-    /// would pass the box's bound isn't cut to fit.
-    /// </summary>
-    private void UseThread(string line)
-    {
-        if (_instruction.Contains(line, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        var text = string.IsNullOrWhiteSpace(_instruction) ? line : $"{_instruction.TrimEnd()}\n{line}";
-        if (text.Length > MaxInstructionChars)
-        {
-            Snackbar.Add("The instruction box is full. Shorten it to add this thread.", Severity.Warning);
-            return;
-        }
-
-        _instruction = text;
-    }
-
-    private void ClearDraft()
-    {
-        _instruction = string.Empty;
-        _draftText = null;
-        _draftError = null;
-    }
-
-    /// <summary>
-    /// Drafts or revises the selected section. What was typed is saved first, so the draft starts
-    /// from the GM's text and not from an older copy, and so the browser's kept copy can't come
-    /// back over the draft afterwards. The text streams into a preview; only a finished draft
-    /// replaces the section, and anything else leaves it as it was, with the preview still there
-    /// to read or copy.
-    /// </summary>
-    private async Task DraftAsync()
-    {
-        if (Worlds.Current is null || _adventure is null || Selected is null || _editor is null)
-        {
-            return;
-        }
-
-        if (await IsDirtyAsync() && !await SaveCoreAsync(overwrite: false))
-        {
-            return;
-        }
-
-        var selected = Selected!;
-        var worldId = Worlds.Current.Id;
-        var adventureId = _adventure.Id;
-        var instruction = string.IsNullOrWhiteSpace(_instruction) ? null : _instruction.Trim();
-
-        // The browser's kept copy is the text just saved; left in place, it would come back over
-        // the draft when the editor remounts.
-        await _editor.ClearBackupAsync();
-        _draftCts?.Dispose();
-        _draftCts = new CancellationTokenSource();
-        _busy = _drafting = true;
-        _draftText = string.Empty;
-        _draftError = null;
-        StateHasChanged();
-        try
-        {
-            await foreach (var e in Api.StreamAdventureDraftAsync(worldId, adventureId, selected.Id,
-                               new DraftAdventureSectionRequest(instruction, selected.UpdatedAt), _draftCts.Token))
-            {
-                switch (e)
-                {
-                    case DraftStreamEvent.Delta delta:
-                        _draftText += delta.Text;
-                        StateHasChanged();
-                        break;
-                    case DraftStreamEvent.Done done:
-                        _adventure = _adventure with
-                        {
-                            Sections = _adventure.Sections.Select(s => s.Id == done.Section.Id ? done.Section : s).ToList(),
-                        };
-                        await _editor.ClearBackupAsync();
-                        _instruction = string.Empty;
-                        _draftText = null;
-                        _restoredAt = null;
-                        _editorVersion++;
-                        Snackbar.Add(selected.IsFilled ? "Revised. Undo steps back." : "Drafted. Undo steps back.", Severity.Success);
-                        break;
-                    case DraftStreamEvent.Failed failed:
-                        _draftError = failed.Error;
-                        break;
-                }
-            }
-        }
-        catch (OperationCanceledException) when (_draftCts.IsCancellationRequested)
-        {
-            _draftError = new ApiError("stopped", "Stopped. Nothing was saved.");
-        }
-        finally
-        {
-            _busy = _drafting = false;
-            if (_draftText is { Length: 0 })
-            {
-                _draftText = null;
-            }
-
-            StateHasChanged();
-        }
-    }
-
-    private void StopDraft() => _draftCts?.Cancel();
 
     private async Task UndoAsync()
     {
@@ -1225,7 +1062,5 @@ else if (_adventure is not null)
     public void Dispose()
     {
         Worlds.Changed -= OnWorldChanged;
-        _draftCts?.Cancel();
-        _draftCts?.Dispose();
     }
 }

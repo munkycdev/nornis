@@ -42,7 +42,7 @@ public class AdventureDesignServiceTests
         _renderer = new FakeBookletPdfRenderer();
         _views = new AdventureService(_adventures, new InMemoryCampaignRepository(), slugs,
             TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer, blobs: _blobs),
-            Options.Create(new PrepOptions()), _blobs);
+            Options.Create(new PrepOptions()), _blobs, new FakeAiBudgetGuard());
         _conversations = new InMemoryConversationRepository();
         _sut = new AdventureDesignService(_adventures, _documents, _views, _conversations, Options.Create(new PrepOptions()),
             NullLogger<AdventureDesignService>.Instance);
