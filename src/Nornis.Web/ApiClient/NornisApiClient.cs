@@ -837,18 +837,6 @@ public class NornisApiClient
         PutAsync<SetHandoutsRequest, AdventureDto>(
             $"/api/worlds/{worldId}/prep/{adventureId}/handouts", new SetHandoutsRequest(documentIds), ct);
 
-    /// <summary>
-    /// Drafts or revises one section, streamed. Refusals (a stale section, a draft already
-    /// running, the Prep budget spent) arrive as <see cref="DraftStreamEvent.Failed"/>, and
-    /// nothing is saved unless the stream ends in <see cref="DraftStreamEvent.Done"/>.
-    /// </summary>
-    public IAsyncEnumerable<DraftStreamEvent> StreamAdventureDraftAsync(
-        Guid worldId, Guid adventureId, Guid sectionId, DraftAdventureSectionRequest request, CancellationToken ct = default) =>
-        StreamEventsAsync($"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}/draft", request,
-            ToDraftStreamEvent, error => new DraftStreamEvent.Failed(error),
-            e => e is DraftStreamEvent.Done or DraftStreamEvent.Failed,
-            "The draft was cut off, and nothing was saved. Please try again.", ct);
-
     public Task<ApiResult<PrepBudgetDto>> GetPrepBudgetAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<PrepBudgetDto>($"/api/worlds/{worldId}/prep-budget", ct);
 
@@ -1613,15 +1601,6 @@ public class NornisApiClient
     private static T Deserialize<T>(string json) =>
         JsonSerializer.Deserialize<T>(json, JsonSerializerOptions.Web)
         ?? throw new JsonException($"Empty {typeof(T).Name} payload in the answer stream.");
-
-    /// <summary>Null for an event this client does not know.</summary>
-    private static DraftStreamEvent? ToDraftStreamEvent(SseItem<string> item) => item.EventType switch
-    {
-        DraftStreamEventNames.Delta => Deserialize<DraftStreamEvent.Delta>(item.Data),
-        DraftStreamEventNames.Done => new DraftStreamEvent.Done(Deserialize<AdventureSectionDto>(item.Data)),
-        DraftStreamEventNames.Error => new DraftStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
-        _ => null,
-    };
 
     /// <summary>Null for an event this client does not know.</summary>
     private static ConversationStreamEvent? ToConversationStreamEvent(SseItem<string> item) => item.EventType switch

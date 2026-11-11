@@ -20,8 +20,6 @@ public class PrepOptions
     /// </summary>
     public int MaxAdventureChars { get; set; } = 97_500;
 
-    public int MaxInstructionChars { get; set; } = 2_000;
-
     public int MaxRevisionsPerSection { get; set; } = 20;
 
     /// <summary>The application timeout on one drafting call, like every other AI path's.</summary>
@@ -42,7 +40,7 @@ public class PrepOptions
     /// </summary>
     public int ConversationHistoryChars { get; set; } = 12_000;
 
-    /// <summary>The section on screen, cut to this when it rides with a turn, as a neighbour is in a draft.</summary>
+    /// <summary>The section on screen, cut to this when it rides with a turn.</summary>
     public int ConversationSectionChars { get; set; } = 6_000;
 
     /// <summary>
@@ -104,7 +102,6 @@ public class PrepOptions
             (nameof(MaxCoverUploadBytes), MaxCoverUploadBytes),
             (nameof(MaxSectionChars), MaxSectionChars),
             (nameof(MaxAdventureChars), MaxAdventureChars),
-            (nameof(MaxInstructionChars), MaxInstructionChars),
             (nameof(MaxRevisionsPerSection), MaxRevisionsPerSection),
             (nameof(DraftTimeoutSeconds), DraftTimeoutSeconds),
             (nameof(MaxConversationMessageChars), MaxConversationMessageChars),

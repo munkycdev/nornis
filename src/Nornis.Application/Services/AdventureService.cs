@@ -27,12 +27,15 @@ public class AdventureService : IAdventureService
     private readonly AdventureBookletPrinter _printer;
     private readonly PrepOptions _options;
     private readonly IBlobStorageService _blobs;
+    private readonly IAiBudgetGuard _budget;
 
     public AdventureService(
         IAdventureRepository adventures, ICampaignRepository campaigns, ISlugResolver slugs,
-        AdventureBookletPrinter printer, IOptions<PrepOptions> options, IBlobStorageService blobs)
+        AdventureBookletPrinter printer, IOptions<PrepOptions> options, IBlobStorageService blobs,
+        IAiBudgetGuard budget)
     {
         _blobs = blobs;
+        _budget = budget;
         _adventures = adventures;
         _campaigns = campaigns;
         _slugs = slugs;
@@ -458,6 +461,11 @@ public class AdventureService : IAdventureService
             : AppResult<PrintedBooklet>.Fail(new AppError(404, "no_props",
                 $"This adventure has no props yet. Mark one in a section with \"> {PrepMarkup.PropMarker}\"."));
     }
+
+    public async Task<AppResult<PrepBudgetStatus>> GetBudgetAsync(Guid worldId, WorldRole role, CancellationToken ct) =>
+        role != WorldRole.GM
+            ? AppResult<PrepBudgetStatus>.Fail(GmOnly())
+            : AppResult<PrepBudgetStatus>.Success(await _budget.GetPrepStatusAsync(worldId, ct));
 
     public async Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct)
     {

@@ -23,6 +23,7 @@ public class AdventureServiceTests
     private PrepOptions _options = null!;
     private AdventureService _sut = null!;
     private FakeBookletPdfRenderer _renderer = null!;
+    private FakeAiBudgetGuard _budget = null!;
 
     [SetUp]
     public void SetUp()
@@ -33,8 +34,9 @@ public class AdventureServiceTests
         var slugs = new FakeSlugResolver((world, slug) =>
             _adventures.Adventures.FirstOrDefault(a => a.WorldId == world && a.Slug == slug)?.Id);
         _renderer = new FakeBookletPdfRenderer();
+        _budget = new FakeAiBudgetGuard();
         _sut = new AdventureService(_adventures, _campaigns, slugs,
-            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer), Options.Create(_options), new FakeBlobStorageService());
+            TestBooklets.Printer(TestPrintDetails.For(WorldId, GmUserId, "Shadowdark"), _renderer), Options.Create(_options), new FakeBlobStorageService(), _budget);
     }
 
     private async Task<AdventureView> CreateAsync(string title = "The Silver Key", Guid? campaignId = null)
@@ -742,6 +744,26 @@ public class AdventureServiceTests
             CancellationToken.None);
 
         Assert.That(result.Error?.Code, Is.EqualTo("nothing_to_undo"));
+    }
+
+    [Test]
+    public async Task Budget_IsTheMonthsPrepSpend()
+    {
+        _budget.PrepSpentThisMonthUsd = 3.25m;
+        _budget.PrepExceeded = true;
+
+        var result = await _sut.GetBudgetAsync(WorldId, WorldRole.GM, CancellationToken.None);
+
+        Assert.That(result.Value, Is.EqualTo(new PrepBudgetStatus(3.25m, 10.00m, IsExceeded: true)));
+    }
+
+    [TestCase(WorldRole.Player)]
+    [TestCase(WorldRole.Observer)]
+    public async Task Budget_IsForTheGmOnly(WorldRole role)
+    {
+        var result = await _sut.GetBudgetAsync(WorldId, role, CancellationToken.None);
+
+        Assert.That(result.Error?.StatusCode, Is.EqualTo(403));
     }
 
     [Test]

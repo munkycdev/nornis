@@ -51,7 +51,7 @@ public class AdventureCoverServiceTests
             Options.Create(_options), Options.Create(new LoremasterOptions { AiModel = "nornis-ask" }), TimeProvider.System,
             NullLogger<AdventureCoverService>.Instance);
         _views = new AdventureService(_adventures, new InMemoryCampaignRepository(), new FakeSlugResolver((_, _) => null),
-            TestBooklets.Printer(details, _renderer = new FakeBookletPdfRenderer(), blobs: _blobs), Options.Create(_options), _blobs);
+            TestBooklets.Printer(details, _renderer = new FakeBookletPdfRenderer(), blobs: _blobs), Options.Create(_options), _blobs, new FakeAiBudgetGuard());
         _adventureId = (await _views.CreateAsync(new CreateAdventureCommand(
             WorldId, GmUserId, WorldRole.GM, "The Slurping Spa", "Slimes have taken the old bathhouse.", null), default)).Value!.Adventure.Id;
     }

@@ -99,16 +99,16 @@ public record PrintDetailsResponse(
     string Publisher, string Author, int? Year, string? AiUse = null);
 
 /// <summary>
-/// The draft stream's server-sent event names, which a side-conversation turn streams under too
-/// (its <c>done</c> carries a <see cref="ConversationMessageResponse"/>). Mirrored by
+/// A side-conversation turn's server-sent event names. The names date from section drafting
+/// (removed in 3.30), which streamed under them first. Mirrored by
 /// <c>DraftStreamEventNames</c> in the Web, which shares no project with the API.
 /// </summary>
 public static class DraftStreamEventNames
 {
-    /// <summary><see cref="DraftStreamDeltaResponse"/>: the next piece of the draft.</summary>
+    /// <summary><see cref="DraftStreamDeltaResponse"/>: the next piece of the answer.</summary>
     public const string Delta = "delta";
 
-    /// <summary><see cref="AdventureSectionResponse"/>: the section as the draft left it. The stream ends here.</summary>
+    /// <summary><see cref="ConversationMessageResponse"/>: the saved answer. The stream ends here.</summary>
     public const string Done = "done";
 
     /// <summary><see cref="ErrorResponse"/>: nothing was saved. The stream ends here.</summary>
@@ -116,7 +116,7 @@ public static class DraftStreamEventNames
 
     /// <summary>
     /// <c>{}</c>: a Design turn's answer began an edit, whose text goes into the draft rather than
-    /// the chat (feature 41). Side conversation only; a client that doesn't know it ignores it.
+    /// the chat (feature 41). A client that doesn't know it ignores it.
     /// </summary>
     public const string Writing = "writing";
 }

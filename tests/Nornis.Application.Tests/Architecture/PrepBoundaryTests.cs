@@ -313,10 +313,9 @@ public class PrepBoundaryTests
             ("src/Nornis.Application/Services/AdventureConversationService.cs", "the answer"),
             ("src/Nornis.Application/Services/AdventureDesignService.cs", "the answer"),
             ("src/Nornis.Application/Services/AdventureDesignService.cs", "the answer"),
-            ("src/Nornis.Application/Services/AdventureDraftingService.cs", "never"),
         ];
         Assert.That(deciders, Is.EqualTo(expected),
-            "Put in section, Put in draft and Apply read it off the answer; a draft is never research; the print only reads the record");
+            "Put in section, Put in draft and Apply read it off the answer; the print only reads the record");
 
         static string Decided(string line) =>
             line.Contains("WebResearch is not null", StringComparison.Ordinal) ? "the answer"
@@ -355,11 +354,8 @@ public class PrepBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(recorders, Is.EqualTo(["src/Nornis.Infrastructure/Persistence/Repositories/AdventureRepository.cs"]));
-            Assert.That(accepters, Is.EqualTo(
-            [
-                "src/Nornis.Application/Services/AdventureConversationService.cs",
-                "src/Nornis.Application/Services/AdventureDraftingService.cs",
-            ]), "every accept records AI text: only a draft and Put in section may accept");
+            Assert.That(accepters, Is.EqualTo(["src/Nornis.Application/Services/AdventureConversationService.cs"]),
+                "every accept records AI text: only Put in section may accept");
             Assert.That(draftWriters, Is.EqualTo(["src/Nornis.Application/Services/AdventureDesignService.cs"]));
             Assert.That(artSetters, Is.EqualTo(["src/Nornis.Application/Prep/Covers/AdventureCoverService.cs"]),
                 "only choosing a generated option records AI art");
