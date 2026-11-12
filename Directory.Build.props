@@ -11,7 +11,7 @@
        0 for local dev builds. Surfaced in the app via Nornis.Web.AppVersion. -->
   <PropertyGroup>
     <MajorVersion>3</MajorVersion>
-    <MinorVersion>32</MinorVersion>
+    <MinorVersion>33</MinorVersion>
     <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
     <Version>$(MajorVersion).$(MinorVersion).$(BuildNumber)</Version>
     <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber).0</AssemblyVersion>

@@ -109,6 +109,70 @@ public class HtmlToMarkdownConverterTests
         string.Concat(System.Text.RegularExpressions.Regex.Matches(html, "</?(?:ul|ol)>").Select(m => m.Value));
 
     [Test]
+    public void Convert_ListsSideBySide_JoinIntoOneTightList()
+    {
+        // The editor leaves two lists side by side when a bullet is lifted out of the middle of
+        // one. Separated by a blank line they read back as one loose list, every bullet spaced
+        // as a paragraph.
+        var markdown = HtmlToMarkdownConverter.Convert(
+            "<ul><li><p>One</p></li></ul><ul><li><p>Two</p><ul><li><p>Sub</p></li></ul><ul><li><p>Sub too</p></li></ul></li></ul>");
+
+        Assert.That(markdown, Is.EqualTo("- One\n- Two\n  - Sub\n  - Sub too"));
+        Assert.That(MarkdownRenderer.ToHtml(markdown).Value, Does.Not.Contain("<p>"));
+    }
+
+    [Test]
+    public void Convert_DifferentKindsSideBySide_StayTwoLists()
+    {
+        var markdown = HtmlToMarkdownConverter.Convert("<ol><li><p>First</p></li></ol><ul><li><p>Bullet</p></li></ul>");
+
+        Assert.That(markdown, Is.EqualTo("1. First\n\n- Bullet"));
+    }
+
+    [Test]
+    public void Convert_EmptySubBullet_IsLeftOut_AndItsParentStaysABullet()
+    {
+        // Written, the empty sub-bullet was a bare "  -" under "Parent": a setext underline,
+        // which reloaded the parent as a heading.
+        var markdown = HtmlToMarkdownConverter.Convert(
+            "<ul><li><p>Parent</p><ul><li><p></p></li></ul></li><li><p>Sibling</p></li><li><p></p></li></ul>");
+
+        Assert.That(markdown, Is.EqualTo("- Parent\n- Sibling"));
+        Assert.That(MarkdownRenderer.ToHtml(markdown).Value, Does.Not.Contain("<h"));
+    }
+
+    [Test]
+    public void Convert_EmptyBulletWithSubBullets_KeepsThemNestedUnderIt()
+    {
+        var editorHtml = "<ul><li><p>Above</p><ul><li><p></p><ul><li><p>Deep</p></li></ul></li></ul></li></ul>";
+
+        var reloaded = MarkdownRenderer.ToHtml(HtmlToMarkdownConverter.Convert(editorHtml)).Value;
+
+        Assert.That(ListShape(reloaded), Is.EqualTo(ListShape(editorHtml)));
+        Assert.That(reloaded, Does.Not.Contain("<h"));
+    }
+
+    [Test]
+    public void Convert_TextAfterASubList_StaysInItsBullet()
+    {
+        var markdown = HtmlToMarkdownConverter.Convert(
+            "<ul><li><p>Parent</p><ul><li><p>Child</p></li></ul><p>Afterthought</p></li><li><p>Sibling</p></li></ul>");
+
+        Assert.That(markdown, Is.EqualTo("- Parent\n  - Child\n\n  Afterthought\n- Sibling"));
+        Assert.That(MarkdownRenderer.ToHtml(markdown).Value, Does.Contain("Afterthought"));
+    }
+
+    [Test]
+    public void Convert_LineBreaksAndParagraphsInABullet_StayOnTheirOwnLines()
+    {
+        var markdown = HtmlToMarkdownConverter.Convert(
+            "<ul><li><p>One<br>line two</p><p>Second paragraph</p></li><li><p>Two</p></li></ul>");
+
+        Assert.That(markdown, Is.EqualTo("- One\n  line two\n  Second paragraph\n- Two"));
+        Assert.That(MarkdownRenderer.ToHtml(markdown).Value, Does.Contain("One<br />").And.Contain("line two<br />"));
+    }
+
+    [Test]
     public void Convert_ListItemWithBold_KeepsFormatting()
     {
         var markdown = HtmlToMarkdownConverter.Convert("<ul><li><strong>Koves</strong> escapes</li></ul>");

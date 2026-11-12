@@ -184,6 +184,42 @@
         deleteTable: c => c.deleteTable(),
     };
 
+    // ── Tab and Shift+Tab in lists ──
+    //
+    // The stock list keys stop at nothing. Shift+Tab on a top-level bullet lifts it out of the
+    // list altogether: the line becomes a paragraph, the list is cut in two, and any sub-bullets
+    // it had become a third list of their own. Tab can't undo that, because the line is no longer
+    // a list item, so the browser takes Tab and moves focus off the notes; the same happens on a
+    // first bullet, which has nothing to indent under. Here, inside a list, Tab and Shift+Tab only
+    // ever move bullets a level and never leave the editor. Taking a bullet off is Backspace at
+    // the start of the line, or the toolbar button. Outside a list Tab is the browser's, so the
+    // keyboard can still leave the editor.
+
+    // The list a lift would act on, or null: the innermost list holding the selection's items.
+    function selectedListRange(state) {
+        const { $from, $to } = state.selection;
+        return $from.blockRange($to, node => node.childCount > 0 && node.firstChild.type.name === 'listItem');
+    }
+
+    function handleListTab(editor, event) {
+        if (event.key !== 'Tab' || event.ctrlKey || event.altKey || event.metaKey) return false;
+        // A table's Tab moves between its cells, even in a table someone put in a bullet.
+        if (editor.isActive('table')) return false;
+
+        const range = selectedListRange(editor.state);
+        if (!range) return false;
+
+        if (event.shiftKey) {
+            // Lift only out of a list that is itself inside a bullet; a top-level list has
+            // nowhere to lift to but out of the list.
+            const nested = range.depth > 0 && range.$from.node(range.depth - 1).type.name === 'listItem';
+            if (nested) editor.commands.liftListItem('listItem');
+        } else {
+            editor.commands.sinkListItem('listItem');
+        }
+        return true;
+    }
+
     function updateEmptyState(container, editor) {
         container.classList.toggle('nornis-editor-empty', editor.isEmpty);
     }
@@ -302,6 +338,10 @@
                 ],
                 content: content,
                 editable: editable,
+                // Direct props run before the extensions' keymaps, so this decides Tab first.
+                editorProps: {
+                    handleKeyDown: (view, event) => editor.isEditable && handleListTab(editor, event),
+                },
                 onCreate: ({ editor }) => { if (editable) updateEmptyState(container, editor); },
                 onUpdate: ({ editor }) => {
                     normalizeMarkdownTables(elementId, editor);
