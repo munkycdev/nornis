@@ -1,5 +1,14 @@
 # UI Design System
 
+> **Amendment (2026-11-12, Nornis 3.37, "the sources list opens on the sessions"):** Dave asked
+> for the Sources list to be filterable by type and to open on session notes. It has a Type row
+> above the Status row, the Codex's pattern (several chips or All). With no `?type=` it shows the
+> sessions, every type `SourceTypeDisplay.IsSession` counts (typed, handwritten, imported and
+> transcribed), so a backlog import is not hidden; `?type=all` shows everything. A way back to
+> the list from a source that is not a session (`Links.SourcesShowing`: Capture after saving,
+> the source page's crumb) asks for every type, so the source just left is on the list. A
+> list that opens filtered says so with its lit chips, never with a hidden default.
+
 > **Amendment (2026-11-12, Nornis 3.32, "one word for each thing"):** a walk of the whole app
 > at 3.31 found seventy places where a reader had to stop and work something out, most of them
 > the same few causes. Dave asked for all of them fixed. What is now the rule, on top of the
