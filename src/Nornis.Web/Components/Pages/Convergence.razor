@@ -141,7 +141,6 @@ else
         }
 
         _narrating = true;
-        StateHasChanged();
 
         var result = await Api.NarrateConvergenceAsync(Worlds.Current.Id);
         _narrating = false;
@@ -164,8 +163,6 @@ else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
-
-        StateHasChanged();
     }
 
     protected override async Task OnInitializedAsync()
@@ -177,6 +174,10 @@ else
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
+    // BL0012 is off for this method: the Refresh buttons run it as an event handler, which is
+    // what the rule sees, but WorldState.Changed also runs it through InvokeAsync, and there
+    // nothing renders unless this does.
+#pragma warning disable BL0012
     private async Task LoadAsync()
     {
         if (Worlds.Current is null || !Worlds.IsGm)
@@ -202,6 +203,7 @@ else
         }
         StateHasChanged();
     }
+#pragma warning restore BL0012
 
     private async Task OpenRevealAsync(ConvergenceCandidateDto candidate)
     {

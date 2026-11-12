@@ -106,7 +106,7 @@
             return;
         }
 
-        await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+        await JS.TryInvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
         MudDialog.Close(DialogResult.Ok(result.Value.FileName));
     }
 

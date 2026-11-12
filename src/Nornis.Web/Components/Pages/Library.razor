@@ -294,6 +294,10 @@ else
 
     private void OnWorldChanged() => InvokeAsync(LoadAsync);
 
+    // BL0012 is off for this method: the visibility chip runs it as an event handler, which is
+    // what the rule sees, but WorldState.Changed also runs it through InvokeAsync, and other
+    // handlers call it after their own awaits. Nothing renders there unless this does.
+#pragma warning disable BL0012
     private async Task LoadAsync()
     {
         if (Worlds.Current is null)
@@ -339,6 +343,7 @@ else
         }
         StateHasChanged();
     }
+#pragma warning restore BL0012
 
     private async Task OpenUploadAsync()
     {
@@ -357,7 +362,7 @@ else
         var result = await Api.GetLibraryDownloadAsync(Worlds.Current.Id, doc.Id);
         if (result.IsSuccess)
         {
-            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+            await JS.TryInvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
         }
         else
         {
@@ -371,7 +376,7 @@ else
         var result = await Api.ReadLibraryDocumentAsync(Worlds.Current.Id, doc.Id, null);
         if (result.IsSuccess)
         {
-            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.Url);
+            await JS.TryInvokeVoidAsync("nornisUpload.open", result.Value!.Url);
         }
         else
         {

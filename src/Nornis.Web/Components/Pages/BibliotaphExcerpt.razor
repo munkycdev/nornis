@@ -206,6 +206,10 @@
         StateHasChanged();
     }
 
+    // BL0012 is off for this method: Show pages runs it as an event handler, which is what the
+    // rule sees, but TryStartAsync also calls it after its own awaits, and WorldState.Changed
+    // runs that through InvokeAsync. Nothing renders there unless this does.
+#pragma warning disable BL0012
     private async Task LoadPagesAsync()
     {
         if (_document is null || Worlds.Current is null || !RangeOk)
@@ -235,6 +239,7 @@
 
         StateHasChanged();
     }
+#pragma warning restore BL0012
 
     private async Task<IEnumerable<ArtifactListItem>> SearchArtifactsAsync(string value, CancellationToken ct)
     {

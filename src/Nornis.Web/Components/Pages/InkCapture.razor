@@ -106,14 +106,13 @@
 
             if (ink is not null)
             {
-                await JS.InvokeAsync<bool>("nornisInk.initFromUrl", _canvasId, ink.Url, _selfRef, false);
-                _initialized = true;
+                // Not initialised if the tab closed while the draft was loading.
+                _initialized = await JS.TryInvokeVoidAsync("nornisInk.initFromUrl", _canvasId, ink.Url, _selfRef, false);
                 return;
             }
         }
 
-        await JS.InvokeAsync<bool>("nornisInk.init", _canvasId, null, _selfRef, false);
-        _initialized = true;
+        _initialized = await JS.TryInvokeVoidAsync("nornisInk.init", _canvasId, null, _selfRef, false);
     }
 
     private async Task SetToolAsync(string tool)
@@ -253,7 +252,6 @@
 
         _busy = true;
         _status = "Rendering…";
-        StateHasChanged();
 
         try
         {
@@ -306,7 +304,8 @@
                 }
             }
 
-            await JS.InvokeVoidAsync("nornisInk.clearTiles", _canvasId);
+            // Every page is in storage by now, so a tab closed here still gets its note queued.
+            await JS.TryInvokeVoidAsync("nornisInk.clearTiles", _canvasId);
 
             var ready = await Api.MarkSourceReadyAsync(Worlds.Current.Id, _sourceId.Value);
             if (!ready.IsSuccess)
@@ -322,7 +321,6 @@
         finally
         {
             _busy = false;
-            StateHasChanged();
         }
     }
 

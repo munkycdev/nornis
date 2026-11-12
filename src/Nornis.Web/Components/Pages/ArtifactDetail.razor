@@ -455,7 +455,6 @@
         if (!result.IsSuccess)
         {
             _mergeError = result.Error!.Message;
-            StateHasChanged();
             return;
         }
 
@@ -476,7 +475,6 @@
 
         _removeBusy = true;
         _removeError = null;
-        StateHasChanged();
 
         var preview = await Api.GetArtifactRemovalPreviewAsync(Worlds.Current.Id, _detail.Id);
         if (!preview.IsSuccess)
@@ -513,7 +511,6 @@
         if (!result.IsSuccess)
         {
             _removeError = result.Error!.Message;
-            StateHasChanged();
             return;
         }
 
@@ -677,7 +674,6 @@
         else
         {
             _parentError = result.Error!.Message;
-            StateHasChanged();
         }
     }
 
@@ -702,7 +698,6 @@
         else
         {
             _parentError = result.Error!.Message;
-            StateHasChanged();
         }
     }
 

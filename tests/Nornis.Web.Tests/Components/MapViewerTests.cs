@@ -64,6 +64,22 @@ public class MapViewerTests : BunitContext
     }
 
     [Test]
+    public void WhenTheReaderLeftBeforeTheFirstRender_TheDragSetupIsSkipped_NotThrown()
+    {
+        // The circuit can end between a render and its OnAfterRenderAsync. With no browser
+        // there is nothing to wire up, and that is not an error (3.40).
+        JSInterop.SetupVoid("nornisMapEdit.init", _ => true)
+            .SetException(new Microsoft.JSInterop.JSDisconnectedException("the circuit has disconnected"));
+
+        var cut = Render<MapViewer>(ps => ps
+            .Add(p => p.ImageUrl, "https://example.test/map.png")
+            .Add(p => p.Placemarks, new List<MapPlacemarkDto> { Ironhold })
+            .Add(p => p.CanEdit, true));
+
+        Assert.That(cut.FindAll("a.nornis-map-pin"), Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void WithoutEditRights_NoRemoveButtonIsOffered()
     {
         var cut = Render<PinHost>(ps => ps
