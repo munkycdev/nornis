@@ -8,7 +8,7 @@
     <PackageReference Include="Anthropic" Version="13.8.0" />
     <PackageReference Include="Google.GenAI" Version="2.1.0" />
     <PackageReference Include="Markdig" Version="1.6.0" />
-    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="11.0.0" />
     <!-- OpenAI moves only with Microsoft.Extensions.AI.OpenAI, which is built against 2.14.0 (11.0.0 too).
          2.15.0 changed ResponsesClient.CreateResponseStreamingAsync, and the adapter fails at run
          time with MissingMethodException on every Responses stream. Dependabot ignores 2.15+
