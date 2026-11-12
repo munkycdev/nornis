@@ -1,6 +1,6 @@
 # UI Design System
 
-> **Amendment (2026-11-12, Nornis 3.37, "the sources list opens on the sessions"):** Dave asked
+> **Amendment (2026-11-12, Nornis 3.38, "the sources list opens on the sessions"):** Dave asked
 > for the Sources list to be filterable by type and to open on session notes. It has a Type row
 > above the Status row, the Codex's pattern (several chips or All). With no `?type=` it shows the
 > sessions, every type `SourceTypeDisplay.IsSession` counts (typed, handwritten, imported and
@@ -8,6 +8,15 @@
 > the list from a source that is not a session (`Links.SourcesShowing`: Capture after saving,
 > the source page's crumb) asks for every type, so the source just left is on the list. A
 > list that opens filtered says so with its lit chips, never with a hidden default.
+
+> **Amendment (2026-11-12, Nornis 3.36, "the text on a sheet"):** Dave asked for a source's
+> text to sit on white. A source's own text (its notes or transcription, and the text extracted
+> from its files) now reads on the sheet it is edited on: the read-only `NotesEditor` keeps the
+> editor's surface (`--mud-palette-surface`, white on the paper side, the raised ink on the dark
+> side) and padding, with a divider-coloured edge in place of the input line and no toolbar.
+> This is the one deliberate exception to "sections are typographic, no box in a box" below:
+> the section around it stays typographic, the sheet is the record itself. The editor's surface
+> is the token on both sides; nothing hard-codes `#FFFFFF` for it any more.
 
 > **Amendment (2026-11-12, Nornis 3.32, "one word for each thing"):** a walk of the whole app
 > at 3.31 found seventy places where a reader had to stop and work something out, most of them

@@ -16,7 +16,7 @@ using SourcesPage = Nornis.Web.Components.Pages.Sources;
 namespace Nornis.Web.Tests.Components;
 
 /// <summary>
-/// The sources list's Type row (3.37): it opens on the sessions, the choice lives in the
+/// The sources list's Type row (3.38): it opens on the sessions, the choice lives in the
 /// address, and a way back from a source that is not a session asks for every type.
 /// </summary>
 [TestFixture]
