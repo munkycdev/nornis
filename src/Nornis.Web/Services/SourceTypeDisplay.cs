@@ -54,8 +54,35 @@ public static class SourceTypeDisplay
     /// </summary>
     public static string DateLabel(string type) => IsSession(type) ? "Session date" : "Date";
 
-    private static bool IsSession(string type) =>
+    /// <summary>
+    /// Whether a source records a session at the table, however it was captured: typed,
+    /// handwritten, imported from the backlog or transcribed. It names the date ("Session date")
+    /// and decides what the sources list shows before anyone picks a type.
+    /// </summary>
+    public static bool IsSession(string type) =>
         type is "SessionNote" or "HandwrittenNotes" or "ImportedNote" or "SessionAudio" or "JournalEntry" or "Transcript";
+
+    /// <summary>
+    /// Every type a source can carry, in the order the sources list's Type row shows them: the
+    /// capture order, then the legacy types, then the ones the system files on its own.
+    /// </summary>
+    public static readonly IReadOnlyList<string> FilterOrder =
+    [
+        .. CaptureOptions.Select(o => o.Value),
+        "JournalEntry",
+        "Transcript",
+        "Reveal",
+        "LibraryExcerpt",
+        "AdventureExport",
+    ];
+
+    /// <summary>
+    /// The types the sources list shows when no type is asked for: the sessions. Dave asked for
+    /// the list to open on session notes (3.40), so the record of play is not buried under maps,
+    /// GM notes and Prep filings; the rest are a click away.
+    /// </summary>
+    public static readonly IReadOnlySet<string> DefaultFilter =
+        FilterOrder.Where(IsSession).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
     /// The icon a source wears in a list, by what it is. Every row had the same document icon
