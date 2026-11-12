@@ -54,7 +54,7 @@ public sealed class AiKeyRequiredException : AiRefusalException
     public AiTask Task { get; }
 
     protected override string UserMessage =>
-        "This world's AI needs a key. The world's creator can add one under Profile, AI keys.";
+        "This world's AI needs a key. The world's creator can add one under Your account, AI.";
 }
 
 /// <summary>The provider refused the key (on its check or on a call). It is not spent again until
@@ -68,7 +68,7 @@ public sealed class AiKeyRejectedException : AiRefusalException
     }
 
     protected override string UserMessage =>
-        $"{AiProviderNames.Display(Provider!.Value)} refused the key this world uses. The world's creator can replace it under Profile, AI keys.";
+        $"{AiProviderNames.Display(Provider!.Value)} refused the key this world uses. The world's creator can replace it under Your account, AI.";
 }
 
 /// <summary>The key works but its provider account has no credit left.</summary>

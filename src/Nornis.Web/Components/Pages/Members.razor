@@ -1,36 +1,9 @@
 @page "/members"
-@implements IDisposable
-@inject WorldState Worlds
-@inject BreadcrumbState Crumbs
+@inject NavigationManager Nav
 
-<PageTitle>Members — Nornis</PageTitle>
-
-<MudText Typo="Typo.h4" Class="nornis-serif">Members</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Who is at the table, and as what.@(Worlds.IsGm ? " Invite links to bring more people in are below." : "")
-</MudText>
-
-@if (Worlds.Current is null)
-{
-    <NoWorld />
-}
-else
-{
-    <MembersPanel />
-    @if (Worlds.IsGm)
-    {
-        <InviteLinksCard />
-    }
-}
+@* Members was a page of its own until 3.32. Roles and invite links are now the GM's part of
+   Party, the one list of who is at the table; this stub keeps old bookmarks working. *@
 
 @code {
-    protected override void OnInitialized()
-    {
-        Crumbs.Set("/members", new Crumb("Members"));
-        Worlds.Changed += OnWorldsChanged; // the invite card follows the role, including viewing as a player
-    }
-
-    private void OnWorldsChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => Worlds.Changed -= OnWorldsChanged;
+    protected override void OnInitialized() => Nav.NavigateTo("/party", replace: true);
 }

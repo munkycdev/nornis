@@ -11,6 +11,22 @@ namespace Nornis.Web.Services;
 public static class ConvergenceDisplay
 {
     /// <summary>
+    /// What is hidden, in words. The API describes a relationship as "BrokersFor → Captain Voss",
+    /// because the same line feeds the narration prompt, which wants the identifier. A person
+    /// reads "brokers for → Captain Voss". Facts and entries already arrive in words.
+    /// </summary>
+    public static string Description(ConvergenceCandidateDto candidate)
+    {
+        const string arrow = " → ";
+        var split = candidate.Kind == "Relationship"
+            ? candidate.Description.IndexOf(arrow, StringComparison.Ordinal)
+            : -1;
+        return split <= 0
+            ? candidate.Description
+            : DisplayText.Predicate(candidate.Description[..split]) + candidate.Description[split..];
+    }
+
+    /// <summary>
     /// The reasons a candidate ranks where it does, most decisive first. A lopsided candidate
     /// reads as lopsided: the phrases that do not apply are simply absent.
     /// </summary>

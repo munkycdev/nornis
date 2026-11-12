@@ -1,20 +1,23 @@
 @inject NornisApiClient Api
 @inject IDialogService DialogService
 
-@* The booklet's handouts (feature 38): Library maps and handouts printed at its back, in this
-   order. Every change saves the whole ordered list, and the card shows what the API answers.
-   Choosing a handout never changes who can see it. *@
+@* The adventure's files (feature 38, one card since 3.32): the Library maps and handouts the
+   booklet prints at its back, in this order, and under them whatever else belongs to the
+   adventure. Each file has one tick, "Prints", which is the only difference between the two
+   lists; they were two cards with an Upload each. Every change saves the whole ordered list,
+   and the card shows what the API answers. Ticking a file never changes who can see it. *@
 
 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-handouts">
-    <MudText Typo="Typo.overline" Color="Color.Secondary">Handouts</MudText>
+    <MudText Typo="Typo.overline" Color="Color.Secondary">Handouts and files</MudText>
 
-    @if (Chosen.Count == 0)
+    @if (Chosen.Count == 0 && Unprinted.Count == 0)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-handouts-empty">
-            None yet. Add maps and handouts from the Library and the booklet prints them at its back.
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-handouts-empty nornis-adventure-documents-empty">
+            Nothing belongs to this adventure yet. Upload a map or handout, or add one from the
+            Library, and the booklet prints them at its back.
         </MudText>
     }
-    else
+    else if (Chosen.Count > 0)
     {
         @for (var i = 0; i < Chosen.Count; i++)
         {
@@ -34,14 +37,38 @@
                 <MudIconButton Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" Class="nornis-handout-down"
                                Disabled="@(Locked || index == Chosen.Count - 1)" aria-label="@($"Move {handout.Title} down")"
                                OnClick="() => MoveAsync(index, 1)" />
-                <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Class="nornis-handout-remove"
-                               Disabled="Locked" aria-label="@($"Remove {handout.Title}")"
-                               OnClick="() => RemoveAsync(handout.Id)" />
+                <MudCheckBox T="bool" Value="true" ValueChanged="@((bool _) => RemoveAsync(handout.Id))"
+                             Label="Prints" Dense="true" Size="Size.Small" Class="nornis-handout-print"
+                             Disabled="Locked" aria-label="@($"{handout.Title} prints at the back")" />
             </div>
         }
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block nornis-handouts-caption">
-            Printed in this order. Choosing a handout doesn't change who can see it in the Library.
+            Printed at the back, in this order. Printing a file doesn't change who can see it in the Library.
         </MudText>
+    }
+
+    @if (Unprinted.Count > 0)
+    {
+        <div class="nornis-adventure-documents">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">With this adventure, not printed</MudText>
+            @foreach (var doc in Unprinted)
+            {
+                var file = doc;
+                var printable = HandoutChoices.CanPrint(file);
+                <div class="nornis-list-row nornis-adventure-document">
+                    <div class="nornis-list-thumb">
+                        <MudIcon Icon="@LibraryDisplay.KindIcon(file.Kind)" Size="Size.Small" />
+                    </div>
+                    <div class="nornis-list-body">
+                        <a href="@Links.LibraryDocument(file.Slug, file.Id)" class="nornis-list-title nornis-link">@file.Title</a>
+                        <div class="nornis-list-sub">@file.Category@(printable ? "" : " · only map and handout images and PDFs print")</div>
+                    </div>
+                    <MudCheckBox T="bool" Value="false" ValueChanged="@((bool _) => AddAsync(file.Id))"
+                                 Label="Prints" Dense="true" Size="Size.Small" Class="nornis-handout-print"
+                                 Disabled="@(Locked || Full || !printable)" aria-label="@($"Print {file.Title} at the back")" />
+                </div>
+            }
+        </div>
     }
 
     <div class="d-flex flex-wrap gap-1 mt-2">
@@ -143,6 +170,38 @@
 
     private IReadOnlyList<Guid> ChosenIds => Chosen.Select(h => h.Id).ToList();
 
+    /// <summary>
+    /// What belongs to this adventure and is not in the print: the same documents the Library
+    /// shows under it (LibraryFilter decides, as it does there), less the ones already ticked.
+    /// </summary>
+    private IReadOnlyList<LibraryDocumentDto> Unprinted
+    {
+        get
+        {
+            if (_library is null)
+            {
+                return [];
+            }
+
+            var printed = ChosenIds.ToHashSet();
+            return LibraryFilter
+                .Apply(_library, new LibraryView(Scope: LibraryScope.ForAdventure(Adventure.Id)))
+                .Where(d => !printed.Contains(d.Id))
+                .ToList();
+        }
+    }
+
+    private Guid _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Adventure.Id != _loadedFor)
+        {
+            _loadedFor = Adventure.Id;
+            await LoadLibraryAsync();
+        }
+    }
+
     private bool Full => Chosen.Count >= HandoutChoices.MaxHandouts;
 
     private bool Locked => Disabled || _saving;
@@ -176,7 +235,6 @@
 
     private async Task LoadLibraryAsync()
     {
-        _library = null;
         var result = await Api.GetLibraryAsync(Adventure.WorldId);
         if (result.IsSuccess)
         {
@@ -215,15 +273,13 @@
         // handout can be added, and saying so beats the API's refusal.
         if (!HandoutChoices.CanPrint(uploaded))
         {
+            await LoadLibraryAsync();
             _error = $"\"{uploaded.Title}\" is in the Library, but it isn't a map or handout image or PDF, so the booklet can't print it.";
             return;
         }
 
         await SaveAsync([.. ChosenIds, uploaded.Id]);
-        if (_picking)
-        {
-            await LoadLibraryAsync();
-        }
+        await LoadLibraryAsync();
     }
 
     private async Task SaveAsync(IReadOnlyList<Guid> ids)

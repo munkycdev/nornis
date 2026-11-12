@@ -1,4 +1,4 @@
-@* The context rail's content: counted rows ("Mentioned in 12 sources"), a short list of what
+@* The context rail's content: counted rows ("Sources 12"), a short list of what
    this thing connects to, whatever the page adds, and the Loremaster. Everything it shows
    comes from the page's own already-loaded, visibility-filtered detail — the page builds the
    model from what it has, so a rail count can never exceed what the body may show. *@
@@ -51,7 +51,8 @@
     @if (ShowLoremaster)
     {
         <div class="nornis-rail-section nornis-rail-loremaster">
-            <LoremasterPanel />
+            <LoremasterPanel Lead="@($"Ask about {LoremasterAbout}, or anything else in the record. Answers cite their sources.")"
+                             Prompt="@($"Ask about {LoremasterAbout}")" />
         </div>
     }
 </div>
@@ -63,11 +64,14 @@
     /// <summary>A related entry, shown with its type's tile.</summary>
     public sealed record RailLink(string? Type, string Label, string Href);
 
-    [Parameter] public string RowsTitle { get; set; } = "Mentioned in";
+    [Parameter] public string RowsTitle { get; set; } = "In the record";
     [Parameter] public IReadOnlyList<RailRow> Rows { get; set; } = [];
     [Parameter] public string RelatedTitle { get; set; } = "Connected";
     [Parameter] public IReadOnlyList<RailLink> Related { get; set; } = [];
     [Parameter] public string? RelatedMoreHref { get; set; }
     [Parameter] public bool ShowLoremaster { get; set; } = true;
+
+    /// <summary>What this page is, as the Loremaster panel names it: "this entry", "this character".</summary>
+    [Parameter] public string LoremasterAbout { get; set; } = "this page";
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

@@ -30,7 +30,7 @@ else
             <MudPaper Elevation="0" Class="nornis-card nornis-cost-card">
                 <span class="nornis-cost-label">@label</span>
                 <span class="nornis-cost-amount">@Money(summary.TotalEstimatedCostUsd)</span>
-                <span class="nornis-cost-sub">@Tokens(summary.TotalTokens) tokens · @summary.OperationCount ops</span>
+                <span class="nornis-cost-sub">@Tokens(summary.TotalTokens) tokens · @summary.OperationCount AI @(summary.OperationCount == 1 ? "call" : "calls")</span>
                 <span class="nornis-cost-sub">@TokenSplit(summary)</span>
                 @if (label == "Today" && _dailyBudgetUsd is { } budget)
                 {
@@ -45,11 +45,11 @@ else
 
     <div class="nornis-cost-range mt-4">
         <span class="nornis-cost-range-label">Breakdown period</span>
-        <MudDatePicker Date="_from" DateChanged="OnFromChangedAsync"
+        <MudDatePicker DateFormat="@DateDisplay.DayFormat" Date="_from" DateChanged="OnFromChangedAsync"
                        Label="From" Placeholder="Any" MaxDate="_to"
                        Variant="Variant.Outlined" Margin="Margin.Dense"
                        Class="nornis-cost-range-picker" />
-        <MudDatePicker Date="_to" DateChanged="OnToChangedAsync"
+        <MudDatePicker DateFormat="@DateDisplay.DayFormat" Date="_to" DateChanged="OnToChangedAsync"
                        Label="To" Placeholder="Any" MinDate="_from"
                        Variant="Variant.Outlined" Margin="Margin.Dense"
                        Class="nornis-cost-range-picker" />
@@ -322,13 +322,12 @@ else
     private static double BudgetPercent(CostSummary today, decimal budget) =>
         budget <= 0 ? 0 : Math.Min(100, (double)(today.TotalEstimatedCostUsd / budget * 100));
 
-    private static string Money(decimal c) =>
-        (c >= 1 ? c.ToString("C2", Usd) : c.ToString("C4", Usd));
+    private static string Money(decimal c) => DisplayText.Money(c);
 
     private static string Tokens(long t) => t.ToString("N0", Usd);
 
     private static string TokenSplit(CostSummary s) =>
-        $"{Tokens(s.TotalInputTokens)} in · {Tokens(s.TotalOutputTokens)} out";
+        $"{Tokens(s.TotalInputTokens)} tokens sent · {Tokens(s.TotalOutputTokens)} received";
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

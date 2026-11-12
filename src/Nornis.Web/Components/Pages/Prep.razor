@@ -11,10 +11,14 @@
 <div class="nornis-page-head">
     <div>
         <MudText Typo="Typo.h4" Class="nornis-serif">Prep</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            Adventures you're getting ready to run. Only you see them, and nothing here is canon
-            until you send it into Nornis.
-        </MudText>
+        @* Said to the GM only: above the lock card a player saw "Only you see them". *@
+        @if (Worlds.IsGm)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Adventures you're getting ready to run. Only you see them, and nothing here is canon
+                until you add it to the record.
+            </MudText>
+        }
         @if (_budget is { } budget)
         {
             <MudText Typo="Typo.caption" Color="@(budget.IsExceeded ? Color.Error : Color.Secondary)" Class="nornis-prep-spend">
@@ -28,7 +32,7 @@
         <div class="nornis-page-head-actions">
             <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.FileUpload" OnClick="ImportAsync">
-                Import Markdown
+                New from Markdown
             </MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.Add" OnClick="CreateAsync">
@@ -44,13 +48,7 @@
 }
 else if (!Worlds.IsGm)
 {
-    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
-        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
-        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-            Prep is the GM's planning, and it can hold anything the players haven't learned yet.
-        </MudText>
-    </MudPaper>
+    <GmOnlyNotice>Prep is the GM's planning, and it can hold anything the players haven't learned yet.</GmOnlyNotice>
 }
 else if (_loading)
 {
@@ -83,7 +81,7 @@ else
             <MudChip T="string" Size="@(f == PrepListFilter.All ? Size.Medium : Size.Small)"
                      Variant="@(_filter == f ? Variant.Filled : Variant.Outlined)"
                      Color="@(_filter == f ? Color.Secondary : Color.Default)"
-                     OnClick="() => _filter = f">@f</MudChip>
+                     OnClick="() => _filter = f">@PrepDisplay.FilterLabel(f)</MudChip>
         }
     </div>
 
@@ -121,11 +119,11 @@ else
                             <span class="nornis-list-meta">edited @RelativeTime.Ago(adventure.UpdatedAt)</span>
                             @if (adventure.IsExported)
                             {
-                                <span class="nornis-shelf-mark nornis-prep-exported">Exported</span>
+                                <span class="nornis-shelf-mark nornis-prep-exported">@PrepDisplay.FilterLabel(PrepListFilter.Exported)</span>
                             }
                             @if (PrepDisplay.IsPublished(adventure))
                             {
-                                <span class="nornis-shelf-mark nornis-shelf-mark-accent nornis-prep-published">Published</span>
+                                <span class="nornis-shelf-mark nornis-shelf-mark-accent nornis-prep-published">@PrepDisplay.FilterLabel(PrepListFilter.Published)</span>
                             }
                         </div>
                     </div>
@@ -203,7 +201,7 @@ else
 
     private Task CreateAsync() => OpenAsync<AdventureDetailsDialog>("New adventure");
 
-    private Task ImportAsync() => OpenAsync<ImportAdventureDialog>("Import Markdown");
+    private Task ImportAsync() => OpenAsync<ImportAdventureDialog>("New adventure from Markdown");
 
     /// <summary>Both dialogs take the same parameters and close with the new Adventure, which opens.</summary>
     private async Task OpenAsync<TDialog>(string title) where TDialog : IComponent

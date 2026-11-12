@@ -3,7 +3,7 @@
    else none) is the API's choice, read once into Hero; this only lays it out. The band's height is
    fixed while a picture is on its way, so a slow image fades in without moving the page. *@
 
-<section class="nornis-heroband @(PictureUrl is null ? "nornis-heroband-plain" : "nornis-heroband-pictured")"
+<section class="nornis-heroband @(PictureUrl is null ? "nornis-heroband-plain" : "nornis-heroband-pictured") @(Wide && PictureUrl is not null ? "nornis-heroband-wide" : null)"
          aria-label="@(Title ?? "The world")">
     @if (PictureUrl is { } url)
     {
@@ -47,6 +47,13 @@
 
     /// <summary>Where the picture is fetched (<see cref="HeroDisplay.PictureUrl"/>); null shows no picture.</summary>
     [Parameter] public string? PictureUrl { get; set; }
+
+    /// <summary>
+    /// The picture spans the whole band and the words sit under it (3.32). For a page that names
+    /// the world itself and so passes no <see cref="Title"/>: without a heading, the paper the
+    /// heading sits on was an empty panel with a visible edge beside the picture.
+    /// </summary>
+    [Parameter] public bool Wide { get; set; }
 
     /// <summary>The small capitals line under the facts, such as "Ask the Loremaster".</summary>
     [Parameter] public string? Caption { get; set; }

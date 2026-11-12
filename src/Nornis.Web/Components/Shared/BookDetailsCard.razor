@@ -10,7 +10,7 @@
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-book-details">
         <MudText Typo="Typo.overline" Color="Color.Secondary">Book details</MudText>
 
-        @Row(TitleField, "Title", print.Title, caption: null)
+        @Row(TitleField, "Title", print.Title, caption: TitleCaption)
         @Row(GameSystemField, "Game system", print.GameSystem,
             caption: Stored.GameSystem is null && print.GameSystem is not null ? "From the world" : null)
         @Row(EditionField, "Edition", print.Edition, caption: null)
@@ -68,6 +68,9 @@
     public const int MaxLevelsLength = 30;
 
     private const string SetByNornis = "Set by Nornis";
+
+    // The one row a GM can change that has no pencil here, so it says where its pencil is.
+    private const string TitleCaption = "The adventure's title. Edit it at the top of the page.";
 
     [Parameter, EditorRequired] public AdventureDto Adventure { get; set; } = null!;
 

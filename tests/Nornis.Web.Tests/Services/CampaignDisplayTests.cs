@@ -48,11 +48,11 @@ public class CampaignDisplayTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(CampaignDisplay.PlayedSpan(declared, null, null, 25), Is.EqualTo("Began 2025-10-08 · 25 sessions"));
+            Assert.That(CampaignDisplay.PlayedSpan(declared, null, null, 25), Is.EqualTo("Began 8 Oct 2025 · 25 sessions"));
             Assert.That(CampaignDisplay.PlayedSpan(undeclared,
                 new DateTimeOffset(2025, 10, 8, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero), 1),
-                Is.EqualTo("2025-10-08 – 2026-03-01 · 1 session"));
-            Assert.That(CampaignDisplay.PlayedSpan(undeclared, null, null, 0), Is.EqualTo("0 sessions"));
+                Is.EqualTo("8 Oct 2025 to 1 Mar 2026 · 1 session"));
+            Assert.That(CampaignDisplay.PlayedSpan(undeclared, null, null, 0), Is.EqualTo("No sessions yet"));
         });
     }
 

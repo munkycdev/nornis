@@ -1688,7 +1688,11 @@ span.nornis-list-meta {
     flex: 0 0 140px;
     color: var(--mud-palette-text-secondary);
     font-size: 0.82rem;
-    text-transform: capitalize;
+}
+
+/* Sentence case (3.32): the label's own first letter, not every word's. */
+.nornis-kv-key::first-letter {
+    text-transform: uppercase;
 }
 
 .nornis-kv-value {
@@ -6084,4 +6088,217 @@ a.nornis-cite:hover {
         box-shadow: var(--nornis-card-shadow);
         cursor: pointer;
     }
+}
+
+/* ------------------------------------------------------------ 3.32 · UX audit -- */
+
+/* The sidebar on a laptop. At 3.31 the list was 1,208px tall against a 900px window, so the GM
+   group and the account row were below a fold nothing hinted at. Fewer entries (NavGroups),
+   a tighter rhythm, and a list that scrolls on its own between the switcher and the account
+   row, with a shade at whichever edge has more. The account row never leaves the screen. */
+.nornis-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nornis-brand-row .nornis-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nornis-sidebar .mud-drawer-content {
+    gap: 12px;
+    padding-top: 16px;
+    padding-bottom: 12px;
+}
+
+.nornis-sidebar .mud-navmenu {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    background:
+        linear-gradient(var(--mud-palette-drawer-background) 40%, transparent) top / 100% 28px no-repeat local,
+        linear-gradient(transparent, var(--mud-palette-drawer-background) 60%) bottom / 100% 28px no-repeat local,
+        linear-gradient(rgba(28, 31, 36, 0.1), transparent) top / 100% 8px no-repeat scroll,
+        linear-gradient(transparent, rgba(28, 31, 36, 0.1)) bottom / 100% 8px no-repeat scroll;
+}
+
+.nornis-sidebar .mud-nav-link {
+    margin: 1px 0;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.nornis-sidebar .nornis-nav-group {
+    padding-top: 8px;
+}
+
+.nornis-sidebar .nornis-nav-group:first-child {
+    padding-top: 2px;
+}
+
+.nornis-sidebar .nornis-world {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+/* A view toggle says what each view is: an icon alone was three unlabelled squares. */
+.nornis-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+}
+
+/* The Loremaster panel reads as the Ask page does: oldest first, newest just above the box.
+   The exchanges are written newest first, and column-reverse both draws them bottom-up and
+   keeps the scroll resting on the newest without a line of script. */
+.nornis-lm-thread-chat {
+    flex-direction: column-reverse;
+}
+
+/* A band with no heading of its own (the public overview, whose frame names the world): the
+   picture takes the full width and fades into the page at its foot, where the facts line sits. */
+.nornis-heroband-wide .nornis-heroband-picture {
+    width: 100%;
+}
+
+.nornis-heroband-wide .nornis-heroband-picture::after {
+    background: linear-gradient(to top, var(--mud-palette-background) 0%, transparent 34%);
+}
+
+.nornis-heroband-wide.nornis-heroband-pictured .nornis-heroband-head {
+    max-width: none;
+    min-height: var(--nornis-heroband-picture);
+    padding: 0 0 4px 6px;
+}
+
+/* What will not finish on its own, at the head of the list it belongs to. */
+.nornis-attention {
+    border-left: 3px solid var(--mud-palette-error);
+}
+
+.nornis-attention-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+/* C11: a MudTabs tab is sentence case like every other label. MudBlazor's own rule shouts
+   ("CHARACTERS (7)"); the 3.14 rule covered buttons and the TabStrip but not this. */
+.mud-tabs .mud-tab {
+    text-transform: none;
+    letter-spacing: 0.01em;
+}
+
+/* B6: a linked character's sheet on its Codex entry. A sheet can run long and the entry's
+   own facts sit below it, so it scrolls inside its card rather than pushing them away. */
+.nornis-linked-sheet-body {
+    max-height: 24rem;
+    overflow-y: auto;
+}
+
+/* B14: the GM note button carries its label; at phone width only the icon is left. */
+.nornis-topbar-note {
+    text-transform: none;
+    white-space: nowrap;
+}
+
+@media (max-width: 599.98px) {
+    .nornis-topbar-note .nornis-topbar-label {
+        display: none;
+    }
+
+    .nornis-topbar-note .mud-button-icon-start {
+        margin-inline: 0;
+    }
+}
+
+/* B7: "Correct" on a fact row stays quiet until the row is pointed at or it has focus. */
+.nornis-fact-correct {
+    text-transform: none;
+    min-width: 0;
+    opacity: 0.55;
+}
+
+.nornis-fact-row:hover .nornis-fact-correct,
+.nornis-fact-correct:focus-visible {
+    opacity: 1;
+}
+
+/* B13: the demo offer in the New world dialog, boxed apart from the form it does not use. */
+.nornis-demo-offer {
+    margin-top: 20px;
+    padding: 12px 16px;
+    border: 1px dashed var(--mud-palette-lines-default);
+    border-radius: 8px;
+}
+
+/* D6: a question asked in place of the button that raised it (removing art). */
+.nornis-inline-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    font-size: 0.8125rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-status-label {
+    margin-right: -2px;
+}
+
+/* E7: a public world page runs the full width of the window, so its header does too. The
+   header kept the marketing pages' 1120px column and its logo sat well in from the content. */
+.nornis-public:has(.nornis-public-world-head) .nornis-public-nav {
+    max-width: none;
+}
+
+/* E6: a fact's label reads as a sentence start ("Office location") for members and visitors
+   alike. Members had every word capitalised and visitors had none. */
+.nornis-fact-predicate {
+    text-transform: none;
+}
+
+.nornis-fact-predicate::first-letter,
+.nornis-sentence::first-letter {
+    text-transform: uppercase;
+}
+
+.nornis-sentence {
+    display: block;
+}
+
+/* E8: at phone width the pinned names took 230px of a 390px window and left the chart a
+   sliver. There they scroll with the chart instead, so a sideways swipe shows the lanes in
+   full; Storylines opens on Cards, so the chart is something a phone reader chooses. */
+@media (max-width: 599.98px) {
+    .nornis-timeline-gutter {
+        position: relative;
+    }
+}
+
+/* E9: a tab row wider than the window already scrolls sideways (TabStrip); nothing said so,
+   and on a phone "Processing" and "Export and delete" were out of sight. The shade at an edge
+   shows only while there are tabs past it. */
+.nornis-tabs {
+    background:
+        linear-gradient(to right, var(--mud-palette-background) 30%, transparent) left center / 28px 100% no-repeat local,
+        linear-gradient(to left, var(--mud-palette-background) 30%, transparent) right center / 28px 100% no-repeat local,
+        linear-gradient(to right, rgba(0, 0, 0, 0.2), transparent) left center / 12px 100% no-repeat scroll,
+        linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent) right center / 12px 100% no-repeat scroll;
+}
+
+/* F1: the name of a row of filter chips, at the row's start. */
+.nornis-filter-label {
+    align-self: center;
+    min-width: 3.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
 }

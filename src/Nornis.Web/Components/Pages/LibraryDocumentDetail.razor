@@ -163,7 +163,7 @@
                     <MudSelect T="string" Value="@(_document.LinkedAdventureId?.ToString() ?? NoAdventure)" ValueChanged="SetAdventureAsync"
                                Label="Belongs to" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="_organising"
                                Class="flex-grow-1 nornis-library-belongs-select" Style="max-width: 20rem;">
-                        <MudSelectItem Value="@NoAdventure">The shelf (no adventure)</MudSelectItem>
+                        <MudSelectItem Value="@NoAdventure">No adventure</MudSelectItem>
                         @foreach (var adventure in _adventures)
                         {
                             <MudSelectItem Value="@adventure.Id.ToString()">@adventure.Title</MudSelectItem>
@@ -190,7 +190,7 @@
                     @foreach (var open in _opens)
                     {
                         <div class="nornis-list-sub">
-                            @open.ViewerName@(open.FromShelfLink ? " (shelf link)" : "") · @open.OpenedAt.ToLocalTime().ToString("g")
+                            @open.ViewerName@(open.FromShelfLink ? " (shelf link)" : "") · @DateDisplay.DayAndTime(open.OpenedAt)
                         </div>
                     }
                 }

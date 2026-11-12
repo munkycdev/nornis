@@ -73,6 +73,47 @@ public class ReviewQueuePanelTests : BunitContext
     }
 
     [Test]
+    public async Task ARow_ReadsInWords_NotInThePayloadsKeys()
+    {
+        await SelectWorldAsync();
+
+        var cut = Render<ReviewQueuePanel>();
+
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Captain Voss")));
+        var keys = cut.FindAll(".nornis-kv-key").Select(k => k.TextContent.Trim()).ToList();
+        var values = cut.FindAll(".nornis-kv-value").Select(v => v.TextContent.Trim()).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.FindAll(".nornis-proposal-head .mud-chip").Select(c => c.TextContent.Trim()),
+                Is.SupersetOf((string[])["New entry", "New fact"]));
+            Assert.That(keys, Is.SupersetOf((string[])["Name", "Type", "Who can see it", "What the fact is about", "Fact"]));
+            Assert.That(values, Does.Contain("GM only").And.Not.Contain("GMOnly"));
+            Assert.That(cut.Markup, Does.Not.Contain("Create Artifact"));
+        });
+    }
+
+    [Test]
+    public async Task TheBulkButtons_SayHowManyTheyActOn_AndThatAFilterIsOn()
+    {
+        // 3.32: "Accept all" over a filtered list read as accepting the whole queue.
+        await SelectWorldAsync();
+        Render<MudBlazor.MudPopoverProvider>();
+        var cut = Render<ReviewQueuePanel>();
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Captain Voss")));
+
+        Assert.That(Buttons(cut), Does.Contain("Accept all 2").And.Contain("Reject all 2"));
+
+        var type = cut.FindComponents<MudBlazor.MudSelect<string>>()[0];
+        await cut.InvokeAsync(() => type.Instance.ValueChanged.InvokeAsync("AddFact"));
+
+        cut.WaitForAssertion(() =>
+            Assert.That(Buttons(cut), Does.Contain("Accept these 1").And.Contain("Reject these 1")));
+    }
+
+    private static List<string> Buttons(IRenderedComponent<ReviewQueuePanel> cut) =>
+        cut.FindAll("button").Select(b => b.TextContent.Trim()).ToList();
+
+    [Test]
     public async Task HostingOneNote_HasNoBar()
     {
         await SelectWorldAsync();

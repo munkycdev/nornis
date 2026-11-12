@@ -46,7 +46,7 @@ public class InMemorySourceRepository : ISourceRepository
         CancellationToken cancellationToken = default)
     {
         // Mirrors the real query: shared visibility rule, same campaign filters, same date
-        // bounds (undated never matches a bound), newest first.
+        // bounds (undated never matches a bound), newest in the story first.
         var canSee = SourceVisibilityRule.Compile(requestingUserId, role);
 
         var query = _sources.Where(s => s.WorldId == worldId).Where(canSee);
@@ -71,7 +71,8 @@ public class InMemorySourceRepository : ISourceRepository
         }
 
         var result = query
-            .OrderByDescending(s => s.CreatedAt)
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
             .ThenByDescending(s => s.Id)
             .Select(s => new SourceListItem(
                 s.Id, s.WorldId, s.Type, s.Title, s.OccurredAt, s.CreatedAt,

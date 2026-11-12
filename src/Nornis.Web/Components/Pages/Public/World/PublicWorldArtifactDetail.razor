@@ -37,10 +37,6 @@
                                 Played by @string.Join(", ", players)
                             </MudChip>
                         }
-                        @if (_detail.Confidence is not null)
-                        {
-                            <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>
-                        }
                     </div>
                 </div>
             </div>
@@ -78,7 +74,7 @@
                     {
                         <div class="nornis-list-row">
                             <div class="nornis-list-body">
-                                <div class="nornis-list-title">@fact.Predicate</div>
+                                <div class="nornis-list-title nornis-sentence">@fact.Predicate</div>
                                 <div class="nornis-list-sub">@fact.Value</div>
                             </div>
                             @if (fact.TruthState is "Rumor" or "Disputed" or "False")
@@ -211,12 +207,9 @@
         return _detail?.ConnectedArtifacts.FirstOrDefault(c => c.Id == otherId);
     }
 
-    private IReadOnlyList<ContextRail.RailRow> RailRows => _detail is null ? [] :
-    [
-        new("Sources", _detail.SourceReferences.Count.ToString()),
-        new("Facts", _detail.Facts.Count.ToString()),
-        new("Relationships", _detail.Relationships.Count.ToString()),
-    ];
+    // No counted rows for a visitor (3.32): "Facts 3" is the record's bookkeeping, and the
+    // page already shows the three facts.
+    private static IReadOnlyList<ContextRail.RailRow> RailRows => [];
 
     private IReadOnlyList<ContextRail.RailLink> RailRelated => _detail is null ? [] :
         _detail.ConnectedArtifacts

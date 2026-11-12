@@ -30,14 +30,14 @@
                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 260px" />
                 <MudToggleGroup T="string" @bind-Value="_sort" SelectionMode="SelectionMode.SingleSelection"
                                 Color="Color.Secondary" Size="Size.Small">
-                    <MudToggleItem Value="@("name")"><MudIcon Icon="@Icons.Material.Outlined.SortByAlpha" Size="Size.Small" /></MudToggleItem>
-                    <MudToggleItem Value="@("recent")"><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" /></MudToggleItem>
+                    <MudToggleItem Value="@("name")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.SortByAlpha" Size="Size.Small" />A to Z</span></MudToggleItem>
+                    <MudToggleItem Value="@("recent")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" />Newest</span></MudToggleItem>
                 </MudToggleGroup>
                 <MudToggleGroup T="string" Value="_view" ValueChanged="OnViewChangedAsync" SelectionMode="SelectionMode.SingleSelection"
                                 Color="Color.Secondary" Size="Size.Small">
-                    <MudToggleItem Value="@("cards")"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" /></MudToggleItem>
-                    <MudToggleItem Value="@("tree")"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" /></MudToggleItem>
-                    <MudToggleItem Value="@("graph")"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></MudToggleItem>
+                    <MudToggleItem Value="@("cards")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" />Cards</span></MudToggleItem>
+                    <MudToggleItem Value="@("tree")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />Tree</span></MudToggleItem>
+                    <MudToggleItem Value="@("graph")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" />Graph</span></MudToggleItem>
                 </MudToggleGroup>
             </div>
 

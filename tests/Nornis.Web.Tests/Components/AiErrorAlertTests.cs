@@ -33,7 +33,7 @@ public class AiErrorAlertTests : BunitContext
     [TestCase("ai_key_rejected")]
     public void AKeyRefusal_IsAWarning_ThatLinksToProfile(string code)
     {
-        var cut = RenderAlert(code, "This world needs an AI key. Add one in Profile, AI keys.");
+        var cut = RenderAlert(code, "This world needs an AI key. Add one under Your account, AI.");
 
         Assert.Multiple(() =>
         {

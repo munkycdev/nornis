@@ -73,7 +73,7 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheDocumentsCard_ListsWhatBelongsToThisAdventure_AndNothingElse()
+    public async Task TheFilesCard_ListsWhatBelongsToThisAdventure_AndNothingElse()
     {
         var other = Guid.NewGuid();
         _handler.LibraryJson = JsonSerializer.Serialize(new[]
@@ -92,7 +92,7 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheDocumentsCard_SaysHowToAddOne_WhenNothingBelongs()
+    public async Task TheFilesCard_SaysHowToAddOne_WhenNothingBelongs()
     {
         var cut = await RenderOnBookAsync();
 
@@ -161,7 +161,7 @@ public class AdventurePageTests : BunitContext
     [Test]
     public async Task ASavesBlockWarnings_ShowUnderTheEditor_AndGoWhenFixed()
     {
-        _handler.SaveWarningsJson = """["The first stat block has no name, so Export to Nornis can't file it on anyone. Start it with \"# Name\"."]""";
+        _handler.SaveWarningsJson = """["The first stat block has no name, so Add to the record can't file it on anyone. Start it with \"# Name\"."]""";
         var cut = await RenderAsync();
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
         Assert.That(cut.FindAll(".nornis-prep-block-warnings"), Is.Empty, "a section with no warnings shows no alert");
@@ -200,7 +200,7 @@ public class AdventurePageTests : BunitContext
         await cut.InvokeAsync(() => cut.Find("button.nornis-prep-export").Click());
         dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("The whole adventure")));
         await dialogs.InvokeAsync(() => dialogs.FindAll(".nornis-prep-export-choice input[type=radio]")[1].Click());
-        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Export").Click());
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Add to the record").Click());
 
         dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Nornis is reading it now")));
         var body = JsonDocument.Parse(_handler.LastExportBody!).RootElement;
@@ -274,7 +274,7 @@ public class AdventurePageTests : BunitContext
     public async Task WebResearch_WhenTheKeyCantSearch_IsOff_Disabled_AndSaysWhy()
     {
         _handler.ConversationJson = """
-            {"messages":[],"isFull":false,"webResearch":{"available":false,"reason":"Web research runs on your own AI key. Add one under Profile, AI keys."}}
+            {"messages":[],"isFull":false,"webResearch":{"available":false,"reason":"Web research runs on your own AI key. Add one under Your account, AI."}}
             """;
 
         var cut = await RenderAsync();
@@ -283,7 +283,7 @@ public class AdventurePageTests : BunitContext
         {
             Assert.That(cut.Find(".nornis-prep-talk-research input").HasAttribute("disabled"), Is.True);
             Assert.That(cut.Find(".nornis-prep-talk-research-reason").TextContent,
-                Is.EqualTo("Web research runs on your own AI key. Add one under Profile, AI keys."));
+                Is.EqualTo("Web research runs on your own AI key. Add one under Your account, AI."));
         }));
     }
 
@@ -481,7 +481,6 @@ public class AdventurePageTests : BunitContext
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-cover-card"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-book-catalog .nornis-typography"), Has.Count.EqualTo(1), "Typography sits above Book details");
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-handouts"), Has.Count.EqualTo(1));
-            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-adventure-documents"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-talk-column .nornis-prep-talk"), Has.Count.EqualTo(1), "Talk it through is beside the book");
         });
     }

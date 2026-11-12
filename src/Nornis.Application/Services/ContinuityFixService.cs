@@ -257,7 +257,7 @@ public class ContinuityFixService : IContinuityFixService
         if (pair.Count != 2)
         {
             return AppResult<ContinuityFixDraft>.Fail(new AppError(409, "evidence_gone",
-                "A duplicate fix needs both artifacts, and this finding no longer cites two live ones. Re-run the assessment instead."));
+                "A duplicate fix needs both entries, and this finding no longer cites two live ones. Re-run the assessment instead."));
         }
 
         int Weight(Artifact a) =>

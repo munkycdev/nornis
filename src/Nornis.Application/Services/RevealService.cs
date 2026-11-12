@@ -79,7 +79,7 @@ public class RevealService : IRevealService
             var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
             if (artifact is null || artifact.WorldId != command.WorldId)
             {
-                return new AppError(404, "not_found", $"Artifact {artifactId} not found in this world.");
+                return new AppError(404, "not_found", $"Entry {artifactId} not found in this world.");
             }
 
             knownArtifactVisibility[artifactId] = artifact.Visibility;
@@ -93,7 +93,7 @@ public class RevealService : IRevealService
             var artifact = await _artifactRepository.GetByIdAsync(id, ct);
             if (artifact is null || artifact.WorldId != command.WorldId)
             {
-                return Fail(404, "not_found", $"Artifact {id} not found in this world.");
+                return Fail(404, "not_found", $"Entry {id} not found in this world.");
             }
 
             knownArtifactVisibility[id] = artifact.Visibility;

@@ -13,7 +13,9 @@
         <MudText Typo="Typo.h4" Class="nornis-serif">Library</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
             Sourcebooks, maps, and handouts — reference material, not world memory.
-            Indexed PDFs answer through the Loremaster with page citations.
+            Indexed PDFs answer through the Loremaster with page citations. A map filed here is
+            for reading; <a href="/capture?type=Map" class="nornis-link">add it as a map source</a>
+            to put it on the Map page.
         </MudText>
     </div>
     @if (Worlds.Current is not null && Worlds.EffectiveRole != "Observer")
@@ -112,7 +114,7 @@ else
                 <MudChip T="string" Size="Size.Small"
                          Variant="@(_view.Sort == s ? Variant.Filled : Variant.Outlined)"
                          Color="@(_view.Sort == s ? Color.Secondary : Color.Default)"
-                         OnClick="() => _view = _view with { Sort = s }">@s</MudChip>
+                         OnClick="() => _view = _view with { Sort = s }">@LibraryDisplay.SortLabel(s)</MudChip>
             }
         </div>
     </div>

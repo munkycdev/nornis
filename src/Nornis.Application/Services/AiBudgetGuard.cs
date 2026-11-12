@@ -143,7 +143,7 @@ public class AiBudgetGuard : IAiBudgetGuard
         var status = await GetPrepStatusAsync(worldId, ct);
         return status.IsExceeded
             ? new AppError(429, "prep_budget_exceeded",
-                $"This world's Prep budget for the month (${status.MonthlyBudgetUsd:0.00}) is spent. It resets on the first of next month, UTC. You can raise it in Settings.")
+                $"This world's Prep budget for the month (${status.MonthlyBudgetUsd:0.00}) is spent. It resets on the first of next month, UTC. You can raise it under World settings, AI and costs.")
             : null;
     }
 }

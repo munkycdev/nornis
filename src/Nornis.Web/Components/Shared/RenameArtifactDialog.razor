@@ -3,7 +3,7 @@
 <MudDialog>
     <DialogContent>
         <MudTextField @bind-Value="_name"
-                      Label="Artifact name"
+                      Label="Entry name"
                       Required="true"
                       Immediate="true"
                       MaxLength="200"
@@ -39,7 +39,7 @@
     {
         if (string.IsNullOrWhiteSpace(_name))
         {
-            _error = "Artifact name is required.";
+            _error = "Entry name is required.";
             return;
         }
 

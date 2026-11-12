@@ -2,7 +2,7 @@
 @implements IDisposable
 @inject WorldState Worlds
 
-<PageTitle>Review Queue — Nornis</PageTitle>
+<PageTitle>Review — Nornis</PageTitle>
 
 @*
     Page chrome only. The queue itself lives in ReviewQueuePanel so the campaign import can
@@ -11,8 +11,14 @@
 
 <div class="nornis-page-head">
     <div>
-        <MudText Typo="Typo.h4" Class="nornis-serif">Review Queue</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">Accept, edit, or reject proposed updates to your record.</MudText>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Review</MudText>
+        @* A player's queue holds only what Nornis proposes from the sources they added, and
+           what they accept goes into the record. The page said neither (3.32). *@
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            @(Worlds.Current is null || Worlds.IsGm
+                ? "Accept, edit, or reject what Nornis proposes for your record."
+                : "What Nornis proposes from the notes you added. What you accept goes into the world's record.")
+        </MudText>
     </div>
     @if (_count > 0)
     {

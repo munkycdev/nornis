@@ -17,9 +17,9 @@ public class SourceTypeDisplayTests
     public void Label_MapsKnownTypes()
     {
         Assert.That(SourceTypeDisplay.Label("Map"), Is.EqualTo("Map"));
-        Assert.That(SourceTypeDisplay.Label("HandwrittenNotes"), Is.EqualTo("Handwritten Note"));
-        Assert.That(SourceTypeDisplay.Label("GMNote"), Is.EqualTo("GM Note"));
-        Assert.That(SourceTypeDisplay.Label("AdventureExport"), Is.EqualTo("Adventure Prep"));
+        Assert.That(SourceTypeDisplay.Label("HandwrittenNotes"), Is.EqualTo("Handwritten note"));
+        Assert.That(SourceTypeDisplay.Label("GMNote"), Is.EqualTo("GM note"));
+        Assert.That(SourceTypeDisplay.Label("AdventureExport"), Is.EqualTo("Adventure prep"));
         Assert.That(SourceTypeDisplay.IsCaptureOption("AdventureExport", isGm: true), Is.False, "an export is filed from Prep, never captured");
     }
 
@@ -35,7 +35,7 @@ public class SourceTypeDisplayTests
     [Test]
     public void LegacyTypes_AreLabelledButNotOffered()
     {
-        Assert.That(SourceTypeDisplay.Label("JournalEntry"), Is.EqualTo("Journal Entry"));
+        Assert.That(SourceTypeDisplay.Label("JournalEntry"), Is.EqualTo("Journal entry"));
         Assert.That(SourceTypeDisplay.IsCaptureOption("JournalEntry"), Is.False);
     }
 }

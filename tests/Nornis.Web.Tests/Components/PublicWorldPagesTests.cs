@@ -87,7 +87,7 @@ public class PublicWorldPagesTests : BunitContext
             Assert.That(cut.Markup, Does.Contain("Malliano"));
             Assert.That(cut.Markup, Does.Contain("Played by Henry"));
             Assert.That(cut.Markup, Does.Contain("The Missing Caravan"));
-            Assert.That(cut.Markup, Does.Not.Contain("Generate recap"), "nothing a GM does");
+            Assert.That(cut.Markup, Does.Not.Contain("Write the recap"), "nothing a GM does");
             Assert.That(cut.Markup, Does.Not.Contain("/characters/"), "no public character page");
         });
     }

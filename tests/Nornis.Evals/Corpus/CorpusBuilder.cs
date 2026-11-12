@@ -25,7 +25,10 @@ public static partial class CorpusBuilder
         var cases = new List<EvalCorpus.ManifestCase>();
         var sources = sourcesJson.RootElement.GetProperty("sources").EnumerateArray()
             .Where(s => s.GetProperty("type").GetString() is "SessionNote" or "GMNote")
-            .Where(s => !s.GetProperty("title").GetString()!.StartsWith("Artifact merge", StringComparison.Ordinal))
+            // A merge's record is titled "Entries merged" since 3.32; older ones still say "Artifact merge".
+            .Where(s => s.GetProperty("title").GetString() is { } title
+                && !title.StartsWith("Artifact merge", StringComparison.Ordinal)
+                && !title.StartsWith("Entries merged", StringComparison.Ordinal))
             .OrderBy(s => s.GetProperty("type").GetString() == "SessionNote")
             .ThenBy(s => OccurredAt(s) ?? DateTimeOffset.MinValue)
             .ThenBy(s => s.GetProperty("title").GetString(), StringComparer.Ordinal);

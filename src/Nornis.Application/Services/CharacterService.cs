@@ -751,7 +751,7 @@ public class CharacterService : ICharacterService
     private async Task<AppError?> ValidateArtifactLinkAsync(Guid artifactId, Guid worldId, WorldRole role, CancellationToken ct)
     {
         var invalid = new AppError(400, "invalid_artifact_link",
-            "The linked artifact must be a Character artifact in this world.");
+            "The linked entry must be a Character entry in this world.");
 
         var artifact = await _artifactRepository.GetByIdAsync(artifactId, ct);
 

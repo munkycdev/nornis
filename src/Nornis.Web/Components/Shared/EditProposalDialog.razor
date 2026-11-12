@@ -1,16 +1,64 @@
-﻿@using System.Text.Json
+@using System.Text.Json
 @inject NornisApiClient Api
 
+@* Review's Edit. A form per proposal type (ProposalEditForm) since 3.32, with the payload's JSON
+   behind "Advanced" for the fields the form leaves alone. While Advanced is open the JSON is
+   what gets saved, exactly as before; closing it reads the JSON back into the form. *@
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-            Edit the proposed value before accepting. It must be valid JSON.
-        </MudText>
-        <MudTextField @bind-Value="_json"
-                      Lines="12"
-                      Variant="Variant.Outlined"
-                      Class="nornis-mono"
-                      Immediate="true" />
+        @if (!_advanced && _fields is not null)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Change what Nornis proposed, then save. Accepting it is a separate step.
+            </MudText>
+            @for (var i = 0; i < _fields.Count; i++)
+            {
+                var index = i;
+                var (field, value) = _fields[i];
+                @switch (field.Kind)
+                {
+                    case ProposalFieldKind.Choice:
+                        <MudSelect T="string" Value="@value" ValueChanged="@(v => Set(index, v))" Label="@field.Label"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3 nornis-proposal-field"
+                                   HelperText="@field.Help">
+                            @if (!field.Required)
+                            {
+                                <MudSelectItem Value="@string.Empty">Not given</MudSelectItem>
+                            }
+                            @foreach (var (optionValue, optionLabel) in OptionsFor(field, value))
+                            {
+                                <MudSelectItem Value="@optionValue">@optionLabel</MudSelectItem>
+                            }
+                        </MudSelect>
+                        break;
+                    default:
+                        <MudTextField T="string" Value="@value" ValueChanged="@(v => Set(index, v))" Label="@field.Label"
+                                      Lines="@(field.Kind == ProposalFieldKind.LongText ? 4 : 1)" Immediate="true"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3 nornis-proposal-field"
+                                      Required="@field.Required" HelperText="@field.Help" />
+                        break;
+                }
+            }
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                The proposal as Nornis stores it. It must be valid JSON.
+            </MudText>
+            <MudTextField @bind-Value="_json"
+                          Lines="12"
+                          Variant="Variant.Outlined"
+                          Class="nornis-mono nornis-proposal-json"
+                          Immediate="true" />
+        }
+        @if (_fields is not null)
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small" Class="nornis-proposal-advanced"
+                       StartIcon="@(_advanced ? Icons.Material.Outlined.ListAlt : Icons.Material.Outlined.DataObject)"
+                       OnClick="ToggleAdvanced" Disabled="_busy">
+                @(_advanced ? "Back to the form" : "Advanced: edit as JSON")
+            </MudButton>
+        }
         @if (_error is not null)
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
@@ -32,25 +80,92 @@
     [Parameter] public Guid ProposalId { get; set; }
     [Parameter] public string ProposedValueJson { get; set; } = "{}";
 
+    /// <summary>The proposal's change type, which decides the form. Without one, Edit is the JSON.</summary>
+    [Parameter] public string? ChangeType { get; set; }
+
+    // The payload as last agreed between the form and the JSON box; the form writes into it.
     private string _json = "{}";
+    private List<(ProposalField Field, string Value)>? _fields;
+    private bool _advanced;
     private bool _busy;
     private string? _error;
 
-    protected override void OnInitialized() => _json = Prettify(ProposedValueJson);
+    protected override void OnInitialized()
+    {
+        _json = ProposalEditForm.Prettify(ProposedValueJson);
+        _fields = ReadForm(_json);
+        _advanced = _fields is null;
+    }
+
+    private List<(ProposalField Field, string Value)>? ReadForm(string json) =>
+        ChangeType is { } type ? ProposalEditForm.Read(type, json)?.ToList() : null;
+
+    private void Set(int index, string? value) => _fields![index] = (_fields[index].Field, value ?? string.Empty);
+
+    // A value the list does not know (a type from an older extraction, say) stays selectable,
+    // so opening the form never changes a proposal just by showing it.
+    private static IEnumerable<(string Value, string Label)> OptionsFor(ProposalField field, string current)
+    {
+        var options = field.Options ?? [];
+        return current.Length == 0 || options.Any(o => o.Value == current) ? options : options.Append((current, current));
+    }
+
+    private void ToggleAdvanced()
+    {
+        _error = null;
+        if (!_advanced)
+        {
+            // Into the JSON: carry what the form holds, so nothing typed is lost by looking.
+            var (json, error) = ProposalEditForm.Write(_json, _fields!);
+            if (json is null)
+            {
+                _error = error;
+                return;
+            }
+
+            _json = ProposalEditForm.Prettify(json);
+            _advanced = true;
+            return;
+        }
+
+        // Back to the form: it can only show JSON that parses.
+        if (ReadForm(_json) is not { } fields)
+        {
+            _error = "That isn't valid JSON yet, so the form can't show it.";
+            return;
+        }
+
+        _fields = fields;
+        _advanced = false;
+    }
 
     private async Task Submit()
     {
-        // Validate JSON client-side so the user gets immediate feedback.
         string compact;
-        try
+        if (_advanced)
         {
-            using var doc = JsonDocument.Parse(_json);
-            compact = JsonSerializer.Serialize(doc.RootElement);
+            // Validate JSON client-side so the user gets immediate feedback.
+            try
+            {
+                using var doc = JsonDocument.Parse(_json);
+                compact = JsonSerializer.Serialize(doc.RootElement);
+            }
+            catch (JsonException ex)
+            {
+                _error = $"Invalid JSON: {ex.Message}";
+                return;
+            }
         }
-        catch (JsonException ex)
+        else
         {
-            _error = $"Invalid JSON: {ex.Message}";
-            return;
+            var (json, error) = ProposalEditForm.Write(_json, _fields!);
+            if (json is null)
+            {
+                _error = error;
+                return;
+            }
+
+            compact = json;
         }
 
         _busy = true;
@@ -69,17 +184,4 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
-
-    private static string Prettify(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-        }
-        catch (JsonException)
-        {
-            return json;
-        }
-    }
 }

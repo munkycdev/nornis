@@ -329,7 +329,7 @@ public class PrepEndpointTests
         var adventure = await CreateAsync(scenario.GmClient, scenario.World.Id);
         var overview = adventure.Sections[0];
         var url = $"{Base(scenario.World.Id)}/{adventure.Id}/sections/{overview.Id}";
-        const string warning = "The first stat block has no name, so Export to Nornis can't file it on anyone. Start it with \"# Name\".";
+        const string warning = "The first stat block has no name, so Add to the record can't file it on anyone. Start it with \"# Name\".";
 
         var saved = await scenario.GmClient.PutAsJsonAsync(url,
             new SaveAdventureSectionRequest("Overview", "Overview", "A guard.\n\n```statblock\nAC: 12\n```", overview.UpdatedAt));
@@ -730,7 +730,7 @@ public class PrepEndpointTests
         Assert.Multiple(() =>
         {
             Assert.That(conversation!.WebResearch.Available, Is.False, "the test world has no key of its creator's");
-            Assert.That(conversation.WebResearch.Reason, Is.EqualTo("Web research runs on your own AI key. Add one under Profile, AI keys."));
+            Assert.That(conversation.WebResearch.Reason, Is.EqualTo("Web research runs on your own AI key. Add one under Your account, AI."));
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
             Assert.That(error!.Code, Is.EqualTo("web_research_unavailable"));
             Assert.That(_factory.FakeDrafting.Requests, Is.Empty);

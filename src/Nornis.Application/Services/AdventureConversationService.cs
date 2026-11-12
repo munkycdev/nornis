@@ -581,7 +581,7 @@ public class AdventureConversationService : IAdventureConversationService
     private static (string Code, AppError Error) Classify(Exception ex) => ex switch
     {
         AiWebSearchUnsupportedException => ("WebSearchUnsupported", new AppError(422, "web_research_unsupported",
-            "This model can't search the web. Turn Web research off, or pick another Prep model under Profile, Models.")),
+            "This model can't search the web. Turn Web research off, or pick another Prep model under Your account, AI.")),
         AiRefusalException refusal => (refusal.Category, refusal.ToAppError()),
         AiHttpException { StatusCode: 429 } =>
             ("RateLimited", new AppError(429, "rate_limited", "Too many requests. Please try again in a moment.")),

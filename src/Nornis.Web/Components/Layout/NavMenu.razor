@@ -1,7 +1,15 @@
-﻿<a href="/dashboard" class="nornis-brand nornis-brand-link" aria-label="Nornis dashboard">
-    <img src="images/logo.png" alt="" class="nornis-brand-logo nornis-logo-ink" />
-    <div class="nornis-brand-name">NORNIS</div>
-</a>
+﻿@* Collapse sits beside the brand since 3.32: as a row of its own under the list it cost the
+   sidebar a line it does not have on a laptop. *@
+<div class="nornis-brand-row">
+    <a href="/dashboard" class="nornis-brand nornis-brand-link" aria-label="Nornis home">
+        <img src="images/logo.png" alt="" class="nornis-brand-logo nornis-logo-ink" />
+        <div class="nornis-brand-name">NORNIS</div>
+    </a>
+    <MudTooltip Text="Collapse the sidebar">
+        <MudIconButton Icon="@Icons.Material.Filled.KeyboardDoubleArrowLeft" Size="Size.Small"
+                       OnClick="OnCollapse" Class="nornis-collapse" aria-label="Collapse the sidebar" />
+    </MudTooltip>
+</div>
 
 @* MudBlazor 9 does not wire a click onto ActivatorContent — only the Label form renders a
    button that opens itself. Any menu with custom activator content has to open itself, so the
@@ -28,7 +36,7 @@
                 {
                     <div class="nornis-world-label">
                         <button type="button" class="nornis-role-chip nornis-role-chip-active"
-                                title="Return to GM view"
+                                title="Return to GM view. You still see your own edit controls on what you added, because those follow the author."
                                 @onclick="ExitPlayerView" @onclick:stopPropagation="true">
                             <MudIcon Icon="@Icons.Material.Outlined.Visibility" Class="nornis-role-chip-icon" />
                             Viewing as player · back to GM
@@ -42,7 +50,7 @@
                         @if (Worlds.Current.MyRole == WorldRoles.Gm)
                         {
                             <button type="button" class="nornis-role-chip"
-                                    title="See this world as your players do"
+                                    title="See this world as your players do. You will still see your own edit controls on what you added."
                                     @onclick="EnterPlayerView" @onclick:stopPropagation="true">
                                 GM
                                 <MudIcon Icon="@Icons.Material.Outlined.Visibility" Class="nornis-role-chip-icon" />
@@ -180,13 +188,6 @@ else
         </a>
     </div>
 }
-
-<MudButton Variant="Variant.Text"
-           StartIcon="@Icons.Material.Filled.KeyboardDoubleArrowLeft"
-           OnClick="OnCollapse"
-           Class="nornis-collapse">
-    Collapse
-</MudButton>
 
 @implements IAsyncDisposable
 @inject WorldState Worlds

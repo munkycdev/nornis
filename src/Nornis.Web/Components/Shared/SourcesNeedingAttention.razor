@@ -1,0 +1,75 @@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* Sources that will not finish on their own: Failed, or Queued past the dead-letter window. Until
+   3.32 the only place to retry one was World settings, Processing, three clicks from the list
+   that showed it had failed; a work queue is not a setting. It sits at the head of Sources and
+   is absent when there is nothing to do. The API decides who may retry what. *@
+
+@if (Stuck.Count > 0)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-attention mb-4" role="status">
+        <div class="nornis-attention-head">
+            <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Color="Color.Error" Size="Size.Small" />
+            <span class="nornis-card-title">
+                @(Stuck.Count == 1 ? "1 source needs a retry" : $"{Stuck.Count} sources need a retry")
+            </span>
+        </div>
+        @foreach (var s in Stuck)
+        {
+            <div class="nornis-list-row">
+                <div class="nornis-list-body">
+                    <a href="@Links.Source(s.Slug, s.Id)" class="nornis-list-title nornis-link">@s.Title</a>
+                    <div class="nornis-list-sub">
+                        @SourceTypeDisplay.Label(s.Type) ·
+                        @(s.ProcessingStatus == "Failed" ? "reading it failed" : "waiting in the queue for over an hour")
+                    </div>
+                </div>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Replay"
+                           OnClick="() => RetryAsync(s)" Disabled="_retrying.Contains(s.Id)">
+                    Retry
+                </MudButton>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    /// <summary>The page's own list, as it already loaded it; this adds no request.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<SourceListItem> Sources { get; set; } = [];
+
+    /// <summary>Raised after a retry is accepted, so the page reloads its list.</summary>
+    [Parameter] public EventCallback OnRetried { get; set; }
+
+    private readonly HashSet<Guid> _retrying = [];
+
+    private IReadOnlyList<SourceListItem> Stuck =>
+        Sources.Where(s => s.ProcessingStatus == "Failed" || s.StuckInQueue).ToList();
+
+    private async Task RetryAsync(SourceListItem source)
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _retrying.Add(source.Id);
+        StateHasChanged();
+
+        var result = await Api.MarkSourceReadyAsync(Worlds.Current.Id, source.Id);
+
+        _retrying.Remove(source.Id);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"\"{source.Title}\" is back in the queue.", Severity.Success);
+            await OnRetried.InvokeAsync();
+        }
+        else
+        {
+            Snackbar.Add($"Could not retry: {result.Error!.Message}", Severity.Error);
+            StateHasChanged();
+        }
+    }
+}

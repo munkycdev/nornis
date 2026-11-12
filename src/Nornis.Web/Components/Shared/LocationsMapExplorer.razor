@@ -65,14 +65,14 @@
                                     @onclick="() => ToggleNote(session.SourceId)">
                                 <span class="nornis-journey-tree-caret @(IsExpanded(session.SourceId) ? "is-open" : "")">&#9656;</span>
                                 <span class="nornis-journey-tree-title">@session.Title</span>
-                                <span class="nornis-journey-tree-date">@session.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</span>
+                                <span class="nornis-journey-tree-date">@DateDisplay.Day(session.OccurredAt)</span>
                             </button>
 
                             @if (IsExpanded(session.SourceId))
                             {
                                 @if (session.Highlights.Count == 0)
                                 {
-                                    <div class="nornis-journey-tree-empty">No artifacts recorded for this session.</div>
+                                    <div class="nornis-journey-tree-empty">No entries recorded for this session.</div>
                                 }
                                 else
                                 {

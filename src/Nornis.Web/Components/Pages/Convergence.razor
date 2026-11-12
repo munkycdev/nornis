@@ -9,12 +9,12 @@
 @* Convergence — the world's hidden material ranked by how ready it is to be revealed. Every
    number arrives decided by the API; this page renders phrases and hands a row to RevealDialog. *@
 
-<PageTitle>Convergence — Nornis</PageTitle>
+<PageTitle>Ready to reveal — Nornis</PageTitle>
 
 <div class="nornis-page-head">
     <div>
-        <MudText Typo="Typo.h4" Class="nornis-serif">Convergence</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">What the table is ready to learn.</MudText>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Ready to reveal</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">What you are still keeping from the party, ranked by how ready the table is to learn it.</MudText>
     </div>
     @if (_gauge is { Candidates.Count: > 0 })
     {
@@ -45,7 +45,7 @@
 }
 else if (!Worlds.IsGm)
 {
-    <MudAlert Severity="Severity.Info">The convergence gauge is GM-only.</MudAlert>
+    <GmOnlyNotice>This page ranks what the party has not learned yet, so it is the GM's to read.</GmOnlyNotice>
 }
 else if (_error is not null)
 {
@@ -72,7 +72,7 @@ else
     {
         <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
             This world has not been assessed, so contradictions are not part of these rankings.
-            Run a continuity assessment to include them.
+            <a href="/world-memory" class="nornis-link">Run a continuity assessment on World memory</a> to include them.
         </MudAlert>
     }
 
@@ -101,7 +101,7 @@ else
 
                 <div class="nornis-convergence-body">
                     <MudText Typo="Typo.subtitle2">@candidate.AnchorName</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@candidate.Description</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@ConvergenceDisplay.Description(candidate)</MudText>
                     @if (candidate.Rationale is not null)
                     {
                         <MudText Typo="Typo.body2" Class="nornis-convergence-why">@candidate.Rationale</MudText>

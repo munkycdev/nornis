@@ -87,6 +87,28 @@ public class DemoWorldTests
     }
 
     [Test]
+    public async Task CreateDemo_OpensWithItsActiveCampaignCurrent()
+    {
+        // 3.32. The demo's campaigns arrive as rows, past CampaignService.CreateAsync and its
+        // "a world with nothing current adopts its first campaign". The demo opened with a
+        // campaign in play and "Make current" beside it.
+        var client = CreateClientWithTemplate();
+
+        var response = await client.PostAsJsonAsync("/api/worlds/demo", new CreateDemoWorldRequest(Tutorial: false));
+        var world = (await response.Content.ReadFromJsonAsync<WorldResponse>())!;
+
+        var campaigns = await client.GetFromJsonAsync<JsonElement>($"/api/worlds/{world.Id}/campaigns");
+        var campaignId = campaigns.EnumerateArray().Single().GetProperty("id").GetGuid();
+        var reread = await client.GetFromJsonAsync<WorldResponse>($"/api/worlds/{world.Id}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(world.CurrentCampaignId, Is.EqualTo(campaignId), "the create response already says so");
+            Assert.That(reread!.CurrentCampaignId, Is.EqualTo(campaignId), "and it was saved, not only set on the answer");
+        });
+    }
+
+    [Test]
     public async Task CreateDemo_FromATemplateWithPrep_CarriesNoAdventures()
     {
         // Feature 29, Requirement 9.3. The template is a world export; Prep in it is the

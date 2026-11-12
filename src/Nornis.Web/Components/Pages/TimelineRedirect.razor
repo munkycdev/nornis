@@ -1,0 +1,16 @@
+@page "/timeline"
+@inject NavigationManager Nav
+
+@* Timeline was a sidebar entry of its own until 3.32. It is a view of Storylines, so this stub
+   sends old bookmarks to that view, keeping whatever filter the link carried. *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        var query = new Uri(Nav.Uri).Query;
+        var target = query.Contains("view=", StringComparison.OrdinalIgnoreCase)
+            ? "/storylines" + query
+            : "/storylines" + (query.Length > 1 ? query + "&view=timeline" : "?view=timeline");
+        Nav.NavigateTo(target, replace: true);
+    }
+}
