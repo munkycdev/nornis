@@ -1,6 +1,6 @@
 # Design Document
 
-> **Amendment (2026-11-12, Nornis 3.37): set-off blocks get a line of space.** Asked for by Dave:
+> **Amendment (2026-11-12, Nornis 3.39): set-off blocks get a line of space.** Asked for by Dave:
 > "extra margins above and below the special content areas … maybe a full line break's worth".
 > The text and the earlier amendments are left as written.
 >
