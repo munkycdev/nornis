@@ -151,7 +151,8 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 // Seed data
                 sourceRepo.Seed(source);
@@ -356,7 +357,8 @@ public class ContextAssemblyRespectsVisibilityScopePropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 // Seed data
                 sourceRepo.Seed(source);

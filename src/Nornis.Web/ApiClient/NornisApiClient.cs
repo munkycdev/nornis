@@ -1183,6 +1183,27 @@ public class NornisApiClient
     public Task<ApiResult<WrapUpApplyResult>> ApplyWrapUpAsync(Guid worldId, WrapUpDecisionsBody body, CancellationToken ct = default) =>
         PostAsync<WrapUpDecisionsBody, WrapUpApplyResult>($"/api/worlds/{worldId}/storylines/wrap-up", body, ct);
 
+    // ----------------------------------------------------------------- Check-in --
+
+    /// <summary>GM-only: whether a check-in is due, the open one, and the standing instructions. No AI.</summary>
+    public Task<ApiResult<CheckInDto>> GetCheckInAsync(Guid worldId, CancellationToken ct = default) =>
+        GetAsync<CheckInDto>($"/api/worlds/{worldId}/check-in", ct);
+
+    /// <summary>GM-only: Ask me now. One AI call on the daily budget; the answer is the new open check-in.</summary>
+    public Task<ApiResult<CheckInDto>> StartCheckInAsync(Guid worldId, CancellationToken ct = default) =>
+        PostAsync<object, CheckInDto>($"/api/worlds/{worldId}/check-in/start", new { }, ct);
+
+    public Task<ApiResult<CheckInAnswerResultDto>> AnswerCheckInQuestionAsync(
+        Guid worldId, Guid questionId, AnswerCheckInQuestionBody body, CancellationToken ct = default) =>
+        PostAsync<AnswerCheckInQuestionBody, CheckInAnswerResultDto>(
+            $"/api/worlds/{worldId}/check-in/questions/{questionId}/answer", body, ct);
+
+    public Task<ApiResult<EditorialRuleDto>> AddCheckInRuleAsync(Guid worldId, string text, CancellationToken ct = default) =>
+        PostAsync<AddEditorialRuleBody, EditorialRuleDto>($"/api/worlds/{worldId}/check-in/rules", new AddEditorialRuleBody(text), ct);
+
+    public Task<ApiResult<bool>> RemoveCheckInRuleAsync(Guid worldId, Guid ruleId, CancellationToken ct = default) =>
+        DeleteAsync($"/api/worlds/{worldId}/check-in/rules/{ruleId}", ct);
+
     /// <param name="kind">
     /// "Fact" or "Relationship" when you want only one kind — it also stops the server loading
     /// the other. For a few of EACH, pass the per-kind limits below in one call instead of making

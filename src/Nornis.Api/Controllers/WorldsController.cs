@@ -100,7 +100,8 @@ public class WorldsController : ControllerBase
             TutorialEnabled: c.World.TutorialEnabled,
             IsTemplate: c.World.IsTemplate,
             CurrentCampaignId: c.World.CurrentCampaignId,
-            PrepMonthlyBudgetUsd: c.World.PrepMonthlyBudgetUsd)).ToList();
+            PrepMonthlyBudgetUsd: c.World.PrepMonthlyBudgetUsd,
+            CheckInQuestionCount: c.World.CheckInQuestionCount)).ToList();
 
         return Ok(response);
     }
@@ -151,7 +152,8 @@ public class WorldsController : ControllerBase
             SummaryReviewRequired: request.SummaryReviewRequired,
             IsTemplate: request.IsTemplate,
             PrepMonthlyBudgetUsd: request.PrepMonthlyBudgetUsd,
-            ClearPrepBudget: request.ClearPrepBudget);
+            ClearPrepBudget: request.ClearPrepBudget,
+            CheckInQuestionCount: request.CheckInQuestionCount);
 
         var result = await _worldService.UpdateAsync(command, ct);
 
@@ -257,6 +259,7 @@ public class WorldsController : ControllerBase
             TutorialEnabled: world.TutorialEnabled,
             IsTemplate: world.IsTemplate,
             CurrentCampaignId: world.CurrentCampaignId,
-            PrepMonthlyBudgetUsd: world.PrepMonthlyBudgetUsd);
+            PrepMonthlyBudgetUsd: world.PrepMonthlyBudgetUsd,
+            CheckInQuestionCount: world.CheckInQuestionCount);
     }
 }

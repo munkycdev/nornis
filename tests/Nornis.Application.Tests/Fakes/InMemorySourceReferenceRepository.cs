@@ -71,6 +71,16 @@ public class InMemorySourceReferenceRepository : ISourceReferenceRepository
         return Task.CompletedTask;
     }
 
+    /// <summary>Matches on the <c>Source</c> navigation, which a test seeding world-wide
+    /// references sets; a reference without it belongs to no world here.</summary>
+    public Task<IReadOnlyList<SourceReference>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
+    {
+        var references = _references
+            .Where(r => r.Source is not null && r.Source.WorldId == worldId)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<SourceReference>>(references.AsReadOnly());
+    }
+
     public Task<IReadOnlyList<SourceReference>> ListByTargetIdsAsync(IReadOnlyList<Guid> targetIds, CancellationToken cancellationToken = default)
     {
         if (targetIds.Count == 0)

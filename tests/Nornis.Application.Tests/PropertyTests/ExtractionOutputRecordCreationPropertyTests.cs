@@ -121,7 +121,8 @@ public class ExtractionOutputRecordCreationPropertyTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         return (service, sourceRepo, reviewBatchRepo, reviewProposalRepo, sourceReferenceRepo, fakeAiClient);
     }

@@ -119,7 +119,8 @@ public class ExtractionServiceContextAssemblyTests
             options,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     private Source CreateQueuedSource(

@@ -86,6 +86,8 @@ else
             @if (_showAiAssessment)
             {
                 <SessionWrapUpCard WorldId="Worlds.Current.Id" />
+                @* Feature 44: a few questions every few sessions; shows only when due or waiting. *@
+                <CheckInCard WorldId="Worlds.Current.Id" />
             }
 
             <WorldDigestCard />

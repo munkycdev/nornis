@@ -89,6 +89,15 @@ public class NornisWebApplicationFactory : WebApplicationFactory<Program>
             }
             services.AddScoped<Nornis.Application.Ai.IRetrospectiveAiClient, FakeRetrospectiveAiClient>();
 
+            // Same for the check-in chooser (feature 44): the Check-in controller activates it.
+            var checkInDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(Nornis.Application.Ai.ICheckInAiClient));
+            if (checkInDescriptor is not null)
+            {
+                services.Remove(checkInDescriptor);
+            }
+            services.AddScoped<Nornis.Application.Ai.ICheckInAiClient, FakeCheckInAiClient>();
+
             // Same story for the library passage retriever: its embedding client is a
             // throwing DI stub when Azure OpenAI is unconfigured, which would break
             // controller activation for every Loremaster endpoint.

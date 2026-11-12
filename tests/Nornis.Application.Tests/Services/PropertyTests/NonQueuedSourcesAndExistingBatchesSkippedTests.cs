@@ -112,7 +112,8 @@ public class NonQueuedSourcesAndExistingBatchesSkippedTests
             options,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     [FsCheck.NUnit.Property(

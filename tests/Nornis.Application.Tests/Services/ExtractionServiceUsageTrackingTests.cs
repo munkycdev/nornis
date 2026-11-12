@@ -123,7 +123,8 @@ public class ExtractionServiceUsageTrackingTests
             extractionOptions,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     private static Source CreateQueuedSource(string body = "Captain Voss was seen in Black Harbor.")

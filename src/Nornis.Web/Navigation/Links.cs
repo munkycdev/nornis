@@ -23,6 +23,9 @@ public static class Links
     /// <summary>Your account on its Account tab: sign-ins, Bibliotaph, appearance.</summary>
     public const string ProfileAccount = "/profile?tab=account";
 
+    /// <summary>The check-in page (feature 44): the questions, the longer list, the standing instructions.</summary>
+    public const string CheckIn = "/check-in";
+
     public static string Campaign(string? slug, Guid id) => $"/campaigns/{Key(slug, id)}";
 
     public static string Character(string? slug, Guid id) => $"/characters/{Key(slug, id)}";

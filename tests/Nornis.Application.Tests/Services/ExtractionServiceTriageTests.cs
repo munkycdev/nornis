@@ -108,7 +108,8 @@ public class ExtractionServiceTriageTests
             options,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         _sourceRepo.Seed(new Source
         {

@@ -106,7 +106,8 @@ public class ExtractionServiceLibraryTests
             options,
             NullLogger<ExtractionService>.Instance,
             _retriever,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     private void SeedSource(VisibilityScope visibility = VisibilityScope.PartyVisible)

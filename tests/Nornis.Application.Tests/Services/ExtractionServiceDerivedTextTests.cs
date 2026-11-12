@@ -115,7 +115,8 @@ public class ExtractionServiceDerivedTextTests
             optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     private Source SeedSource(SourceType type, string? body = null)

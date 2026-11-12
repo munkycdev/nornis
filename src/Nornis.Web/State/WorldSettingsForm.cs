@@ -19,6 +19,9 @@ public enum WorldSettingsSection
 
     /// <summary>Whether the world is a template master.</summary>
     Template,
+
+    /// <summary>How many questions a check-in asks on Home (feature 44).</summary>
+    CheckIn,
 }
 
 /// <summary>
@@ -44,6 +47,7 @@ public sealed class WorldSettingsForm
 
     public bool SummaryReviewRequired { get; set; }
     public bool IsTemplate { get; set; }
+    public int CheckInQuestionCount { get; set; } = 5;
 
     /// <summary>The form filled from a world as the API last answered it.</summary>
     public static WorldSettingsForm From(WorldSummary world) => new()
@@ -59,6 +63,7 @@ public sealed class WorldSettingsForm
         PrepMonthlyBudget = world.PrepMonthlyBudgetUsd,
         SummaryReviewRequired = world.SummaryReviewRequired,
         IsTemplate = world.IsTemplate,
+        CheckInQuestionCount = world.CheckInQuestionCount,
     };
 
     /// <summary>
@@ -89,6 +94,7 @@ public sealed class WorldSettingsForm
             DailyAiBudget != saved.DailyAiBudgetUsd || PrepMonthlyBudget != saved.PrepMonthlyBudgetUsd,
         WorldSettingsSection.Review => SummaryReviewRequired != saved.SummaryReviewRequired,
         WorldSettingsSection.Template => IsTemplate != saved.IsTemplate,
+        WorldSettingsSection.CheckIn => CheckInQuestionCount != saved.CheckInQuestionCount,
         _ => throw new ArgumentOutOfRangeException(nameof(section), section, null),
     };
 
@@ -115,6 +121,7 @@ public sealed class WorldSettingsForm
             ClearPrepBudget: PrepMonthlyBudget is null),
         WorldSettingsSection.Review => new UpdateWorldRequest(SummaryReviewRequired: SummaryReviewRequired),
         WorldSettingsSection.Template => new UpdateWorldRequest(IsTemplate: IsTemplate),
+        WorldSettingsSection.CheckIn => new UpdateWorldRequest(CheckInQuestionCount: CheckInQuestionCount),
         _ => throw new ArgumentOutOfRangeException(nameof(section), section, null),
     };
 }

@@ -111,7 +111,8 @@ public class ExtractionServiceCrashRecoveryTests
             optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         _aiClient.SetupSuccess(new AiExtractionResponse
         {

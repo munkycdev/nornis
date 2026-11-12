@@ -299,7 +299,8 @@ public class ContextAssemblyMergeDedupOrderingLimitPropertyTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         sourceRepo.Seed(scenario.Source);
         artifactRepo.Seed(scenario.AllArtifacts);

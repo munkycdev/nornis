@@ -1,4 +1,4 @@
-namespace Nornis.Domain.Entities;
+﻿namespace Nornis.Domain.Entities;
 
 /// <summary>
 /// The named values of <see cref="ReviewBatch.Kind"/>. Null is not listed because null is
@@ -18,4 +18,7 @@ public static class ReviewBatchKinds
     public const string StorylineRetrospective = "StorylineRetrospective";
     public const string RelationshipBackfill = "RelationshipBackfill";
     public const string SummaryRefresh = "SummaryRefresh";
+
+    /// <summary>A check-in answer acting on the record (feature 44): a status change or a merge the GM chose.</summary>
+    public const string CheckIn = "CheckIn";
 }

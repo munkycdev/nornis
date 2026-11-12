@@ -204,6 +204,17 @@ public class WorldService : IWorldService
             world.IsTemplate = command.IsTemplate.Value;
         }
 
+        if (command.CheckInQuestionCount is { } questionCount)
+        {
+            if (questionCount < 1 || questionCount > World.MaxCheckInQuestionCount)
+            {
+                return AppResult<World>.Fail(new AppError(400, "validation_error",
+                    $"Questions per check-in must be between 1 and {World.MaxCheckInQuestionCount}."));
+            }
+
+            world.CheckInQuestionCount = questionCount;
+        }
+
         world.UpdatedAt = DateTimeOffset.UtcNow;
 
         world = await _worldRepository.UpdateAsync(world, ct);

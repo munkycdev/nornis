@@ -30,6 +30,7 @@ public static class AiTasks
         AiOperationType.WorldDigest => AiTask.Ask,
         AiOperationType.CampaignRecap => AiTask.Ask,
         AiOperationType.HandwritingTranscription => AiTask.Ask,
+        AiOperationType.CheckIn => AiTask.Ask,
 
         AiOperationType.SourceExtraction => AiTask.Extraction,
         AiOperationType.SourceExtractionRepair => AiTask.Extraction,

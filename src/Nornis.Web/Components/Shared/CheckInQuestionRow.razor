@@ -1,0 +1,125 @@
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* One check-in question (feature 44): what Nornis asks, why, the evidence, and the answers it
+   takes. An answer saves the moment it is clicked, with whatever the optional fields hold, so
+   the Home card and the Check-in page act the same way. *@
+<div class="nornis-checkin-q @(Question.IsAnswered ? "nornis-checkin-q-answered" : "")">
+    <div class="nornis-checkin-q-head">
+        <span class="nornis-checkin-kind">@CheckInDisplay.KindLabel(Question.Kind)</span>
+        @if (Question.SubjectArtifactId is { } subjectId)
+        {
+            <a href="@Links.Artifact(null, subjectId)" class="nornis-link nornis-checkin-subject">@Question.SubjectLabel</a>
+        }
+        else
+        {
+            <span class="nornis-checkin-subject">@Question.SubjectLabel</span>
+        }
+    </div>
+    <div class="nornis-checkin-text">@Question.Text</div>
+    @if (!string.IsNullOrWhiteSpace(Question.Why))
+    {
+        <div class="nornis-checkin-why">@Question.Why</div>
+    }
+    <div class="nornis-checkin-evidence">@CheckInDisplay.EvidenceLine(Question)</div>
+    @if (!Compact && Details.Count > 0)
+    {
+        <ul class="nornis-checkin-details">
+            @foreach (var line in Details)
+            {
+                <li>@line</li>
+            }
+        </ul>
+    }
+
+    @if (Question.IsAnswered)
+    {
+        <div class="nornis-checkin-outcome">
+            <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />
+            <span>@CheckInDisplay.AnswerLabel(Question.Answer!)@(Question.Outcome is { Length: > 0 } outcome ? $" · {outcome}" : "")</span>
+        </div>
+    }
+    else
+    {
+        @if (Question.Kind == "Storyline" && Question.Evidence.RelatedEntries.Count > 0)
+        {
+            <MudSelect T="Guid?" @bind-Value="_recordOn" Label="If background, record it on" Dense="true"
+                       Margin="Margin.Dense" Variant="Variant.Outlined" Class="nornis-checkin-field" Disabled="_busy">
+                <MudSelectItem T="Guid?" Value="@((Guid?)null)">Nowhere — set it Dormant</MudSelectItem>
+                @foreach (var entry in Question.Evidence.RelatedEntries)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)entry.Id)">@entry.Name (@entry.Type)</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        <MudTextField @bind-Value="_rule" Label="Standing instruction (optional)" Placeholder="@RulePlaceholder"
+                      MaxLength="300" Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-checkin-field"
+                      Disabled="_busy" HelperText="Kept with your answer and read by every extraction from now on." />
+        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="nornis-checkin-answers">
+            @foreach (var answer in Question.AllowedAnswers)
+            {
+                var chosen = answer;
+                <MudButton Disabled="_busy" OnClick="() => AnswerAsync(chosen)"
+                           title="@CheckInDisplay.AnswerHint(Question.Kind, chosen)">
+                    @CheckInDisplay.AnswerLabel(chosen)
+                </MudButton>
+            }
+        </MudButtonGroup>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid WorldId { get; set; }
+
+    [Parameter, EditorRequired] public CheckInQuestionDto Question { get; set; } = null!;
+
+    /// <summary>On Home: the evidence line only, no fact list.</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    /// <summary>The answered question and the instruction written with it, for the parent's list.</summary>
+    [Parameter] public EventCallback<CheckInAnswerResultDto> OnAnswered { get; set; }
+
+    private Guid? _recordOn;
+    private string? _rule;
+    private bool _busy;
+    private Guid _seededFor;
+
+    protected override void OnParametersSet()
+    {
+        // The chooser's suggestions seed the fields once per question; what the GM then types stays.
+        if (_seededFor != Question.Id)
+        {
+            _seededFor = Question.Id;
+            _recordOn = Question.SuggestedRecordOnArtifactId;
+            _rule = Question.SuggestedRule;
+        }
+    }
+
+    private string RulePlaceholder => Question.Kind == "Pattern"
+        ? $"Do not record \"{Question.Evidence.Predicate}\" facts; they are incidental."
+        : "e.g. Shop inventories are background; don't track them.";
+
+    private IReadOnlyList<string> Details =>
+        Question.Kind == "Pattern" ? Question.Evidence.Examples : Question.Evidence.Facts;
+
+    private async Task AnswerAsync(string answer)
+    {
+        _busy = true;
+
+        var body = new AnswerCheckInQuestionBody(
+            answer,
+            answer == "Skip" ? null : _rule?.Trim(),
+            answer == "Background" ? _recordOn : null);
+
+        var result = await Api.AnswerCheckInQuestionAsync(WorldId, Question.Id, body);
+        _busy = false;
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not save that answer.", Severity.Error);
+            return;
+        }
+
+        await OnAnswered.InvokeAsync(result.Value);
+    }
+}

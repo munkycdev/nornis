@@ -21,7 +21,9 @@ public record WorldSummary(
     // The campaign this world is playing now; null when none is. What a capture defaults to.
     Guid? CurrentCampaignId = null,
     // Prep's monthly AI cap; null inherits the configured default.
-    decimal? PrepMonthlyBudgetUsd = null);
+    decimal? PrepMonthlyBudgetUsd = null,
+    // How many questions a check-in asks on Home (feature 44), 1 to 10.
+    int CheckInQuestionCount = 5);
 
 public record CreateWorldRequest(
     string Name,
@@ -42,7 +44,8 @@ public record UpdateWorldRequest(
     bool? SummaryReviewRequired = null,
     bool? IsTemplate = null,
     decimal? PrepMonthlyBudgetUsd = null,
-    bool ClearPrepBudget = false);
+    bool ClearPrepBudget = false,
+    int? CheckInQuestionCount = null);
 
 public record WorldMember(
     Guid Id,
@@ -893,6 +896,78 @@ public record WrapUpDecisionsBody(
 public record WrapUpClosureBody(Guid StorylineId, string Status);
 
 public record WrapUpParentBody(Guid ChildStorylineId, Guid ParentStorylineId);
+
+// ------------------------------------------------------------------- Check-in --
+
+/// <summary>The check-in as the GM sees it (feature 44): due-ness, the open round, the standing instructions.</summary>
+public record CheckInDto(
+    bool Due,
+    int SessionsSinceLast,
+    int CadenceSessions,
+    int QuestionCount,
+    int MaxRules,
+    DateTimeOffset? LastCheckInAt,
+    CheckInRoundDto? Current,
+    IReadOnlyList<EditorialRuleDto> Rules);
+
+public record CheckInRoundDto(
+    Guid Id,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<CheckInQuestionDto> Questions);
+
+/// <summary>Kind is Storyline, Entry or Pattern; Answer and AllowedAnswers are CheckInAnswer names.</summary>
+public record CheckInQuestionDto(
+    Guid Id,
+    int Order,
+    bool Asked,
+    string Kind,
+    Guid? SubjectArtifactId,
+    string SubjectLabel,
+    string Text,
+    string? Why,
+    CheckInEvidenceDto Evidence,
+    string? SuggestedRule,
+    Guid? SuggestedRecordOnArtifactId,
+    IReadOnlyList<string> AllowedAnswers,
+    string? Answer,
+    DateTimeOffset? AnsweredAt,
+    string? Outcome,
+    Guid? RuleId)
+{
+    public bool IsAnswered => Answer is not null;
+}
+
+public record CheckInEvidenceDto(
+    string? Summary,
+    string? Status,
+    int FactCount,
+    int SourceCount,
+    int SessionsQuiet,
+    int OpenQuestionCount,
+    string? FirstSeenTitle,
+    DateTimeOffset? FirstSeenAt,
+    IReadOnlyList<string> Facts,
+    IReadOnlyList<CheckInRelatedEntryDto> RelatedEntries,
+    string? Predicate,
+    int ArtifactCount,
+    IReadOnlyList<string> Examples);
+
+public record CheckInRelatedEntryDto(Guid Id, string Name, string Type);
+
+/// <summary>A standing instruction; Origin is CheckIn or Manual.</summary>
+public record EditorialRuleDto(
+    Guid Id,
+    string Text,
+    string Origin,
+    Guid? CheckInQuestionId,
+    string? QuestionText,
+    DateTimeOffset CreatedAt);
+
+public record CheckInAnswerResultDto(CheckInQuestionDto Question, EditorialRuleDto? Rule);
+
+public record AnswerCheckInQuestionBody(string Answer, string? RuleText = null, Guid? RecordOnArtifactId = null);
+
+public record AddEditorialRuleBody(string Text);
 
 public record StorylineTimelineDto(
     IReadOnlyList<TimelineSessionDto> Sessions,

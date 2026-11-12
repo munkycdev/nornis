@@ -124,7 +124,8 @@ public class InvalidAiResponsesPropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 // Seed source in Queued status with non-empty body
                 sourceRepo.Seed(source);
@@ -246,7 +247,8 @@ public class InvalidAiResponsesPropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 // Seed source
                 sourceRepo.Seed(source);

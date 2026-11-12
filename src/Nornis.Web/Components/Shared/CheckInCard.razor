@@ -1,0 +1,123 @@
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+@* GM-only check-in on Home (feature 44). Renders nothing unless a check-in is due or the open
+   one still has asked questions waiting, so it stays out of the way between times. The longer
+   list and the standing instructions live on the Check-in page. *@
+@if (_view is { } view && (Pending.Count > 0 || view.Due))
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+        <div class="nornis-card-header">
+            <span class="nornis-card-title">Check-in</span>
+            <MudTooltip Text="A few questions about what the record is tracking. Your answers tidy the record and become standing instructions for extraction.">
+                <MudIcon Icon="@Icons.Material.Outlined.QuestionAnswer" Color="Color.Tertiary" Size="Size.Small" />
+            </MudTooltip>
+        </div>
+
+        @if (Pending.Count > 0)
+        {
+            @foreach (var q in Pending)
+            {
+                <CheckInQuestionRow WorldId="WorldId" Question="q" Compact="true" OnAnswered="OnAnsweredAsync" />
+            }
+            <div class="nornis-card-foot">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Each choice saves as you make it.
+                    @if (MoreCount > 0)
+                    {
+                        <a href="@Links.CheckIn" class="nornis-link">@MoreCount more to consider</a>
+                    }
+                </MudText>
+            </div>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                @SessionsLine A few questions about what the record is tracking, so it stays about what the table is playing.
+            </MudText>
+            <div class="d-flex align-center gap-3 flex-wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartAsync" Disabled="_starting"
+                           StartIcon="@Icons.Material.Outlined.QuestionAnswer">
+                    @(_starting ? "Reading the record…" : "Ask me now")
+                </MudButton>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">One AI call, on the daily budget.</MudText>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid WorldId { get; set; }
+
+    private CheckInDto? _view;
+    private Guid _loadedWorldId;
+    private bool _starting;
+
+    private IReadOnlyList<CheckInQuestionDto> Pending =>
+        _view?.Current?.Questions.Where(q => q.Asked && !q.IsAnswered).ToList() ?? [];
+
+    private int MoreCount => _view?.Current?.Questions.Count(q => !q.Asked && !q.IsAnswered) ?? 0;
+
+    private string SessionsLine => _view switch
+    {
+        null => string.Empty,
+        { LastCheckInAt: null } => "No check-in yet.",
+        var v => $"{CheckInDisplay.Count(v.SessionsSinceLast, "session")} since the last check-in.",
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (WorldId != _loadedWorldId)
+        {
+            _loadedWorldId = WorldId;
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (WorldId == Guid.Empty)
+        {
+            _view = null;
+            return;
+        }
+
+        var result = await Api.GetCheckInAsync(WorldId);
+        _view = result.IsSuccess ? result.Value : null;
+    }
+
+    private async Task StartAsync()
+    {
+        _starting = true;
+        var result = await Api.StartCheckInAsync(WorldId);
+        _starting = false;
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not start a check-in.", Severity.Error);
+            return;
+        }
+
+        _view = result.Value;
+        if (Pending.Count == 0)
+        {
+            Snackbar.Add("Nothing to ask right now: the record looks tidy.", Severity.Info);
+        }
+    }
+
+    private Task OnAnsweredAsync(CheckInAnswerResultDto answered)
+    {
+        if (_view?.Current is { } round)
+        {
+            var questions = round.Questions.Select(q => q.Id == answered.Question.Id ? answered.Question : q).ToList();
+            _view = _view with { Current = round with { Questions = questions } };
+        }
+
+        if (answered.Question.Outcome is { Length: > 0 } outcome)
+        {
+            Snackbar.Add($"“{answered.Question.SubjectLabel}”: {outcome}.", Severity.Success);
+        }
+
+        return Task.CompletedTask;
+    }
+}

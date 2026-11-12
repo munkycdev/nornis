@@ -43,6 +43,9 @@ public class NornisDbContext : DbContext
     public DbSet<WorldDigest> WorldDigests => Set<WorldDigest>();
     public DbSet<ContinuityFinding> ContinuityFindings => Set<ContinuityFinding>();
     public DbSet<ContinuityDismissal> ContinuityDismissals => Set<ContinuityDismissal>();
+    public DbSet<CheckIn> CheckIns => Set<CheckIn>();
+    public DbSet<CheckInQuestion> CheckInQuestions => Set<CheckInQuestion>();
+    public DbSet<EditorialRule> EditorialRules => Set<EditorialRule>();
     public DbSet<LibraryDocument> LibraryDocuments => Set<LibraryDocument>();
     public DbSet<LibraryChunk> LibraryChunks => Set<LibraryChunk>();
     public DbSet<LibraryReadingRecord> LibraryReadingRecords => Set<LibraryReadingRecord>();

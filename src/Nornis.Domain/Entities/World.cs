@@ -56,6 +56,18 @@ public class World
     public bool SummaryReviewRequired { get; set; }
 
     /// <summary>
+    /// How many questions a check-in asks on Home (feature 44), 1 to 10. The rest of what the
+    /// evidence produced waits on the Check-in page. Per world because Dave asked for it to be
+    /// configurable; the cadence stays a server option beside the continuity thresholds.
+    /// </summary>
+    public int CheckInQuestionCount { get; set; } = DefaultCheckInQuestionCount;
+
+    public const int DefaultCheckInQuestionCount = 5;
+
+    /// <summary>The most a world may ask per check-in; the setting is held to this.</summary>
+    public const int MaxCheckInQuestionCount = 10;
+
+    /// <summary>
     /// The campaign this world is playing now — what a capture belongs to unless the GM says
     /// otherwise. A fact about the table rather than a per-user preference, which is why it
     /// lives here beside the world's other settings: a player filing session notes should file

@@ -86,6 +86,20 @@
             </MudText>
             break;
 
+        case WorldSettingsSection.CheckIn:
+            <div class="nornis-detail-section-title">Check-in</div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Every few sessions Nornis asks a handful of questions about what the record is
+                tracking. Your answers tidy the record and become standing instructions for
+                extraction. The rest of what it found waits on the
+                <a href="@Links.CheckIn" class="nornis-link">Check-in</a> page.
+            </MudText>
+            <MudNumericField T="int" @bind-Value="Form.CheckInQuestionCount" Label="Questions per check-in"
+                             Min="1" Max="10" Step="1"
+                             HelperText="How many questions a check-in puts on Home, 1 to 10."
+                             Variant="Variant.Outlined" Class="mb-3" />
+            break;
+
         case WorldSettingsSection.Template:
             <div class="nornis-detail-section-title">Template master</div>
             <MudSwitch T="bool" @bind-Value="Form.IsTemplate" Color="Color.Secondary"

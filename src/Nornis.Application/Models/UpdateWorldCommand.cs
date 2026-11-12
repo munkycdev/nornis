@@ -18,4 +18,5 @@ public record UpdateWorldCommand(
     bool? SummaryReviewRequired = null,
     bool? IsTemplate = null,
     decimal? PrepMonthlyBudgetUsd = null,
-    bool ClearPrepBudget = false);
+    bool ClearPrepBudget = false,
+    int? CheckInQuestionCount = null);

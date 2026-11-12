@@ -113,7 +113,8 @@ public class ExtractionServiceTranscriptionTests
             extractionOptions,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     private Source SeedHandwrittenSource(string? body = null)

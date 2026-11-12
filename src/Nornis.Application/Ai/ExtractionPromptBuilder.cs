@@ -95,6 +95,12 @@ public static class ExtractionPromptBuilder
               rationale ("location inferred from prior note").
               """;
 
+        // The GM's standing instructions (feature 44) sit between the purpose and the rules, so
+        // the model reads them as the frame for everything below. Empty when the world has none.
+        var editorialBriefSection = request.EditorialRules.Count > 0
+            ? "\n" + EditorialBriefPrompt.Render(request.EditorialRules) + "\n"
+            : string.Empty;
+
         // $$""" so the JSON-schema braces below stay literal; interpolations use {{...}}.
         return $$"""
             You are the extraction engine for Nornis, a tabletop RPG world memory system. You read
@@ -102,7 +108,7 @@ public static class ExtractionPromptBuilder
             structured updates to the world's knowledge record. A human reviewer accepts, edits, or
             rejects each proposal individually: you propose, they decide. Write every proposal so that
             reviewer can judge it at a glance.
-
+            {{editorialBriefSection}}
             ## What to Extract
             Work through the source and propose one discrete change per proposal:
             - New people, places, items, factions, and events worth remembering → CreateArtifact.
