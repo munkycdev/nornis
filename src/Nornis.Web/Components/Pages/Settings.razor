@@ -1,9 +1,0 @@
-@page "/settings"
-@inject NavigationManager Nav
-
-@* Settings moved into the GM-only Admin page (its World tab since Nornis 3.23). This stub keeps old
-   bookmarks working. *@
-
-@code {
-    protected override void OnInitialized() => Nav.NavigateTo("/admin", replace: true);
-}

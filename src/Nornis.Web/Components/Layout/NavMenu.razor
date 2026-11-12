@@ -158,7 +158,7 @@
     <AuthorizeView>
         <Authorized>
             <div class="nornis-member-row px-4 py-2">
-                <a href="/profile" class="nornis-link d-flex align-center gap-2 flex-grow-1" title="Your settings">
+                <a href="/profile" class="nornis-link d-flex align-center gap-2 flex-grow-1" title="Your account">
                     <MudIcon Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small" />
                     <span class="nornis-list-sub">@context.User.Identity?.Name</span>
                 </a>
@@ -174,9 +174,9 @@ else
 {
     @* Dev auth: no identity to show, but the profile page still needs its entry point. *@
     <div class="nornis-member-row px-4 py-2">
-        <a href="/profile" class="nornis-link d-flex align-center gap-2 flex-grow-1" title="Your settings">
+        <a href="/profile" class="nornis-link d-flex align-center gap-2 flex-grow-1" title="Your account">
             <MudIcon Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small" />
-            <span class="nornis-list-sub">Your settings</span>
+            <span class="nornis-list-sub">Your account</span>
         </a>
     </div>
 }

@@ -1,30 +1,24 @@
 ﻿@page "/profile"
-@implements IDisposable
-@inject WorldState Worlds
-@inject NornisApiClient Api
-@inject IDialogService DialogService
-@inject ISnackbar Snackbar
 @inject ThemeState Theme
 @inject NavigationManager Nav
 
-<PageTitle>Your settings — Nornis</PageTitle>
+<PageTitle>Your account — Nornis</PageTitle>
 
 <div>
-    <MudText Typo="Typo.h4" Class="nornis-serif">Your settings</MudText>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">How you appear in this world, your AI keys and models, and your account.</MudText>
+    <MudText Typo="Typo.h4" Class="nornis-serif">Your account</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        What follows you to every world: the AI your worlds run on, and how you sign in. What is yours
+        at one table (your display name and characters) is on that world's
+        <a href="@Links.WorldSettingsYou" class="nornis-link">World settings</a>.
+    </MudText>
 
-    @* Three tabs (Nornis 3.24), the shown one in the URL: what changes with the world, then the AI
-       your worlds run on, then the account itself. Each card saves on its own. *@
-    <TabStrip Tabs="Tabs" Active="@_tab" Selected="ShowTab" Label="Your settings" Class="nornis-profile-tabs" />
+    @* Two tabs (Nornis 3.31), the shown one in the URL. The world-specific tab moved to World
+       settings, so this page is the account alone. Each card saves on its own. *@
+    <TabStrip Tabs="Tabs" Active="@_tab" Selected="ShowTab" Label="Your account" Class="nornis-profile-tabs" />
 
     <div class="nornis-profile nornis-profile-tab-@_tab">
         @switch (_tab)
         {
-            case AiTab:
-                <AiKeysCard Changed="ReloadModelsAsync" />
-                <AiModelsCard @ref="_models" />
-                break;
-
             case AccountTab:
                 <SignInsCard Outcome="@SignInOutcome" />
                 <BibliotaphConnectionCard Outcome="@BibliotaphOutcome" />
@@ -43,184 +37,42 @@
                 break;
 
             default:
-                @if (Worlds.Current is { } shown)
-                {
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3 nornis-profile-world-note">
-                        These are yours in <strong>@shown.Name</strong>, and change with the world you choose.
-                    </MudText>
-                }
-                @if (Worlds.Current is null)
-                {
-                    <NoWorld />
-                }
-                else
-                {
-                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-4">
-                        <div class="nornis-detail-section-title">Display name</div>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                            How other members see you in @Worlds.Current.Name — on the members list and
-                            beside the characters you play. Leave empty to show a generated label.
-                        </MudText>
-                        <div class="nornis-add-member">
-                            <MudTextField @bind-Value="_displayName" Label="Display name" MaxLength="200"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="flex-grow-1" />
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                       OnClick="SaveDisplayNameAsync" Disabled="_savingDisplayName">
-                                Save
-                            </MudButton>
-                        </div>
-                        @if (_displayNameError is not null)
-                        {
-                            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_displayNameError</MudAlert>
-                        }
-                    </MudPaper>
-
-                    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
-                        <div class="nornis-detail-section-title">Your characters</div>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                            The characters you play in @Worlds.Current.Name. You can link each one to its
-                            AI-extracted Character record; campaign assignments are managed by the GM.
-                        </MudText>
-
-                        @if (_loading)
-                        {
-                            <LoadingRows Rows="2" Height="48px" />
-                        }
-                        else if (_error is not null)
-                        {
-                            <MudAlert Severity="Severity.Error">@_error</MudAlert>
-                        }
-                        else
-                        {
-                            @if (_characters.Count == 0)
-                            {
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">You have no characters in this world yet.</MudText>
-                            }
-                            @foreach (var ch in _characters)
-                            {
-                                <div class="nornis-member-row">
-                                    <MudAvatar Color="Color.Tertiary" Size="Size.Small">@ch.Name[..1].ToUpperInvariant()</MudAvatar>
-                                    <div class="nornis-list-body">
-                                        <div class="nornis-list-title">
-                                            <a href="@Links.Character(ch.Slug, ch.Id)" class="nornis-link">@ch.Name</a>
-                                        </div>
-                                        <div class="nornis-list-sub">
-                                            @if (CharacterCampaignNames(ch) is { Length: > 0 } campaigns)
-                                            {
-                                                <span>@campaigns</span>
-                                            }
-                                            else
-                                            {
-                                                <span>No campaigns yet</span>
-                                            }
-                                            @if (ch.ArtifactId is { } linkedId)
-                                            {
-                                                <span> · </span><a href="@Links.Artifact(ch.ArtifactSlug, linkedId)" class="nornis-link">Linked artifact</a>
-                                            }
-                                        </div>
-                                    </div>
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                                   OnClick="() => BeginEditCharacter(ch)" aria-label="Edit character" />
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
-                                                   OnClick="() => DeleteCharacterAsync(ch)" aria-label="Delete character" />
-                                </div>
-                                @if (_editingCharacterId == ch.Id)
-                                {
-                                    <div class="nornis-card-pad mb-2">
-                                        <MudTextField @bind-Value="_characterName" Label="Name" Required="true" MaxLength="200"
-                                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
-                                        <MudTextField @bind-Value="_characterDescription" Label="Description" Lines="2"
-                                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
-                                        <MudAutocomplete T="ArtifactListItem" @bind-Value="_characterArtifact"
-                                                         SearchFunc="SearchCharacterArtifactsAsync" ToStringFunc="@(a => a?.Name)"
-                                                         Label="Linked artifact" HelperText="The AI-extracted Character record for this character"
-                                                         Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
-                                                         Clearable="true" ResetValueOnEmptyText="true" Class="mb-2" />
-                                        @if (_characterError is not null)
-                                        {
-                                            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_characterError</MudAlert>
-                                        }
-                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                                                   OnClick="SaveCharacterAsync" Disabled="_savingCharacter" Class="mr-2">Save</MudButton>
-                                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="CancelEditCharacter">Cancel</MudButton>
-                                    </div>
-                                }
-                            }
-
-                            @if (Worlds.EffectiveRole != "Observer")
-                            {
-                                @* One field for a character of yours: one already at the table (claiming it),
-                                   one the record knows (a linked record is made from it), or a new name. *@
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3 mb-2">
-                                    Add a character — pick one that already exists in this world, extracted into the
-                                    record or created by the GM before you joined, or type a new name.
-                                </MudText>
-                                <CharacterPicker @ref="_picker" Label="Your character" ExcludePlayerId="_myPlayerId" Busy="_claiming"
-                                                 OnPick="PickAsync" />
-                                @if (_addCharacterError is not null)
-                                {
-                                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addCharacterError</MudAlert>
-                                }
-                            }
-                        }
-                    </MudPaper>
-
-                    @if (Worlds.EffectiveRole != "Observer")
-                    {
-
-                        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                            <div class="nornis-detail-section-title">Claim a player</div>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                                If the GM added you to the party before you signed up, you are on the
-                                <a href="/party" class="nornis-link">Party</a> page under your own name with no
-                                account behind it. Claim that player and every character they play becomes yours.
-                            </MudText>
-                            <div class="nornis-add-member">
-                                <MudAutocomplete T="PlayerDto" @bind-Value="_claimPlayer"
-                                                 SearchFunc="SearchUnlinkedPlayersAsync" ToStringFunc="@(p => p?.Name)"
-                                                 Label="Player" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
-                                                 Clearable="true" ResetValueOnEmptyText="true" Class="flex-grow-1">
-                                    <ItemTemplate Context="p">
-                                        <span>@p.Name</span>
-                                        <span class="nornis-list-meta ml-2">@PlayerCharacterSummary(p)</span>
-                                    </ItemTemplate>
-                                </MudAutocomplete>
-                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.HowToReg"
-                                           OnClick="ClaimPlayerAsync" Disabled="_claiming || _claimPlayer is null">
-                                    That's me
-                                </MudButton>
-                            </div>
-                        </MudPaper>
-                    }
-                }
+                @* Who pays is the thing a member gets wrong, so it is said first and plainly (feature 39:
+                   a world spends its creator's keys, whoever asked). *@
+                <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mb-4 nornis-profile-ai-scope">
+                    <strong>Every world you create runs its AI on these keys and models, for everyone in it.</strong>
+                    When anyone in one of your worlds asks the Loremaster, captures a session or drafts in
+                    Prep, your provider bills you. Worlds someone else created run on theirs, so you only
+                    need a key for the worlds you create.
+                </MudAlert>
+                <AiKeysCard Changed="ReloadModelsAsync" />
+                <AiModelsCard @ref="_models" />
                 break;
         }
     </div>
 </div>
 
 @code {
-    public const string WorldTab = "world";
     public const string AiTab = "ai";
     public const string AccountTab = "account";
 
     public static readonly IReadOnlyList<TabStrip.Item> Tabs =
     [
-        new(WorldTab, "This world"),
         new(AiTab, "AI"),
         new(AccountTab, "Account"),
     ];
 
     /// <summary>
     /// The tab to show: the one the URL names, whatever its case; else Account when a sign-in link
-    /// or a Bibliotaph connect has just come back here to say how it went; else This world.
+    /// or a Bibliotaph connect has just come back here to say how it went; else AI.
     /// </summary>
     public static string TabFor(string? tab, string? signInOutcome, string? bibliotaphOutcome) =>
         Tabs.FirstOrDefault(t => string.Equals(t.Key, tab?.Trim(), StringComparison.OrdinalIgnoreCase))?.Key
-        ?? (signInOutcome is not null || bibliotaphOutcome is not null ? AccountTab : WorldTab);
+        ?? (signInOutcome is not null || bibliotaphOutcome is not null ? AccountTab : AiTab);
 
     [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
 
-    private string _tab = WorldTab;
+    private string _tab = AiTab;
 
     // The URL is the authority on the tab, so Back and a pasted link both land where they say.
     protected override void OnParametersSet() => _tab = TabFor(Tab, SignInOutcome, BibliotaphOutcome);
@@ -231,6 +83,8 @@
         Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab), replace: true);
     }
 
+    private Task SetThemeAsync(ThemePreference preference) => Theme.SetPreferenceAsync(preference);
+
     private AiModelsCard? _models;
 
     private Task ReloadModelsAsync() => _models?.ReloadAsync() ?? Task.CompletedTask;
@@ -240,356 +94,4 @@
 
     /// <summary>How linking another sign-in ended, when it brought the browser back here.</summary>
     [SupplyParameterFromQuery(Name = "signin")] public string? SignInOutcome { get; set; }
-
-    private bool _loading;
-    private string? _error;
-    private IReadOnlyList<CharacterDto> _characters = [];
-    private IReadOnlyList<CampaignDto> _campaigns = [];
-
-    private string? _addCharacterError;
-    private CharacterPicker? _picker;
-    private Guid? _myPlayerId;
-
-    private Guid? _editingCharacterId;
-    private string _characterName = string.Empty;
-    private string? _characterDescription;
-    private bool _savingCharacter;
-    private string? _characterError;
-
-    // Character-type artifacts for the "Linked artifact" picker, fetched lazily per world.
-    private IReadOnlyList<ArtifactListItem>? _characterArtifacts;
-    private ArtifactListItem? _characterArtifact;
-    private Guid? _characterOriginalArtifactId;
-
-    private Task SetThemeAsync(ThemePreference preference) => Theme.SetPreferenceAsync(preference);
-
-    protected override async Task OnInitializedAsync()
-    {
-        Worlds.Changed += OnWorldChanged;
-        await Worlds.EnsureLoadedAsync();
-        await LoadAsync();
-    }
-
-    private void OnWorldChanged() => InvokeAsync(LoadAsync);
-
-    private async Task LoadAsync()
-    {
-        if (Worlds.Current is null)
-        {
-            _characters = [];
-            _campaigns = [];
-            _error = null;
-            StateHasChanged();
-            return;
-        }
-
-        _loading = true;
-        _error = null;
-        _characterArtifacts = null;
-        _allCharacters = null;
-        _players = null;
-        _claimPlayer = null;
-        _editingCharacterId = null;
-        StateHasChanged();
-
-        var charactersTask = Api.GetCharactersAsync(Worlds.Current.Id, mine: true);
-        var campaignsTask = Api.GetCampaignsAsync(Worlds.Current.Id);
-        var characters = await charactersTask;
-        var campaigns = await campaignsTask;
-
-        _loading = false;
-        if (characters.IsSuccess)
-        {
-            _characters = characters.Value!;
-        }
-        else
-        {
-            _error = characters.Error!.Message;
-            _characters = [];
-        }
-
-        // Campaign names are decoration on the character rows; a failure just hides them.
-        _campaigns = campaigns.IsSuccess ? campaigns.Value! : [];
-        StateHasChanged();
-
-        await LoadMembershipAsync();
-    }
-
-    private string CharacterCampaignNames(CharacterDto ch) =>
-        string.Join(", ", _campaigns.Where(c => ch.CampaignIds.Contains(c.Id)).Select(c => c.Name));
-
-    // -------------------------------------------------------------- Display name --
-
-    private string? _displayName;
-    private bool _savingDisplayName;
-    private string? _displayNameError;
-
-    private async Task LoadMembershipAsync()
-    {
-        if (Worlds.Current is null)
-        {
-            _displayName = null;
-            return;
-        }
-
-        var membershipTask = Api.GetMyMembershipAsync(Worlds.Current.Id);
-        var playerTask = Api.GetMyPlayerAsync(Worlds.Current.Id);
-        var result = await membershipTask;
-        var player = await playerTask;
-        _myPlayerId = player.IsSuccess ? player.Value!.Id : null;
-        if (result.IsSuccess)
-        {
-            _displayName = result.Value!.DisplayName;
-        }
-        StateHasChanged();
-    }
-
-    private async Task SaveDisplayNameAsync()
-    {
-        if (Worlds.Current is null)
-        {
-            return;
-        }
-
-        _savingDisplayName = true;
-        _displayNameError = null;
-
-        var result = await Api.UpdateMyDisplayNameAsync(Worlds.Current.Id, _displayName);
-
-        _savingDisplayName = false;
-        if (result.IsSuccess)
-        {
-            _displayName = result.Value!.DisplayName;
-            Snackbar.Add("Display name saved.", Severity.Success);
-        }
-        else
-        {
-            _displayNameError = result.Error!.Message;
-        }
-        StateHasChanged();
-    }
-
-    // ------------------------------------------------------------------ Claiming --
-
-    /// <summary>
-    /// What a pick means here: a record at the table becomes yours (claimed), a Codex entry
-    /// becomes a record of yours linked to it, a new name becomes a record of yours.
-    /// </summary>
-    private async Task PickAsync(CharacterPicker.CharacterPick pick)
-    {
-        if (Worlds.Current is null)
-        {
-            return;
-        }
-
-        var worldId = Worlds.Current.Id;
-        _addCharacterError = null;
-
-        if (pick.Record is { } record)
-        {
-            var confirmed = await DialogService.ShowMessageBoxAsync(
-                "Claim character?", $"Take over \"{record.Name}\"? It is currently played by {record.PlayerName}.",
-                yesText: "Claim", cancelText: "Cancel");
-            if (confirmed != true)
-            {
-                return;
-            }
-        }
-
-        _claiming = true;
-        var result = pick switch
-        {
-            { Record: { } r } => await Api.ClaimCharacterAsync(worldId, r.Id),
-            { Artifact: { } a } => await Api.CreateCharacterAsync(worldId,
-                new CreateCharacterRequest(a.Name, a.Summary is { Length: > 2000 } s ? s[..2000] : a.Summary, ArtifactId: a.Id)),
-            _ => await Api.CreateCharacterAsync(worldId, new CreateCharacterRequest(pick.NewName ?? pick.Name)),
-        };
-        _claiming = false;
-
-        if (result.IsSuccess)
-        {
-            Snackbar.Add($"\"{result.Value!.Name}\" is yours.", Severity.Success);
-            _picker?.Reset();
-            _allCharacters = null;
-            await LoadAsync();
-        }
-        else
-        {
-            _addCharacterError = result.Error!.Message;
-            StateHasChanged();
-        }
-    }
-
-    private bool _claiming;
-
-    // Every character and player in the world, fetched lazily by the claim-a-player picker.
-    private IReadOnlyList<CharacterDto>? _allCharacters;
-    private IReadOnlyList<PlayerDto>? _players;
-    private PlayerDto? _claimPlayer;
-
-    private async Task EnsureTableLoadedAsync()
-    {
-        if (Worlds.Current is null || (_allCharacters is not null && _players is not null))
-        {
-            return;
-        }
-
-        var allTask = Api.GetCharactersAsync(Worlds.Current.Id);
-        var playersTask = Api.GetPlayersAsync(Worlds.Current.Id);
-        var all = await allTask;
-        var players = await playersTask;
-        _allCharacters = all.IsSuccess ? all.Value! : [];
-        _players = players.IsSuccess ? players.Value! : [];
-    }
-
-    private string PlayerCharacterSummary(PlayerDto player)
-    {
-        var names = (_allCharacters ?? []).Where(c => c.PlayerId == player.Id).Select(c => c.Name).OrderBy(n => n).ToList();
-        return names.Count == 0 ? "no characters yet" : $"plays {string.Join(", ", names)}";
-    }
-
-    private async Task<IEnumerable<PlayerDto>> SearchUnlinkedPlayersAsync(string value, CancellationToken ct)
-    {
-        await EnsureTableLoadedAsync();
-        return (_players ?? [])
-            .Where(p => p.WorldMemberId is null)
-            .Where(p => string.IsNullOrWhiteSpace(value) || p.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => p.Name)
-            .Take(15);
-    }
-
-    private async Task ClaimPlayerAsync()
-    {
-        if (Worlds.Current is null || _claimPlayer is null)
-        {
-            return;
-        }
-
-        var target = _claimPlayer;
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "That's you?", $"\"{target.Name}\" {PlayerCharacterSummary(target)}. Everything they play becomes yours, and the name goes.",
-            yesText: "Yes, that's me", cancelText: "Cancel");
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        _claiming = true;
-        var result = await Api.ClaimPlayerAsync(Worlds.Current.Id, target.Id);
-        _claiming = false;
-
-        if (result.IsSuccess)
-        {
-            Snackbar.Add($"You are {target.Name} at this table now.", Severity.Success);
-            _claimPlayer = null;
-            _allCharacters = null;
-            _players = null;
-            await LoadAsync();
-        }
-        else
-        {
-            Snackbar.Add($"Could not claim: {result.Error!.Message}", Severity.Error);
-            StateHasChanged();
-        }
-    }
-
-    private async Task<IReadOnlyList<ArtifactListItem>> EnsureCharacterArtifactsAsync()
-    {
-        if (Worlds.Current is null)
-        {
-            return [];
-        }
-
-        if (_characterArtifacts is null)
-        {
-            var result = await Api.GetArtifactsAsync(Worlds.Current.Id, "Character");
-            _characterArtifacts = result.IsSuccess ? result.Value! : [];
-        }
-
-        return _characterArtifacts;
-    }
-
-    private async Task<IEnumerable<ArtifactListItem>> SearchCharacterArtifactsAsync(string value, CancellationToken ct)
-    {
-        var artifacts = await EnsureCharacterArtifactsAsync();
-        return artifacts
-            .Where(a => string.IsNullOrWhiteSpace(value) || a.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(a => a.Name)
-            .Take(15);
-    }
-
-    private async Task BeginEditCharacter(CharacterDto ch)
-    {
-        _editingCharacterId = ch.Id;
-        _characterName = ch.Name;
-        _characterDescription = ch.Description;
-        _characterOriginalArtifactId = ch.ArtifactId;
-        _characterArtifact = null;
-        _characterError = null;
-
-        if (ch.ArtifactId is { } artifactId)
-        {
-            var artifacts = await EnsureCharacterArtifactsAsync();
-            _characterArtifact = artifacts.FirstOrDefault(a => a.Id == artifactId);
-            StateHasChanged();
-        }
-    }
-
-    private void CancelEditCharacter() => _editingCharacterId = null;
-
-    private async Task SaveCharacterAsync()
-    {
-        if (_editingCharacterId is not { } characterId || Worlds.Current is null)
-        {
-            return;
-        }
-
-        _savingCharacter = true;
-        _characterError = null;
-
-        var result = await Api.UpdateCharacterAsync(Worlds.Current.Id, characterId,
-            new UpdateCharacterRequest(
-                _characterName,
-                _characterDescription,
-                ArtifactId: _characterArtifact?.Id,
-                UnlinkArtifact: _characterOriginalArtifactId is not null && _characterArtifact is null));
-        _savingCharacter = false;
-
-        if (!result.IsSuccess)
-        {
-            _characterError = result.Error!.Message;
-            return;
-        }
-
-        _characters = _characters.Select(x => x.Id == characterId ? result.Value! : x).ToList();
-        _editingCharacterId = null;
-        Snackbar.Add("Character saved.", Severity.Success);
-        StateHasChanged();
-    }
-
-    private async Task DeleteCharacterAsync(CharacterDto ch)
-    {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Delete character?",
-            $"Delete {ch.Name}? Campaign assignments are removed with it.",
-            yesText: "Delete", cancelText: "Cancel");
-        if (confirmed != true)
-        {
-            return;
-        }
-
-        var result = await Api.DeleteCharacterAsync(Worlds.Current!.Id, ch.Id);
-        if (result.IsSuccess)
-        {
-            _characters = _characters.Where(x => x.Id != ch.Id).ToList();
-            Snackbar.Add("Character deleted.", Severity.Info);
-        }
-        else
-        {
-            Snackbar.Add(result.Error!.Message, Severity.Error);
-        }
-        StateHasChanged();
-    }
-
-    public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }
