@@ -481,6 +481,13 @@ public class QuestPdfBookletRendererTests
         var box = Enumerable.Range(1, 6).Select(i => $"boxline{i}").ToList();
         var splitWouldHappen = 0;
 
+        // Where the box's first line sits when it opens a column: on the title page under the
+        // chapter's title, on a later page at the top margin.
+        var boxAtTop = new BookletBox(BookletBoxKind.ReadAloud, [.. box.Select(t => P($"{t} the vault door is cold."))]);
+        var titled = Locate(Render(Chapter("Arrival", boxAtTop)), ["boxline1"])[0].Top;
+        var untitled = Locate(Render(Chapter(null, boxAtTop)), ["boxline1"])[0].Top;
+        double ColumnTop(int page) => page == FirstChapterPage ? titled : untitled;
+
         // The box lands at a different height for each count of filler, so one of them puts it
         // across a column's foot.
         for (var filler = 8; filler < 22; filler++)
@@ -496,6 +503,8 @@ public class QuestPdfBookletRendererTests
             if ((found[0].Page, found[0].Column) != places[0])
             {
                 splitWouldHappen++;
+                Assert.That(found[1].Top, Is.EqualTo(ColumnTop(places[0].Page)).Within(0.5),
+                    $"with {filler} filler paragraphs the box moved on but its set-off space came with it");
             }
         }
 
@@ -517,6 +526,120 @@ public class QuestPdfBookletRendererTests
             Assert.That((found[0].Page, found[0].Column), Is.EqualTo((FirstChapterPage, 0)), "the box starts under the opening paragraph");
             Assert.That(found.Select(f => (f.Page, f.Column)).Distinct().Count(), Is.GreaterThan(1), "and flows into the next column");
         });
+    }
+
+    // ------------------------------------------------------------- Set-off space --
+
+    /// <summary>The steps between three one-line blocks' baselines: first to middle, middle to last.</summary>
+    /// <remarks>Baselines, not tops: a semibold word's top is read from a Type3 glyph's box, which sits apart from the face's.</remarks>
+    private static (double Above, double Below) Steps(BookletPdf pdf, string above, string middle, string below)
+    {
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var words = AllWords(document).Where(w => w.Page >= FirstChapterPage).ToList();
+        var found = new[] { above, middle, below }.Select(token => words.Single(w => w.Word.Text == token)).ToList();
+        Assert.That(found.Select(f => (f.Page, ColumnOf(f.Word))).Distinct().Count(), Is.EqualTo(1), "the fixture must sit in one column");
+        return (found[0].Word.BoundingBox.Bottom - found[1].Word.BoundingBox.Bottom, found[1].Word.BoundingBox.Bottom - found[2].Word.BoundingBox.Bottom);
+    }
+
+    [TestCase(BookletBoxKind.ReadAloud)]
+    [TestCase(BookletBoxKind.Prop)]
+    [TestCase(BookletBoxKind.Ask)]
+    [TestCase(BookletBoxKind.Gm)]
+    public void ABox_HasALineOfSpaceAboveAndBelow_MoreThanBetweenParagraphs(BookletBoxKind kind)
+    {
+        var plain = Steps(Render(Chapter("Arrival", P("aboveword."), P("midword."), P("belowword."))), "aboveword.", "midword.", "belowword.");
+        var boxed = Steps(Render(Chapter("Arrival", P("aboveword."), new BookletBox(kind, [P("midword.")]), P("belowword."))),
+            "aboveword.", "midword.", "belowword.");
+
+        // A body line at the default type is 13 pt; the box's own frame and padding add up to 12 more.
+        Assert.Multiple(() =>
+        {
+            Assert.That(boxed.Above - plain.Above, Is.InRange(13 - 0.5, 13 + 12), "space above the box");
+            Assert.That(boxed.Below - plain.Below, Is.InRange(13 - 0.5, 13 + 12), "space below the box");
+        });
+    }
+
+    [Test]
+    public void AStatBlock_HasALineOfSpaceAboveAndBelow()
+    {
+        var plain = Steps(Render(Chapter("Arrival", P("aboveword."), P("midword."), P("belowword."))), "aboveword.", "midword.", "belowword.");
+        var stat = Steps(Render(Chapter("Arrival", P("aboveword."), Game(GameBlockKind.Stat, "Armour: midword."), P("belowword."))),
+            "aboveword.", "midword.", "belowword.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stat.Above - plain.Above, Is.GreaterThan(13 - 0.5));
+            Assert.That(stat.Below - plain.Below, Is.GreaterThan(13 - 0.5));
+        });
+    }
+
+    [Test]
+    public void TheSetOffSpace_IsABodyLine_AtTheGmsSizeAndSpacing()
+    {
+        var typography = new BookTypography { Size = 14m, LineSpacing = 2.0m };
+        BookletPdf RenderAt(params BookletBlock[] blocks) =>
+            _renderer.Render(new Booklet(Cover, Rights, [Chapter("Arrival", blocks)], Typography: typography));
+
+        var plain = Steps(RenderAt(P("aboveword."), P("midword."), P("belowword.")), "aboveword.", "midword.", "belowword.");
+        var boxed = Steps(RenderAt(P("aboveword."), new BookletBox(BookletBoxKind.Gm, [P("midword.")]), P("belowword.")),
+            "aboveword.", "midword.", "belowword.");
+
+        Assert.That(boxed.Above - plain.Above, Is.InRange(14 * 2.0 - 0.5, 14 * 2.0 + 12));
+    }
+
+    [Test]
+    public void TwoBoxesInARow_ShareOneLineOfSpace_NotTwo()
+    {
+        var single = Steps(Render(Chapter("Arrival", P("aboveword."), new BookletBox(BookletBoxKind.Gm, [P("midword.")]), P("belowword."))),
+            "aboveword.", "midword.", "belowword.");
+        var pair = Steps(Render(Chapter("Arrival",
+                new BookletBox(BookletBoxKind.Gm, [P("aboveword.")]),
+                new BookletBox(BookletBoxKind.Gm, [P("midword.")]),
+                P("belowword."))),
+            "aboveword.", "midword.", "belowword.");
+
+        // Box to box adds the first box's bottom padding to the gap a paragraph would have, and nothing more.
+        Assert.That(pair.Above - single.Above, Is.InRange(0, 12));
+    }
+
+    [Test]
+    public void AHeading_StaysTightToTheBoxItIntroduces_AndTheSpaceGoesAboveTheHeading()
+    {
+        var plain = Steps(Render(Chapter("Arrival", P("aboveword."), new BookletHeading(2, Inl("headword")), P("midword."))),
+            "aboveword.", "headword", "midword.");
+        var boxed = Steps(Render(Chapter("Arrival", P("aboveword."), new BookletHeading(2, Inl("headword")),
+                new BookletBox(BookletBoxKind.Gm, [P("midword.")]))),
+            "aboveword.", "headword", "midword.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(boxed.Above - plain.Above, Is.EqualTo(13).Within(0.5), "the line's space sits above the heading");
+            Assert.That(boxed.Below - plain.Below, Is.LessThan(13), "and not between the heading and its box");
+        });
+    }
+
+    [Test]
+    public void ALeadIn_StaysTightToTheBoxItIntroduces_AndTheSpaceGoesAboveTheLeadIn()
+    {
+        BookletParagraph LeadIn() => new([new BookletRun("leadword line:", BookletRunStyle.Bold)]);
+        var plain = Steps(Render(Chapter("Arrival", P("aboveword."), LeadIn(), P("midword."))), "aboveword.", "leadword", "midword.");
+        var boxed = Steps(Render(Chapter("Arrival", P("aboveword."), LeadIn(), new BookletBox(BookletBoxKind.ReadAloud, [P("midword.")]))),
+            "aboveword.", "leadword", "midword.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(boxed.Above - plain.Above, Is.EqualTo(13).Within(0.5), "the line's space sits above the lead-in");
+            Assert.That(boxed.Below - plain.Below, Is.LessThan(13), "and not between the lead-in and its box");
+        });
+    }
+
+    [Test]
+    public void ABoxThatOpensAChapter_HasNoSpaceAboveIt()
+    {
+        var opening = Locate(Render(Chapter(null, new BookletBox(BookletBoxKind.Gm, [P("boxword.")]))), ["boxword."])[0];
+        var paragraph = Locate(Render(Chapter(null, P("boxword."))), ["boxword."])[0];
+
+        Assert.That(paragraph.Top - opening.Top, Is.LessThan(13), "only the box's own padding, no set-off line");
     }
 
     // ------------------------------------------------------------------ Tables --
@@ -666,6 +789,9 @@ public class QuestPdfBookletRendererTests
             "# Cloak\n*Wondrous item*\n" + string.Join('\n', lines.Take(3).Select(t => $"{t}: 1 lb")) + "\n---\n"
             + string.Join('\n', lines.Skip(3).Select(t => $"{t} keeps the wearer dry.")));
         var splitWouldHappen = 0;
+        var titled = Locate(Render(Chapter("Arrival", item)), ["cardline1"])[0].Top;
+        var untitled = Locate(Render(Chapter(null, item)), ["cardline1"])[0].Top;
+        double ColumnTop(int page) => page == FirstChapterPage ? titled : untitled;
 
         for (var filler = 8; filler < 22; filler++)
         {
@@ -679,6 +805,8 @@ public class QuestPdfBookletRendererTests
             if ((found[0].Page, found[0].Column) != places[0])
             {
                 splitWouldHappen++;
+                Assert.That(found[1].Top, Is.EqualTo(ColumnTop(places[0].Page)).Within(0.5),
+                    $"with {filler} filler paragraphs the card moved on but its set-off space came with it");
             }
         }
 

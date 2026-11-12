@@ -1,5 +1,23 @@
 # Design Document
 
+> **Amendment (2026-11-12, Nornis 3.34): set-off blocks get a line of space.** Asked for by Dave:
+> "extra margins above and below the special content areas … maybe a full line break's worth".
+> The text and the earlier amendments are left as written.
+>
+> - **Which blocks.** Every box (read-aloud, prop, ask, GM), stat and item blocks, and code
+>   (`QuestPdfBookletRenderer.IsSetOff`, the one place the list lives). Tables, lists, headings
+>   and rules stay in the flow at the usual 6 pt.
+> - **How much.** One body line (`Typeset.LinePt`: the GM's size × line spacing, 13 pt at the
+>   default) on top of the 6 pt block spacing, above and below. Between two set-off blocks it is
+>   one gap, not two. None before a chapter's first block or after its last. Chapter flow only:
+>   inside a box, a list item or a prop page the spacing is unchanged.
+> - **Labels stay with their block.** A heading group that introduces a set-off block takes the
+>   space above the heading, so the heading stays tight to its box. So does a lead-in: a
+>   paragraph of up to 80 characters ending in a colon ("Opening line:"), straight before one.
+> - **Never blank space at a column's top.** The space is a spacer item that takes what is left
+>   of the column up to a line and no more (`MaxHeight` + `ExtendVertical`), so at a column's foot
+>   it is cut short and the block starts the next column flush. The near-foot tests pin this.
+
 > **Amendment (2026-11-08, Nornis 3.17): the GM chooses the type.** Asked for on the Book tab:
 > "specify the font name, font size, and line spacing". The text and the earlier amendment are
 > left as written.
