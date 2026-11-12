@@ -882,8 +882,8 @@
         // The editor is about to leave the render tree with the reading it was holding.
         _editor = null;
 
-        await JS.InvokeVoidAsync("nornisUpload.release", _cameraInputId);
-        await JS.InvokeVoidAsync("nornisUpload.release", _libraryInputId);
+        await JS.TryInvokeVoidAsync("nornisUpload.release", _cameraInputId);
+        await JS.TryInvokeVoidAsync("nornisUpload.release", _libraryInputId);
     }
 
     private async Task SaveAsync(bool process)

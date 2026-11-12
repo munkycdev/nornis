@@ -151,8 +151,8 @@
 
     private async Task CopyInviteLinkAsync(WorldInvite invite)
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", InviteUrl(invite));
-        Snackbar.Add("Invite link copied.", Severity.Info);
+        var copied = await JS.TryCopyTextAsync(InviteUrl(invite));
+        Snackbar.Add(copied ? "Invite link copied." : DisplayText.CopyRefused, copied ? Severity.Info : Severity.Warning);
     }
 
     private async Task CreateInviteAsync()
@@ -186,7 +186,6 @@
         {
             _createInviteError = result.Error!.Message;
         }
-        StateHasChanged();
     }
 
     private async Task RevokeInviteAsync(WorldInvite invite)

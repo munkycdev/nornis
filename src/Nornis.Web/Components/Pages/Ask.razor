@@ -389,7 +389,6 @@
         await SaveHistoryAsync(worldId);
         _current = _conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
         _error = null;
-        StateHasChanged();
     }
 
     private void SelectConversation(string id)
