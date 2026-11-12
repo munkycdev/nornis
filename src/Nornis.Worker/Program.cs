@@ -100,6 +100,7 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IReviewBatchRepository, ReviewBatchRepository>();
         services.AddScoped<IReviewProposalRepository, ReviewProposalRepository>();
         services.AddScoped<ISourceReferenceRepository, SourceReferenceRepository>();
+        services.AddScoped<IEditorialRuleRepository, EditorialRuleRepository>();
         services.AddScoped<IAiUsageRecordRepository, AiUsageRecordRepository>();
         services.AddScoped<IAiUsageRecorder, AiUsageRecorder>();
         services.AddScoped<IArtifactRepository, ArtifactRepository>();

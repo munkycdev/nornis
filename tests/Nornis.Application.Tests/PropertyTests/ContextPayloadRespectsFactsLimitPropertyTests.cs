@@ -179,7 +179,8 @@ public class ContextPayloadRespectsFactsLimitPropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 sourceRepo.Seed(source);
                 artifactRepo.Seed(artifact);

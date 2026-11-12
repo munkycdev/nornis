@@ -70,6 +70,8 @@ public static class NavGroups
         new("GM",
         [
             new("Prep", "/prep", Icons.Material.Outlined.HistoryEdu),
+            // Feature 44: the questions Home asks every few sessions, the longer list, the standing instructions.
+            new("Check-in", "/check-in", Icons.Material.Outlined.QuestionAnswer),
             new("Ready to reveal", "/convergence", Icons.Material.Outlined.Visibility),
             new("World memory", "/world-memory", Icons.Material.Outlined.Psychology),
         ], GmOnly: true),

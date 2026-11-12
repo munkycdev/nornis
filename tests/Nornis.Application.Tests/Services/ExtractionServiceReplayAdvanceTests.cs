@@ -105,7 +105,8 @@ public class ExtractionServiceReplayAdvanceTests
             optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: _advancer);
+            replayAdvancer: _advancer,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
     }
 
     private Source SeedQueuedSource(string body)

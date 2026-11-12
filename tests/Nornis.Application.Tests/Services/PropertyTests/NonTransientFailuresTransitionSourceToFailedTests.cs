@@ -118,7 +118,8 @@ public class NonTransientFailuresTransitionSourceToFailedTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         // Seed the source in Queued status with a non-empty body
         sourceRepo.Seed(source);

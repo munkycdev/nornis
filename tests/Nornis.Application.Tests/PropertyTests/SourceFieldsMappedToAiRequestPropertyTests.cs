@@ -122,7 +122,8 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         // Seed source in Queued status with non-empty body (guaranteed by ExtractionArbitraries)
         sourceRepo.Seed(source);
@@ -255,7 +256,8 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         sourceRepo.Seed(source);
         fakeAiClient.SetupSuccess(aiResponse);
@@ -370,7 +372,8 @@ public class SourceFieldsMappedToAiRequestPropertyTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         sourceRepo.Seed(source);
         fakeAiClient.SetupSuccess(aiResponse);

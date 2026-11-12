@@ -29,6 +29,10 @@ public class WorldConfiguration : IEntityTypeConfiguration<World>
         builder.Property(c => c.PrepMonthlyBudgetUsd)
             .HasColumnType("decimal(6,2)");
 
+        // Feature 44: worlds from before check-ins existed ask the default number.
+        builder.Property(c => c.CheckInQuestionCount)
+            .HasDefaultValue(World.DefaultCheckInQuestionCount);
+
         builder.Property(c => c.GameSystem)
             .HasMaxLength(200);
 

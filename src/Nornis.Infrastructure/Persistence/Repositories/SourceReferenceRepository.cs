@@ -41,6 +41,14 @@ public class SourceReferenceRepository : ISourceReferenceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SourceReference>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default)
+    {
+        return await _context.SourceReferences
+            .AsNoTracking()
+            .Where(sr => sr.Source.WorldId == worldId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SourceReference>> ListBySourceAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         return await _context.SourceReferences

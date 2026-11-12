@@ -196,7 +196,8 @@ public class SourceExtractionOptOutTests
             extractionOptions,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         var outcome = await extractionService.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
 

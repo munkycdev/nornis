@@ -20,6 +20,7 @@ public class StrictSchemaDialectTests
     {
         yield return new TestCaseData(ArtifactSummaryAiClient.StructuredOutputSchema).SetName("artifact_summary");
         yield return new TestCaseData(AuditAiClient.GetStructuredOutputSchema()).SetName("continuity_findings");
+        yield return new TestCaseData(CheckInAiClient.GetStructuredOutputSchema()).SetName("check_in_picks");
         yield return new TestCaseData(ContinuityFixAiClient.GetStructuredOutputSchema()).SetName("continuity_fix_proposals");
         yield return new TestCaseData(ConvergenceNarrationAiClient.StructuredOutputSchema).SetName("convergence_narration");
         yield return new TestCaseData(DigestAiClient.StructuredOutputSchema).SetName("world_digest");

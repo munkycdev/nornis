@@ -1,0 +1,310 @@
+@page "/check-in"
+@implements IDisposable
+@inject WorldState Worlds
+@inject NornisApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Check-in — Nornis</PageTitle>
+
+@* The check-in page (feature 44): the questions Home asked, the longer list Nornis found,
+   what was answered and what it did, and the world's standing instructions. *@
+<div>
+    <div class="nornis-page-head">
+        <div>
+            <MudText Typo="Typo.h4" Class="nornis-serif">Check-in</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                A few questions every few sessions about what the record is tracking. Your answers tidy the record and become standing instructions.
+            </MudText>
+        </div>
+        @if (Worlds.Current is not null && Worlds.IsGm)
+        {
+            <MudTooltip Text="Reads the record and picks the questions worth asking. One AI call, on the daily budget.">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.QuestionAnswer"
+                           OnClick="StartAsync" Disabled="_starting || _loading">
+                    @(_starting ? "Reading the record…" : "Ask me now")
+                </MudButton>
+            </MudTooltip>
+        }
+    </div>
+
+    @if (Worlds.Current is null)
+    {
+        <NoWorld />
+    }
+    else if (!Worlds.IsGm)
+    {
+        <GmOnlyNotice>The check-in reads the full record, including what only the GM may see.</GmOnlyNotice>
+    }
+    else if (_loading)
+    {
+        <LoadingRows Rows="3" />
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_view is { } view)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">@StatusLine(view)</MudText>
+
+        @if (view.Current is not { } round)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon mb-6">
+                <MudIcon Icon="@Icons.Material.Outlined.QuestionAnswer" Size="Size.Large" Class="nornis-comingsoon-icon" />
+                <MudText Typo="Typo.h5" Class="nornis-serif">No check-in yet</MudText>
+                <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
+                    Ask me now, and Nornis reads the record and asks about what it is not sure it should be
+                    tracking. After that it offers one every @view.CadenceSessions sessions.
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            var asked = round.Questions.Where(q => q.Asked && !q.IsAnswered).ToList();
+            var more = round.Questions.Where(q => !q.Asked && !q.IsAnswered).ToList();
+            var answered = round.Questions.Where(q => q.IsAnswered).ToList();
+
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-6">
+                <div class="nornis-card-header">
+                    <span class="nornis-card-title">Asked @DateDisplay.Day(round.CreatedAt)</span>
+                </div>
+
+                @if (round.Questions.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Nothing to ask: the record looked tidy.</MudText>
+                }
+                else if (asked.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        All answered.@(more.Count > 0 ? " The longer list below is there if you feel like it." : "")
+                    </MudText>
+                }
+
+                @foreach (var q in asked)
+                {
+                    <CheckInQuestionRow WorldId="Worlds.Current.Id" Question="q" OnAnswered="OnAnsweredAsync" />
+                }
+
+                @if (more.Count > 0)
+                {
+                    <div class="nornis-checkin-toggle">
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _showMore = !_showMore"
+                                   StartIcon="@(_showMore ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)">
+                            @(_showMore ? "Hide the" : "Show") @CheckInDisplay.Count(more.Count, "more question") to consider
+                        </MudButton>
+                    </div>
+                    @if (_showMore)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-1">
+                            What else the record gave Nornis reason to ask about, in the order it would have asked.
+                        </MudText>
+                        @foreach (var q in more)
+                        {
+                            <CheckInQuestionRow WorldId="Worlds.Current.Id" Question="q" OnAnswered="OnAnsweredAsync" />
+                        }
+                    }
+                }
+
+                @if (answered.Count > 0)
+                {
+                    <div class="nornis-checkin-toggle">
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _showAnswered = !_showAnswered"
+                                   StartIcon="@(_showAnswered ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)">
+                            @(_showAnswered ? "Hide" : "Show") @CheckInDisplay.Count(answered.Count, "answered question")
+                        </MudButton>
+                    </div>
+                    @if (_showAnswered)
+                    {
+                        @foreach (var q in answered)
+                        {
+                            <CheckInQuestionRow WorldId="Worlds.Current.Id" Question="q" />
+                        }
+                    }
+                }
+            </MudPaper>
+        }
+
+        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
+            <div class="nornis-card-header">
+                <span class="nornis-card-title">Standing instructions</span>
+                <span class="nornis-count-badge">@view.Rules.Count of @view.MaxRules</span>
+            </div>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Read by every extraction from now on, ahead of its general guidance. Your check-in
+                answers add to them, and you can add your own.
+            </MudText>
+
+            @if (view.Rules.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">None yet.</MudText>
+            }
+            @foreach (var rule in view.Rules)
+            {
+                <div class="nornis-list-row nornis-checkin-rule">
+                    <div class="nornis-list-body">
+                        <div class="nornis-list-title">@rule.Text</div>
+                        <div class="nornis-list-sub">@RuleSub(rule)</div>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" title="Remove"
+                                   OnClick="() => RemoveRuleAsync(rule)" Disabled="_busyRules.Contains(rule.Id)" />
+                </div>
+            }
+
+            <div class="d-flex align-start gap-2 mt-3 nornis-checkin-add">
+                <MudTextField @bind-Value="_newRule" Label="Add an instruction"
+                              Placeholder="e.g. Don't track shop inventories; they're background."
+                              MaxLength="300" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true"
+                              Disabled="_addingRule || view.Rules.Count >= view.MaxRules" Class="flex-grow-1" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddRuleAsync"
+                           Disabled="_addingRule || string.IsNullOrWhiteSpace(_newRule) || view.Rules.Count >= view.MaxRules">
+                    Add
+                </MudButton>
+            </div>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private CheckInDto? _view;
+    private bool _loading;
+    private bool _starting;
+    private bool _addingRule;
+    private bool _showMore;
+    private bool _showAnswered;
+    private string? _error;
+    private string? _newRule;
+    private readonly HashSet<Guid> _busyRules = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Worlds.Changed += OnWorldChanged;
+        await Worlds.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private void OnWorldChanged() => InvokeAsync(LoadAsync);
+
+    private async Task LoadAsync()
+    {
+        if (Worlds.Current is null || !Worlds.IsGm)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetCheckInAsync(Worlds.Current.Id);
+        _loading = false;
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            _error = result.Error?.Message ?? "Could not load the check-in.";
+        }
+        else
+        {
+            _view = result.Value;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task StartAsync()
+    {
+        if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        _starting = true;
+        var result = await Api.StartCheckInAsync(Worlds.Current.Id);
+        _starting = false;
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not start a check-in.", Severity.Error);
+            return;
+        }
+
+        _view = result.Value;
+        _showMore = false;
+        _showAnswered = false;
+
+        if (_view.Current is { Questions.Count: 0 })
+        {
+            Snackbar.Add("Nothing to ask right now: the record looks tidy.", Severity.Info);
+        }
+    }
+
+    private Task OnAnsweredAsync(CheckInAnswerResultDto answered)
+    {
+        if (_view?.Current is { } round)
+        {
+            var questions = round.Questions.Select(q => q.Id == answered.Question.Id ? answered.Question : q).ToList();
+            var rules = answered.Rule is { } rule ? [.. _view.Rules, rule] : _view.Rules;
+            _view = _view with { Current = round with { Questions = questions }, Rules = rules };
+        }
+
+        if (answered.Question.Outcome is { Length: > 0 } outcome)
+        {
+            Snackbar.Add($"“{answered.Question.SubjectLabel}”: {outcome}.", Severity.Success);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task AddRuleAsync()
+    {
+        if (Worlds.Current is null || _view is null || string.IsNullOrWhiteSpace(_newRule))
+        {
+            return;
+        }
+
+        _addingRule = true;
+        var result = await Api.AddCheckInRuleAsync(Worlds.Current.Id, _newRule.Trim());
+        _addingRule = false;
+
+        if (!result.IsSuccess || result.Value is null)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not add that instruction.", Severity.Error);
+            return;
+        }
+
+        _view = _view with { Rules = [.. _view.Rules, result.Value] };
+        _newRule = null;
+    }
+
+    private async Task RemoveRuleAsync(EditorialRuleDto rule)
+    {
+        if (Worlds.Current is null || _view is null)
+        {
+            return;
+        }
+
+        _busyRules.Add(rule.Id);
+        var result = await Api.RemoveCheckInRuleAsync(Worlds.Current.Id, rule.Id);
+        _busyRules.Remove(rule.Id);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error?.Message ?? "Could not remove that instruction.", Severity.Error);
+            return;
+        }
+
+        _view = _view with { Rules = _view.Rules.Where(r => r.Id != rule.Id).ToList() };
+    }
+
+    private static string StatusLine(CheckInDto view) => view.LastCheckInAt is not { } last
+        ? $"No check-in yet. Once there has been one, Nornis offers the next every {view.CadenceSessions} sessions."
+        : $"Last check-in {DateDisplay.Day(last)} · {CheckInDisplay.Count(view.SessionsSinceLast, "session")} since · "
+          + (view.Due ? "due now" : $"the next is due after {view.CadenceSessions}");
+
+    private static string RuleSub(EditorialRuleDto rule) => rule.Origin == "CheckIn"
+        ? $"From a check-in{(rule.QuestionText is { Length: > 0 } text ? $": “{text}”" : "")} · {DateDisplay.Day(rule.CreatedAt)}"
+        : $"Added by hand · {DateDisplay.Day(rule.CreatedAt)}";
+
+    public void Dispose() => Worlds.Changed -= OnWorldChanged;
+}

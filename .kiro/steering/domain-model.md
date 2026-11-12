@@ -1,5 +1,21 @@
 # Domain Model
 
+> **Amendment (2026-11-12): the check-in and the editorial brief.** Feature 44 (Nornis 3.42)
+> adds three world-scoped entities. `CheckIn`: one round of questions, with `CreatedAt`, the
+> model that chose them, the latest dated session at the time (`LatestSessionSourceId`,
+> `LatestSessionAt`, the anchor the cadence counts from) and `ClosedAt`, stamped when a later
+> check-in replaces it. `CheckInQuestion`: one thing Nornis had reason to doubt, in rank order:
+> `Kind` (`CheckInQuestionKind`: Storyline, Entry, Pattern), `Asked` (on Home, or kept for the
+> longer list), the subject (`SubjectArtifactId`, `SubjectLabel`; a Pattern's subject is a
+> predicate and has no id), the question and its why, the evidence as JSON written once, the
+> chooser's suggestions, and the answer (`CheckInAnswer`: Pursuing, Background, Done, Keep,
+> Archive, Stop, Skip) with what it did: `ActionBatchId`, `RecordedOnArtifactId`, `RuleId`.
+> `EditorialRule`: one standing instruction of at most 300 characters, `Origin`
+> (`EditorialRuleOrigin`: CheckIn, Manual) and the question it came from. `World` gains
+> `CheckInQuestionCount` (1 to 10, default 5). `ReviewBatchKinds.CheckIn` marks the batches a
+> check-in answer writes. The vocabulary on screen: a *check-in* asks *questions*; an answer
+> becomes a *standing instruction*; the page lists *more to consider*.
+
 > **Amendment (2026-11-06): a Design answer records what it did to the draft.** Feature 41
 > (Nornis 3.12) applies a Design-mode answer's edits to the `AdventureDraft` as it is saved, as
 > one draft revision. `ConversationMessage` gains `DraftEditOutcomes`: one `DraftEditOutcome`

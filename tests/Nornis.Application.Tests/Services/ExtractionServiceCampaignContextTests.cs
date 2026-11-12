@@ -108,7 +108,8 @@ public partial class ExtractionServiceCampaignContextTests
             optionsWrapper,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         _aiClient.SetupSuccess(new AiExtractionResponse
         {

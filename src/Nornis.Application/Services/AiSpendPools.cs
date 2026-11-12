@@ -39,6 +39,7 @@ public static class AiSpendPools
         AiOperationType.WorldDigest => AiSpendPool.DailyWorld,
         AiOperationType.CampaignRecap => AiSpendPool.DailyWorld,
         AiOperationType.ConvergenceNarration => AiSpendPool.DailyWorld,
+        AiOperationType.CheckIn => AiSpendPool.DailyWorld,
         AiOperationType.AdventureDrafting => AiSpendPool.PrepMonthly,
         AiOperationType.AdventureConversation => AiSpendPool.PrepMonthly,
         AiOperationType.CoverArtBrief => AiSpendPool.PrepMonthly,

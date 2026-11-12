@@ -192,7 +192,8 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 sourceRepo.Seed(source);
                 fakeAiClient.SetupSuccess(aiResponse);
@@ -485,7 +486,8 @@ public class ProposalVisibilityMatchesSourceVisibilityPropertyTests
             options,
             logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
         sourceRepo.Seed(source);
         fakeAiClient.SetupSuccess(aiResponse);

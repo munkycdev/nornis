@@ -1,5 +1,19 @@
 # AI Extraction and Loremaster Behavior
 
+> **Amendment (2026-11-12): the GM's standing instructions ride on every extraction.** Feature 44
+> (Nornis 3.42) gives a world an editorial brief: up to 40 `EditorialRule` rows of 300 characters,
+> written by the GM on the Check-in page or by answering a check-in question. `ExtractionService`
+> reads them fresh on every attempt and `ExtractionPromptBuilder` renders them, through the one
+> `EditorialBriefPrompt.Render`, as a "## Standing Instructions" section between the prompt's
+> purpose and "## What to Extract", stating that they take precedence over the general guidance:
+> a detail an instruction says is not tracked is Incidental however clearly the source states
+> it. A world with no instructions sees the prompt it always saw. The check-in's own chooser
+> call (`AiOperationType.CheckIn`, Ask model, daily budget) reads the same brief so it does not
+> ask what the GM has settled. A check-in answer that changes the record does so as an accepted
+> `UpdateArtifact` (status) on a `CheckIn` review batch, or through `IArtifactMergeService`, so
+> it has the provenance and the undo of any reviewed change; nothing in the check-in writes to
+> canon outside those two paths. The Loremaster and the retrospective do not read the brief.
+
 ## Core Rule
 
 AI may propose changes. AI must not silently mutate accepted world knowledge.

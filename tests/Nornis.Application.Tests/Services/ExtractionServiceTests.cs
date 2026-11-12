@@ -27,6 +27,7 @@ public class ExtractionServiceTests
     private ExtractionOptions _options = null!;
     private ExtractionService _sut = null!;
     private FakeAiBudgetGuard _budgetGuard = null!;
+    private InMemoryEditorialRuleRepository _editorialRuleRepository = null!;
 
     private static readonly Guid WorldId = Guid.NewGuid();
 
@@ -43,6 +44,7 @@ public class ExtractionServiceTests
         _aiClient = new FakeAiExtractionClient();
         _budgetGuard = new FakeAiBudgetGuard();
         _unitOfWork = new FakeUnitOfWork();
+        _editorialRuleRepository = new InMemoryEditorialRuleRepository();
 
         _options = new ExtractionOptions
         {
@@ -115,7 +117,8 @@ public class ExtractionServiceTests
             options,
             NullLogger<ExtractionService>.Instance,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: _editorialRuleRepository);
     }
 
     private Source CreateQueuedSource(string body = "Captain Voss was seen in Black Harbor.")
@@ -158,6 +161,45 @@ public class ExtractionServiceTests
             }
         };
     }
+
+    #region Standing instructions (feature 44)
+
+    [Test]
+    public async Task ProcessExtractionAsync_StandingInstructions_ReachTheSystemPrompt()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _editorialRuleRepository.Seed(new EditorialRule
+        {
+            Id = Guid.NewGuid(),
+            WorldId = WorldId,
+            Text = "Shop inventories are background; do not track them.",
+            Origin = EditorialRuleOrigin.Manual,
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByUserId = Guid.NewGuid()
+        });
+        _aiClient.SetupSuccess(CreateValidResponse());
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        var prompt = _aiClient.Requests.Single().SystemPrompt;
+        Assert.That(prompt, Does.Contain(EditorialBriefPrompt.Heading));
+        Assert.That(prompt, Does.Contain("1. Shop inventories are background; do not track them."));
+    }
+
+    [Test]
+    public async Task ProcessExtractionAsync_WithoutInstructions_PromptHasNoSection()
+    {
+        var source = CreateQueuedSource();
+        _sourceRepository.Seed(source);
+        _aiClient.SetupSuccess(CreateValidResponse());
+
+        await _sut.ProcessExtractionAsync(source.Id, WorldId, CancellationToken.None);
+
+        Assert.That(_aiClient.Requests.Single().SystemPrompt, Does.Not.Contain(EditorialBriefPrompt.Heading));
+    }
+
+    #endregion
 
     #region Daily AI budget gate
 

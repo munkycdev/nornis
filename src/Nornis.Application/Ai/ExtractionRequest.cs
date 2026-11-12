@@ -20,4 +20,8 @@ public class ExtractionRequest
     /// <summary>The party's last known location(s), inferred from the nearest prior timeline
     /// source with accepted Location links. Null when no prior source in scope establishes one.</summary>
     public RecentLocationContext? RecentLocations { get; init; }
+
+    /// <summary>The world's standing instructions (feature 44), oldest first. Empty for a world
+    /// that has none, and then the prompt is exactly what it was before the brief existed.</summary>
+    public IReadOnlyList<string> EditorialRules { get; init; } = [];
 }

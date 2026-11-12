@@ -260,6 +260,8 @@ builder.Services.AddSingleton<IAiPauseGate>(sp => new AiPauseGate(
 builder.Services.AddScoped<IHealthAssessmentRepository, HealthAssessmentRepository>();
 builder.Services.AddScoped<IWorldDigestRepository, WorldDigestRepository>();
 builder.Services.AddScoped<IContinuityDismissalRepository, ContinuityDismissalRepository>();
+builder.Services.AddScoped<ICheckInRepository, CheckInRepository>();
+builder.Services.AddScoped<IEditorialRuleRepository, EditorialRuleRepository>();
 builder.Services.AddScoped<ILibraryDocumentRepository, LibraryDocumentRepository>();
 builder.Services.AddScoped<ILibraryChunkRepository, LibraryChunkRepository>();
 builder.Services.AddScoped<IMapPlacemarkRepository, MapPlacemarkRepository>();
@@ -388,6 +390,10 @@ builder.Services.Configure<ContinuityAuditOptions>(builder.Configuration.GetSect
 builder.Services.Configure<ContinuityOptions>(builder.Configuration.GetSection(ContinuityOptions.SectionName));
 builder.Services.AddHostedService<ContinuityAuditBackgroundService>();
 
+// Check-in (feature 44): a few questions every few sessions, answers become standing instructions.
+builder.Services.Configure<CheckInOptions>(builder.Configuration.GetSection(CheckInOptions.SectionName));
+builder.Services.AddScoped<ICheckInService, CheckInService>();
+
 // Abandoned uploads: rows whose blob never arrived, swept on a slower tick.
 builder.Services.Configure<UploadSweepOptions>(builder.Configuration.GetSection(UploadSweepOptions.SectionName));
 builder.Services.AddScoped<IPendingUploadSweeper, PendingUploadSweeper>();
@@ -417,6 +423,7 @@ if (!string.IsNullOrEmpty(loremasterEndpoint) && !loremasterEndpoint.Contains("<
     builder.Services.AddScoped<IAuditAiClient, AuditAiClient>();
     builder.Services.AddScoped<IContinuityFixAiClient, ContinuityFixAiClient>();
     builder.Services.AddScoped<IRetrospectiveAiClient, RetrospectiveAiClient>();
+    builder.Services.AddScoped<ICheckInAiClient, CheckInAiClient>();
     builder.Services.AddScoped<IDigestAiClient, DigestAiClient>();
     builder.Services.AddScoped<IConvergenceNarrationClient, ConvergenceNarrationAiClient>();
     builder.Services.AddScoped<IWorldNameGenerator, AiWorldNameGenerator>();
@@ -461,6 +468,9 @@ else
     builder.Services.AddScoped<IRetrospectiveAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable storyline retrospectives."));
+    builder.Services.AddScoped<ICheckInAiClient>(sp =>
+        throw new InvalidOperationException(
+            "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable check-ins."));
     builder.Services.AddScoped<IDigestAiClient>(sp =>
         throw new InvalidOperationException(
             "Azure OpenAI is not configured. Set 'Loremaster:AiEndpoint' and 'Loremaster:AiKey' in configuration to enable the world digest."));

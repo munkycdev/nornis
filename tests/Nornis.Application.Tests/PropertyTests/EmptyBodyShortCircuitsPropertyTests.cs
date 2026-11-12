@@ -120,7 +120,8 @@ public class EmptyBodyShortCircuitsPropertyTests
                     options,
                     logger,
             passageRetriever: NoOpReferencePassageRetriever.Instance,
-            replayAdvancer: NoOpExtractionReplayAdvancer.Instance);
+            replayAdvancer: NoOpExtractionReplayAdvancer.Instance,
+            editorialRuleRepository: new InMemoryEditorialRuleRepository());
 
                 // Seed source — DO NOT configure FakeAiExtractionClient
                 // (it throws if called, proving AI was never invoked)

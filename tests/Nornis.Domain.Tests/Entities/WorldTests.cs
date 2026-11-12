@@ -128,7 +128,9 @@ public class WorldTests
         // KeyArtImagesGenerated (feature 42): the world's picture, the GM's working brief, the
         // latest generation's options, and the month's image count the cap reads. Written only
         // through IWorldKeyArtRepository, never by a whole-world save.
-        Assert.That(properties, Has.Length.EqualTo(28));
+        // 29th: CheckInQuestionCount (feature 44): how many questions a check-in puts on Home,
+        // 1 to 10, default 5. The cadence is a server option, not a world's.
+        Assert.That(properties, Has.Length.EqualTo(29));
     }
 
     [Test]

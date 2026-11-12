@@ -18,6 +18,11 @@ public interface ISourceReferenceRepository
     /// sibling of <see cref="ListBySourceAsync"/> for read models that walk many sources.</summary>
     Task<IReadOnlyList<SourceReference>> ListBySourceIdsAsync(IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Every reference produced by any source of the world, in one query — the whole
+    /// provenance trail, for a read that asks "how many sources stand behind each entry" across
+    /// the world (the check-in's one-source test, feature 44). Bounded by the world.</summary>
+    Task<IReadOnlyList<SourceReference>> ListByWorldAsync(Guid worldId, CancellationToken cancellationToken = default);
+
     /// <summary>How many references each of the given sources has produced, keyed by source.
     /// Sources with none are absent from the result.
     ///

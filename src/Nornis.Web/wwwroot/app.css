@@ -1510,6 +1510,103 @@ span.nornis-list-meta {
     text-align: center;
 }
 
+/* Check-in (feature 44): a question, its evidence and the one-click answers. */
+.nornis-checkin-q {
+    padding: 12px 0;
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.nornis-checkin-q:first-of-type {
+    border-top: 0;
+    padding-top: 4px;
+}
+
+.nornis-checkin-q-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    min-width: 0;
+}
+
+.nornis-checkin-kind {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mud-palette-text-secondary);
+    border: 1px solid var(--mud-palette-divider);
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+
+.nornis-checkin-subject {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nornis-checkin-text {
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.nornis-checkin-why,
+.nornis-checkin-evidence {
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-checkin-details {
+    margin: 6px 0 0 18px;
+    padding: 0;
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-checkin-field {
+    margin-top: 8px;
+    max-width: 520px;
+}
+
+.nornis-checkin-answers {
+    margin-top: 8px;
+}
+
+/* Same qualifier as the wrap-up actions: app.css loads after MudBlazor, equal weight wins. */
+.nornis-checkin-answers.mud-button-group-root .mud-button-root {
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.nornis-checkin-outcome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-success);
+}
+
+.nornis-checkin-q-answered .nornis-checkin-text {
+    color: var(--mud-palette-text-secondary);
+}
+
+.nornis-checkin-toggle {
+    margin-top: 10px;
+}
+
+.nornis-checkin-rule .nornis-list-title {
+    white-space: normal;
+}
+
+.nornis-checkin-add {
+    max-width: 640px;
+}
+
 /* Session wrap-up card sections. */
 .nornis-wrapup-section {
     margin-top: 12px;

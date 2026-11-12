@@ -22,6 +22,7 @@ public class ExtractionService : IExtractionService
     private readonly IReviewBatchRepository _reviewBatchRepository;
     private readonly IReviewProposalRepository _reviewProposalRepository;
     private readonly ISourceReferenceRepository _sourceReferenceRepository;
+    private readonly IEditorialRuleRepository _editorialRuleRepository;
     private readonly IAiUsageRecorder _usageRecorder;
     private readonly IArtifactRepository _artifactRepository;
     private readonly IArtifactFactRepository _artifactFactRepository;
@@ -77,9 +78,11 @@ public class ExtractionService : IExtractionService
         // Callers with genuinely no library or no replay pass NoOpReferencePassageRetriever /
         // NoOpExtractionReplayAdvancer and say it out loud.
         IReferencePassageRetriever passageRetriever,
-        IExtractionReplayAdvancer replayAdvancer)
+        IExtractionReplayAdvancer replayAdvancer,
+        IEditorialRuleRepository editorialRuleRepository)
     {
         _passageRetriever = passageRetriever;
+        _editorialRuleRepository = editorialRuleRepository;
         _replayAdvancer = replayAdvancer;
         _mapExtractionPipeline = mapExtractionPipeline;
         _sourceTextDerivation = sourceTextDerivation;
@@ -533,7 +536,14 @@ public class ExtractionService : IExtractionService
         // right place even when this note never names it.
         var recentLocations = await AssembleRecentLocationContextAsync(source, worldId, ct);
 
-        var extractionRequest = BuildExtractionRequest(source, campaign, context, referencePassages, recentLocations);
+        // The GM's standing instructions (feature 44), read fresh for every attempt so a rule
+        // added after a source was queued still governs its extraction.
+        var editorialRules = (await _editorialRuleRepository.ListByWorldAsync(worldId, ct))
+            .Select(r => r.Text)
+            .ToList();
+
+        var extractionRequest = BuildExtractionRequest(
+            source, campaign, context, referencePassages, recentLocations, editorialRules);
 
         // Application owns the prompt text; the client receives finished strings and keeps
         // only transport, timeout, and parse — the same seam the five prompt-in/JSON-out
@@ -1103,7 +1113,8 @@ public class ExtractionService : IExtractionService
 
     private static ExtractionRequest BuildExtractionRequest(
         Source source, Campaign? campaign, IReadOnlyList<ArtifactContext> context,
-        IReadOnlyList<KnowledgePassage> referencePassages, RecentLocationContext? recentLocations)
+        IReadOnlyList<KnowledgePassage> referencePassages, RecentLocationContext? recentLocations,
+        IReadOnlyList<string> editorialRules)
     {
         return new ExtractionRequest
         {
@@ -1116,7 +1127,8 @@ public class ExtractionService : IExtractionService
             CampaignStatus = campaign?.Status.ToString(),
             ExistingArtifacts = context,
             ReferencePassages = referencePassages,
-            RecentLocations = recentLocations
+            RecentLocations = recentLocations,
+            EditorialRules = editorialRules
         };
     }
 

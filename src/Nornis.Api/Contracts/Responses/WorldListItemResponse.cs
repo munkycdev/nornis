@@ -18,4 +18,6 @@ public record WorldListItemResponse(
     /// so the capture form can default to it without a second round trip.</summary>
     Guid? CurrentCampaignId = null,
     /// <summary>Prep's monthly AI cap for this world; null inherits the configured default.</summary>
-    decimal? PrepMonthlyBudgetUsd = null);
+    decimal? PrepMonthlyBudgetUsd = null,
+    /// <summary>How many questions a check-in asks on Home (feature 44).</summary>
+    int CheckInQuestionCount = 5);

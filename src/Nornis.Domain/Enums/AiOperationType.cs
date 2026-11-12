@@ -53,5 +53,9 @@ public enum AiOperationType
     CoverArtRefinement,
 
     /// <summary>Refining one key-art option (feature 45), as <see cref="CoverArtRefinement"/>.</summary>
-    KeyArtRefinement
+    KeyArtRefinement,
+
+    /// <summary>Choosing and phrasing a check-in's questions from the evidence (feature 44). One
+    /// call per check-in, on the Ask model, against the daily world budget.</summary>
+    CheckIn
 }
