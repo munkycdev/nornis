@@ -3,6 +3,7 @@
 @inject NornisApiClient Api
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 @* The world's members with the GM's controls. Lifted whole from WorldSettingsPanel on
    2026-09-09 so the Members page could exist without a second copy. Every member may read
@@ -29,15 +30,33 @@ else
                 </div>
                 @if (_isGm)
                 {
+                    var isMe = m.UserId == _myUserId;
+                    @* The only GM cannot step down or leave: the API refuses both, so the page
+                       does not offer them (3.32). With a second GM, your own row offers Leave. *@
+                    var onlyGm = isMe && IsOnlyGm(m);
                     <MudSelect T="string" Value="m.Role" ValueChanged="(string r) => ChangeRoleAsync(m, r)"
-                               Dense="true" Variant="Variant.Outlined" Class="nornis-role-select" Disabled="@_busyMembers.Contains(m.UserId)">
+                               Dense="true" Variant="Variant.Outlined" Class="nornis-role-select"
+                               Disabled="@(onlyGm || _busyMembers.Contains(m.UserId))"
+                               HelperText="@(onlyGm ? "A world keeps at least one GM." : null)">
                         @foreach (var role in _roles)
                         {
                             <MudSelectItem Value="@role">@MemberDisplay.RoleLabel(role)</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Color="Color.Error" Size="Size.Small"
-                                   OnClick="() => RemoveAsync(m)" Disabled="@_busyMembers.Contains(m.UserId)" aria-label="Remove member" />
+                    @if (!isMe)
+                    {
+                        <MudTooltip Text="@($"Remove {MemberDisplay.Name(m)} from this world")">
+                            <MudIconButton Icon="@Icons.Material.Filled.PersonRemove" Color="Color.Error" Size="Size.Small"
+                                           OnClick="() => RemoveAsync(m)" Disabled="@_busyMembers.Contains(m.UserId)" aria-label="Remove member" />
+                        </MudTooltip>
+                    }
+                    else if (!onlyGm)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                   OnClick="() => LeaveAsync(m)" Disabled="@_busyMembers.Contains(m.UserId)">
+                            Leave world
+                        </MudButton>
+                    }
                 }
                 else
                 {
@@ -86,6 +105,13 @@ else
     private string? _membersError;
     private IReadOnlyList<WorldMember> _members = [];
     private readonly HashSet<Guid> _busyMembers = [];
+
+    // Which row is the reader's own. Null until known (or if the lookup fails), and then every
+    // row is treated as someone else's: the API still refuses what must not happen.
+    private Guid? _myUserId;
+
+    private bool IsOnlyGm(WorldMember member) =>
+        member.Role == WorldRoles.Gm && _members.Count(x => x.Role == WorldRoles.Gm) == 1;
 
     private UserSummaryDto? _newUser;
     private string? _searchError;
@@ -151,7 +177,9 @@ else
         _membersError = null;
         StateHasChanged();
 
+        var mineTask = Api.GetMyMembershipAsync(Worlds.Current.Id);
         var result = await Api.GetMembersAsync(Worlds.Current.Id);
+        _myUserId = (await mineTask) is { IsSuccess: true, Value: { } mine } ? mine.UserId : null;
 
         _loadingMembers = false;
         if (result.IsSuccess)
@@ -173,6 +201,28 @@ else
             return;
         }
 
+        // A role applied the moment it was picked, with nothing to say what it would change;
+        // a slip of the wheel over the select demoted someone. It asks first now (3.32).
+        var isMe = member.UserId == _myUserId;
+        var consequence = (member.Role, newRole) switch
+        {
+            (_, WorldRoles.Gm) => "They will see everything in this world, GM-only material included, and can change its settings.",
+            (WorldRoles.Gm, _) when isMe => "You will lose the GM's pages and everything marked GM only, and only another GM can give them back.",
+            (WorldRoles.Gm, _) => "They will lose the GM's pages and everything marked GM only.",
+            (_, WorldRoles.Observer) => "They will be able to read what the party sees, and not add to it.",
+            _ => "They will be able to add sources and review what theirs propose.",
+        };
+        var whose = isMe ? "your own role" : $"{MemberDisplay.Name(member)}'s role";
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Change {whose} to {MemberDisplay.RoleLabel(newRole)}?",
+            consequence,
+            yesText: "Change role", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            StateHasChanged(); // the select snaps back to the role that still stands
+            return;
+        }
+
         _busyMembers.Add(member.UserId);
         var result = await Api.UpdateMemberRoleAsync(Worlds.Current!.Id, member.UserId, newRole);
         _busyMembers.Remove(member.UserId);
@@ -187,6 +237,35 @@ else
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
         StateHasChanged();
+    }
+
+    /// <summary>A GM leaving a world that keeps another GM. The list they were reading is no longer theirs.</summary>
+    private async Task LeaveAsync(WorldMember me)
+    {
+        var world = Worlds.Current!;
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Leave {world.Name}?",
+            "You will lose access to this world until someone invites you back. The world and everything in it stays.",
+            yesText: "Leave world", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busyMembers.Add(me.UserId);
+        var result = await Api.RemoveMemberAsync(world.Id, me.UserId);
+        _busyMembers.Remove(me.UserId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        Snackbar.Add($"You left {world.Name}.", Severity.Info);
+        await Worlds.ReloadAsync();
+        Nav.NavigateTo("/dashboard");
     }
 
     private async Task RemoveAsync(WorldMember member)

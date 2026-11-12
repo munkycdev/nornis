@@ -10,7 +10,7 @@ using Nornis.Web.ApiClient;
 using Nornis.Web.State;
 using NUnit.Framework;
 using AdminPage = Nornis.Web.Components.Pages.Admin;
-using MembersPage = Nornis.Web.Components.Pages.Members;
+using PartyPage = Nornis.Web.Components.Pages.Party;
 
 namespace Nornis.Web.Tests.Components;
 
@@ -152,13 +152,14 @@ public class SettingsPageTests : BunitContext
 
     [TestCase("GM", true)]
     [TestCase("Player", false)]
-    public async Task InviteLinks_AreOnTheMembersPage_ForTheGmOnly(string role, bool sees)
+    public async Task InviteLinks_AreOnThePartyPage_ForTheGmOnly(string role, bool sees)
     {
         _handler.Role = role;
         await Services.GetRequiredService<WorldState>().EnsureSelectionRestoredAsync();
         Render<MudPopoverProvider>();
 
-        var cut = Render<MembersPage>();
+        // Invites sit with the accounts they create, which moved onto Party in 3.32.
+        var cut = Render<PartyPage>();
 
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-invites").Count > 0, Is.EqualTo(sees)));
         if (!sees)
@@ -195,6 +196,8 @@ public class SettingsPageTests : BunitContext
                 "/api/worlds" => Json($"[{World}]"),
                 _ when path.EndsWith("/invites", StringComparison.Ordinal) => Json("[]"),
                 _ when path.EndsWith("/members", StringComparison.Ordinal) => Json("[]"),
+                _ when path.EndsWith("/players", StringComparison.Ordinal) => Json("[]"),
+                _ when path.EndsWith("/shelf-links", StringComparison.Ordinal) => Json("[]"),
                 _ when path.EndsWith("/characters", StringComparison.Ordinal) => Json("[]"),
                 _ when path.EndsWith("/campaigns", StringComparison.Ordinal) => Json("[]"),
                 _ => new HttpResponseMessage(HttpStatusCode.NotFound),

@@ -16,7 +16,7 @@
 {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
         <MudText Typo="Typo.body2" Color="Color.Secondary">
-            No dated storyline activity yet — sessions need an "occurred at" date to place
+            No dated storyline activity yet — sessions need a session date to place
             their developments on the calendar.
         </MudText>
     </MudPaper>
@@ -447,13 +447,13 @@ else
     }
 
     private static string SessionTitle(TimelineSessionDto s) =>
-        $"{s.Title} — {s.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}"
+        $"{s.Title} — {DateDisplay.Day(s.OccurredAt)}"
         + (s.StorylineCount >= 2 ? $"\nAdvances {s.StorylineCount} storylines" : "");
 
     private string PointTitle(TimelineLaneDto lane, TimelinePointDto point)
     {
         var session = Data.Sessions.FirstOrDefault(s => s.SourceId == point.SourceId);
-        var header = $"{session?.Title ?? "Session"} — {point.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+        var header = $"{session?.Title ?? "Session"} — {DateDisplay.Day(point.OccurredAt)}";
         var lines = point.Developments.Take(6)
             .Select(d => $"• {(d.IsOpenQuestion ? "Open question — " : "")}{Nornis.Web.Services.DisplayText.Truncate(d.Text, 110)}");
         var more = point.Developments.Count > 6 ? $"\n…and {point.Developments.Count - 6} more" : "";

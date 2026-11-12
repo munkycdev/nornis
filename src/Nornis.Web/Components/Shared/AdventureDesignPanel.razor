@@ -58,7 +58,7 @@
             <InputFile OnChange="ImportAsync" multiple accept=".md,.markdown,.txt" class="nornis-prep-design-import-input" disabled="@IsDisabled" />
             <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.FileUpload" Disabled="IsDisabled"
                        HtmlTag="span">
-                Import Markdown
+                Add Markdown to the draft
             </MudButton>
         </label>
         <MudTooltip Text="Join the written sections into the draft, replacing it. Undo brings the old draft back.">
@@ -72,8 +72,9 @@
             Split into sections
         </MudButton>
     </div>
-    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
-        Split cuts the draft at its headings, or where the Loremaster suggests, without changing a word.
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1 nornis-prep-design-prints">
+        Printing uses Structure, not this draft. Split when ready: it cuts the draft at its headings,
+        or where the Loremaster suggests, without changing a word.
     </MudText>
 </div>
 

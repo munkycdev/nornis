@@ -55,7 +55,7 @@
                 }
                 <div class="nornis-detail-chips">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@SourceTypeDisplay.Label(_source.Type)</MudChip>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(_source.ProcessingStatus)">@_source.ProcessingStatus</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(_source.ProcessingStatus)">@SourceStatusDisplay.Label(_source.ProcessingStatus)</MudChip>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@VisibilityDisplay.Label(_source.Visibility)</MudChip>
                     @if (!_source.ExtractionEnabled)
                     {
@@ -87,7 +87,7 @@
                         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                    StartIcon="@(_source.ExtractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
                                    OnClick="ProcessAsync" Disabled="_processing">
-                            @(_source.ExtractionEnabled ? "Process" : "Store")
+                            @(_source.ExtractionEnabled ? "Read now" : "Add to the record")
                         </MudButton>
                     }
                     @if (Worlds.IsGm && _source.Visibility == "GMOnly")
@@ -100,14 +100,14 @@
                     }
                     @if (CanReRun)
                     {
-                        <MudMenu Label="Re-run" Variant="Variant.Outlined" Color="Color.Secondary"
+                        <MudMenu Label="Read again" Variant="Variant.Outlined" Color="Color.Secondary"
                                  StartIcon="@Icons.Material.Filled.Replay" EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
                                  Disabled="_rerunning">
                             <MudMenuItem Icon="@Icons.Material.Outlined.Description" OnClick="ReRunExtractionAsync">
-                                Re-run extraction on this note
+                                Read this note again
                             </MudMenuItem>
                             <MudMenuItem Icon="@Icons.Material.Outlined.Timeline" OnClick="ReplayFromHereAsync">
-                                Re-run from here, in story order…
+                                Read again from here, in story order…
                             </MudMenuItem>
                         </MudMenu>
                     }
@@ -120,8 +120,10 @@
                     }
                     @if (CanDelete)
                     {
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
-                                       OnClick="DeleteAsync" Disabled="_deleting" aria-label="Delete source" />
+                        <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Delete"
+                                   OnClick="DeleteAsync" Disabled="_deleting">
+                            Delete
+                        </MudButton>
                     }
                 </div>
             }
@@ -199,7 +201,7 @@
             @if (IsProcessed && _source.ExtractionEnabled)
             {
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3 d-block nornis-source-edit-note">
-                    Already processed: changing the text removes what was learned only from it and processes it again. You'll see what goes before anything happens.
+                    Already read: changing the text removes what was learned only from it and reads it again. You'll see what goes before anything happens.
                 </MudText>
             }
 
@@ -216,13 +218,13 @@
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
                 <div class="nornis-kv">
                     <span class="nornis-kv-key">Created</span>
-                    <span class="nornis-kv-value">@_source.CreatedAt.LocalDateTime.ToString("d MMM yyyy, h:mm tt")</span>
+                    <span class="nornis-kv-value">@DateDisplay.DayAndTime(_source.CreatedAt)</span>
                 </div>
                 @if (_source.OccurredAt is not null)
                 {
                     <div class="nornis-kv">
-                        <span class="nornis-kv-key">Occurred</span>
-                        <span class="nornis-kv-value">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</span>
+                        <span class="nornis-kv-key">@SourceTypeDisplay.DateLabel(_source.Type)</span>
+                        <span class="nornis-kv-value">@DateDisplay.Day(_source.OccurredAt.Value)</span>
                     </div>
                 }
                 @if (_source.CampaignName is not null)
@@ -283,7 +285,7 @@
                     <div class="nornis-detail-section-title">Locations</div>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
                         The places this session took place. Linking one also marks it visited on the
-                        Journey and Locations maps.
+                        Journey view and the Map.
                     </MudText>
 
                     @if (_locations.Count == 0)
@@ -370,9 +372,9 @@
                         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
                             @(_source.ProcessingStatus == "Processed"
                                 ? CanEditMapPins
-                                    ? "No places have been pinned yet — accept map proposals in the review queue, or add a pin below for a location you already know."
-                                    : "No places have been pinned yet — accept map proposals in the review queue to place pins."
-                                : "Pins appear once the map is processed and its place proposals are accepted.")
+                                    ? "No places have been pinned yet — accept map proposals in Review, or add a pin below for a location you already know."
+                                    : "No places have been pinned yet — accept map proposals in Review to place pins."
+                                : "Pins appear once the map has been read and its place proposals are accepted.")
                         </MudText>
                     }
                     else if (CanEditMapPins)
@@ -489,11 +491,11 @@
                                HelperText="@(IsProcessed ? "Locked after processing — derived knowledge keeps its scope." : null)">
                         @foreach (var vis in VisibilityDisplay.Scopes)
                         {
-                            <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                            <MudSelectItem Value="@vis">@VisibilityDisplay.Label(vis)</MudSelectItem>
                         }
                     </MudSelect>
 
-                    <MudDatePicker @bind-Date="_editOccurredAt" Label="When it happened (optional)"
+                    <MudDatePicker DateFormat="@DateDisplay.DayFormat" @bind-Date="_editOccurredAt" Label="@($"{SourceTypeDisplay.DateLabel(_editType)} (optional)")"
                                    Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="mb-3" />
 
                     @if (_campaigns.Count > 0)
@@ -522,7 +524,7 @@
             }
             else
             {
-                <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This source" RelatedTitle="Contributed" />
+                <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This source" RelatedTitle="Contributed" LoremasterAbout="this source" />
             }
         </Rail>
         </EntityPage>
@@ -1347,9 +1349,9 @@
         }
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Reprocess this note?",
+            "Read this note again?",
             BuildReprocessSummary(preview.Value!),
-            yesText: "Delete & Reprocess", cancelText: "Cancel");
+            yesText: "Delete and read again", cancelText: "Cancel");
         if (confirmed != true)
         {
             return ApiResult<SourceDetailDto>.Fail(new ApiError("canceled", "Canceled."));
@@ -1391,7 +1393,7 @@
         {
             var names = string.Join(", ", preview.ArtifactNamesToDelete.Take(8).Select(System.Net.WebUtility.HtmlEncode));
             var more = preview.ArtifactNamesToDelete.Count > 8 ? $" and {preview.ArtifactNamesToDelete.Count - 8} more" : "";
-            sb.Append($"<li><b>{preview.ArtifactNamesToDelete.Count}</b> artifact(s): {names}{more}</li>");
+            sb.Append($"<li><b>{preview.ArtifactNamesToDelete.Count}</b> {(preview.ArtifactNamesToDelete.Count == 1 ? "entry" : "entries")}: {names}{more}</li>");
         }
         if (preview.FactsToDelete > 0)
         {
@@ -1423,7 +1425,7 @@
             sb.Append($"<p style=\"margin: 0.5em 0;\">Kept (other sources build on them): {kept}.</p>");
         }
 
-        sb.Append("<p style=\"margin: 0.5em 0 0;\">The note is then processed again and new proposals will appear in the review queue.</p>");
+        sb.Append("<p style=\"margin: 0.5em 0 0;\">The note is then read again and new proposals will appear in Review.</p>");
         return new MarkupString(sb.ToString());
     }
 
@@ -1461,9 +1463,9 @@
         }
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Re-run extraction on this note?",
+            "Read this note again?",
             BuildReRunSummary(preview.Value!),
-            yesText: "Delete & Re-run", cancelText: "Cancel");
+            yesText: "Delete and read again", cancelText: "Cancel");
         if (confirmed != true)
         {
             return;
@@ -1503,18 +1505,18 @@
 
         var total = preview.Value!.TotalSources;
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Re-run the timeline from here?",
+            "Read again from here?",
             new MarkupString(
                 $"<p style=\"margin: 0 0 0.75em;\"><b>{total}</b> note(s) — this one and every session or imported note after it — " +
-                "will be re-extracted <b>one at a time, in timeline order</b>.</p>" +
+                "will be read again <b>one at a time, in story order</b>.</p>" +
                 "<ul style=\"margin: 0.75em 0; padding-left: 1.4em;\">" +
-                "<li>Each note's previously derived knowledge is deleted and re-proposed, exactly as when editing a note.</li>" +
-                "<li>The replay <b>pauses for your review</b> between notes, so each note is read with its predecessors' " +
+                "<li>What each note added to the record is deleted and proposed again, exactly as when editing a note.</li>" +
+                "<li>It <b>pauses for your review</b> between notes, so each note is read with its predecessors' " +
                 "accepted locations and storylines in context.</li>" +
-                "<li>Each note is an AI extraction call — expect roughly the same cost as when it was first processed.</li>" +
+                "<li>Each note is one AI call. Expect roughly the same cost as when it was first read.</li>" +
                 "</ul>" +
-                "<p style=\"margin: 0.5em 0 0;\">You can stop the replay at any time; accepted knowledge stays.</p>"),
-            yesText: $"Re-run {total} note(s)", cancelText: "Cancel");
+                "<p style=\"margin: 0.5em 0 0;\">You can stop at any time; what you have accepted stays.</p>"),
+            yesText: total == 1 ? "Read 1 note again" : $"Read {total} notes again", cancelText: "Cancel");
         if (confirmed != true)
         {
             return;
@@ -1527,7 +1529,7 @@
         if (result.IsSuccess)
         {
             _replay = result.Value!;
-            Snackbar.Add("Timeline replay started — new proposals will appear in the review queue.", Severity.Success);
+            Snackbar.Add("Timeline replay started — new proposals will appear in Review.", Severity.Success);
             var reload = await Api.GetSourceAsync(Worlds.Current.Id, SourceId);
             if (reload.IsSuccess)
             {
@@ -1570,7 +1572,7 @@
     private static MarkupString BuildReRunSummary(ReprocessPreviewDto preview)
     {
         var body = BuildReprocessSummary(preview).Value
-            .Replace("Saving this text change permanently deletes", "Re-running permanently deletes");
+            .Replace("Saving this text change permanently deletes", "Reading it again permanently deletes");
         return new MarkupString(body +
             "<p style=\"margin: 0.5em 0 0;\">This runs a fresh AI extraction — roughly the same cost as when the note was first processed. " +
             "For best results, re-run notes oldest-first so each one sees its predecessors' accepted knowledge.</p>");
@@ -1585,7 +1587,7 @@
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete source?",
-            "This permanently removes the source. Artifacts already accepted from it remain.",
+            "This permanently removes the source. Entries already accepted from it remain.",
             yesText: "Delete", cancelText: "Cancel");
         if (confirmed != true)
         {

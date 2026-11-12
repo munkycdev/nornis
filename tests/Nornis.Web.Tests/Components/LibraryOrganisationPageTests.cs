@@ -143,7 +143,7 @@ public class LibraryOrganisationPageTests : BunitContext
     {
         var cut = await RenderLibraryAsync();
 
-        cut.FindAll(".nornis-library-sort .mud-chip").Single(c => c.TextContent.Trim() == "Title").Click();
+        cut.FindAll(".nornis-library-sort .mud-chip").Single(c => c.TextContent.Trim() == "By title").Click();
 
         cut.WaitForAssertion(() => Assert.That(Titles(cut), Is.EqualTo(["Harbor map", "Player's Guide", "The Slurping Spa"])));
     }

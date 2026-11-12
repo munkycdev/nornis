@@ -46,8 +46,23 @@
                         }
                     </MudSelect>
                 </div>
-                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-keyart-remove"
-                           StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked" OnClick="RemoveAsync">Remove</MudButton>
+                @* Removing discards the picture, so it asks first, in place (3.32). *@
+                @if (_confirmingRemove)
+                {
+                    <span class="nornis-inline-confirm">
+                        Discard this key art?
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" Class="nornis-keyart-remove-confirm"
+                                   Disabled="Locked" OnClick="RemoveAsync">Remove it</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Locked"
+                                   OnClick="() => _confirmingRemove = false">Keep it</MudButton>
+                    </span>
+                }
+                else
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-keyart-remove"
+                               StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked"
+                               OnClick="() => _confirmingRemove = true">Remove</MudButton>
+                }
             </div>
         }
 
@@ -200,8 +215,13 @@
     private Task SetAnchorAsync(string anchor) => RunAsync("Moving the picture…",
         () => Api.SetKeyArtAnchorAsync(WorldId, anchor), changed: true);
 
-    private Task RemoveAsync() => RunAsync("Removing the key art…",
-        () => Api.RemoveKeyArtAsync(WorldId), changed: true);
+    private bool _confirmingRemove;
+
+    private Task RemoveAsync()
+    {
+        _confirmingRemove = false;
+        return RunAsync("Removing the key art…", () => Api.RemoveKeyArtAsync(WorldId), changed: true);
+    }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {

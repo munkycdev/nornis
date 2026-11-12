@@ -27,11 +27,11 @@
                 {
                     <a href="@Links.PublicSource(Slug, source.Slug, source.Id)" class="nornis-list-row nornis-list-link">
                         <div class="nornis-list-thumb">
-                            <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                            <MudIcon Icon="@SourceTypeDisplay.Icon(source.Type)" Size="Size.Small" />
                         </div>
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@source.Title</div>
-                            <div class="nornis-list-sub">@SourceTypeDisplay.Label(source.Type) · @((source.OccurredAt ?? source.CreatedAt).LocalDateTime.ToString("d MMM yyyy"))</div>
+                            <div class="nornis-list-sub">@SourceTypeDisplay.Label(source.Type) · @DateDisplay.Day(source.OccurredAt ?? source.CreatedAt)</div>
                         </div>
                         @if (source.CampaignName is not null)
                         {

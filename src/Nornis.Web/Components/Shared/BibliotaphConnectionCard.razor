@@ -23,7 +23,7 @@
         {
             case BibliotaphConnectionDto.Connected:
                 <MudText Typo="Typo.body2" Class="mb-2">
-                    Connected@(c.ConnectedAt is { } since ? $" since {since.LocalDateTime:d MMM yyyy}" : "")@(c.LastUsedAt is { } used ? $", last used {used.LocalDateTime:d MMM, HH:mm}" : "").
+                    Connected@(c.ConnectedAt is { } since ? $" since {DateDisplay.Day(since)}" : "")@(c.LastUsedAt is { } used ? $", last used {DateDisplay.DayAndTime(used)}" : "").
                 </MudText>
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DisconnectAsync" Disabled="_busy">Disconnect</MudButton>
                 break;

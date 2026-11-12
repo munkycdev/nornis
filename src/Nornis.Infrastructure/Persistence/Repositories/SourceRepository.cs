@@ -86,11 +86,15 @@ public class SourceRepository : ISourceRepository
 
         // Projected, not Include'd: the campaign name is pulled through the navigation without
         // materialising the campaign, and Body/DerivedText are never touched.
+        // Newest in the story first: when it happened, or when it was filed for a source with no
+        // date (3.32). Until then the list ran by filing date alone, so an imported campaign read
+        // 2, 3, 1, 5, 4 under five identical dates. InMemorySourceRepository mirrors the order.
         // Id breaks ties: the demo template stamps every source with the same CreatedAt, and SQL
         // leaves order within a tied group unspecified — so without this the sources list could
         // reshuffle between the four-second polls.
         return await query
-            .OrderByDescending(s => s.CreatedAt)
+            .OrderByDescending(s => s.OccurredAt ?? s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
             .ThenByDescending(s => s.Id)
             .Select(s => new SourceListItem(
                 s.Id,

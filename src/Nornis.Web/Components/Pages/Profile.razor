@@ -43,7 +43,8 @@
                     <strong>Every world you create runs its AI on these keys and models, for everyone in it.</strong>
                     When anyone in one of your worlds asks the Loremaster, captures a session or drafts in
                     Prep, your provider bills you. Worlds someone else created run on theirs, so you only
-                    need a key for the worlds you create.
+                    need a key for the worlds you create. What a world has spent, and its budgets, are
+                    under <a href="/settings?tab=ai" class="nornis-link">World settings, AI and costs</a>.
                 </MudAlert>
                 <AiKeysCard Changed="ReloadModelsAsync" />
                 <AiModelsCard @ref="_models" />
@@ -79,8 +80,14 @@
 
     private void ShowTab(string tab)
     {
+        if (string.Equals(Tab, tab, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         _tab = tab;
-        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab), replace: true);
+        // A step in the browser's history (3.32): Back returns to the tab before.
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab));
     }
 
     private Task SetThemeAsync(ThemePreference preference) => Theme.SetPreferenceAsync(preference);

@@ -8,7 +8,7 @@
 <PageTitle>Codex — Nornis</PageTitle>
 
 <MudText Typo="Typo.h4" Class="nornis-serif">Codex</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">The world's structured memory — every artifact in one place.</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">The world's structured memory, every entry in one place.</MudText>
 
 @if (Worlds.Current is null)
 {
@@ -16,7 +16,9 @@
 }
 else
 {
-    <div class="nornis-filter-row mb-2">
+    @* Each row says what it filters (3.32): both began with "All" and neither had a name. *@
+    <div class="nornis-filter-row mb-2" role="group" aria-label="Filter by type">
+        <span class="nornis-filter-label">Type</span>
         <MudChip T="string"
                  Variant="@(_selectedTypes.Count == 0 ? Variant.Filled : Variant.Outlined)"
                  Color="@(_selectedTypes.Count == 0 ? Color.Secondary : Color.Default)"
@@ -33,7 +35,8 @@ else
             </MudChip>
         }
     </div>
-    <div class="nornis-filter-row mb-2">
+    <div class="nornis-filter-row mb-2" role="group" aria-label="Filter by status">
+        <span class="nornis-filter-label">Status</span>
         <MudChip T="string" Size="Size.Small"
                  Variant="@(_selectedStatuses.Count == 0 ? Variant.Filled : Variant.Outlined)"
                  Color="@(_selectedStatuses.Count == 0 ? Color.Secondary : Color.Default)"
@@ -61,9 +64,9 @@ else
         </MudToggleGroup>
         <MudToggleGroup T="string" Value="_view" ValueChanged="OnViewChangedAsync" SelectionMode="SelectionMode.SingleSelection"
                         Color="Color.Secondary" Size="Size.Small">
-            <MudToggleItem Value="@("cards")"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" /></MudToggleItem>
-            <MudToggleItem Value="@("tree")"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" /></MudToggleItem>
-            <MudToggleItem Value="@("graph")"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /></MudToggleItem>
+            <MudToggleItem Value="@("cards")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small" />Cards</span></MudToggleItem>
+            <MudToggleItem Value="@("tree")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />Tree</span></MudToggleItem>
+            <MudToggleItem Value="@("graph")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" />Graph</span></MudToggleItem>
         </MudToggleGroup>
     </div>
 
@@ -79,9 +82,9 @@ else
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">No artifacts match the current filters</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">No entries match the current filters</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-                Accept proposals from your sources and Nornis will build them into artifacts here.
+                Accept proposals from your sources and Nornis will build them into entries here.
             </MudText>
         </MudPaper>
     }

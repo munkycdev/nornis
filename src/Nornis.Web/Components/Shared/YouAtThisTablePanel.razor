@@ -43,8 +43,8 @@ else
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
         <div class="nornis-detail-section-title">Your characters</div>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-            The characters you play in @Worlds.Current.Name. You can link each one to its
-            AI-extracted Character record; campaign assignments are managed by the GM.
+            The characters you play in @Worlds.Current.Name. Link each one to its Codex entry and
+            its sheet shows there too; campaign assignments are managed by the GM.
         </MudText>
 
         @if (_loading)
@@ -98,7 +98,7 @@ else
                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
                         <MudAutocomplete T="ArtifactListItem" @bind-Value="_characterArtifact"
                                          SearchFunc="SearchCharacterArtifactsAsync" ToStringFunc="@(a => a?.Name)"
-                                         Label="Linked artifact" HelperText="The AI-extracted Character record for this character"
+                                         Label="Codex entry" HelperText="The Codex entry about this character, built from what the sessions say"
                                          Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
                                          Clearable="true" ResetValueOnEmptyText="true" Class="mb-2" />
                         @if (_characterError is not null)

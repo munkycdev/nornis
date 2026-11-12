@@ -20,6 +20,15 @@
         }
     </div>
 
+    @* Always there, not only while the panel is empty: the same panel writes into the draft on
+       Design and changes nothing on Structure and Book, and once a conversation had started
+       nothing said which (3.32). *@
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block nornis-prep-talk-mode">
+        @(DraftMode ? "On this tab it edits the draft. Undo on the draft takes a change back."
+            : BookMode ? "On this tab it suggests only. Nothing here changes the book."
+            : "On this tab it suggests only. Nothing changes until you put an answer in a section.")
+    </MudText>
+
     @if (_loadError is not null)
     {
         <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_loadError</MudAlert>
@@ -30,17 +39,17 @@
             @if (DraftMode)
             {
                 @:Talk the draft through with the Loremaster. It sees the whole draft, and when you ask it
-                @:to write or change something it does so in the draft. Undo on the draft takes a change back.
+                @:to write or change something it does so in the draft.
             }
             else if (BookMode)
             {
                 @:Talk the book through with the Loremaster: the cover art and its brief, the layout, and the
-                @:handouts. It sees what the cover and the handouts are now. Nothing here changes the book.
+                @:handouts. It sees what the cover and the handouts are now.
             }
             else
             {
                 @:Ask the Loremaster about this adventure. It knows your world, Hidden truth included, and
-                @:the section you have open. Nothing here changes the adventure until you put an answer in.
+                @:the section you have open.
             }
         </MudText>
     }
@@ -187,7 +196,7 @@
                           HelperText="Enter to send, Shift+Enter for a new line"
                           OnKeyDown="OnInputKeyDown" Disabled="@_streaming" />
         </div>
-        <div class="d-flex gap-2 mt-2 align-center">
+        <div class="d-flex flex-wrap gap-2 mt-2 align-center">
             @if (_streaming)
             {
                 <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Stop" OnClick="Stop" Class="nornis-prep-talk-stop">
@@ -197,11 +206,12 @@
             }
             else
             {
-                @* Feature 40: off for every turn, and off again after each send, so every search is a choice. *@
+                @* Feature 40: off for every turn, and off again after each send, so every search is a
+                   choice. The label says so (3.32): it used to switch itself off without a word. *@
                 <MudSwitch T="bool" @bind-Value="_webResearch" Color="Color.Primary" Class="nornis-prep-talk-research"
-                           Label="Web research" Disabled="@(_researchUnavailable is not null)" />
+                           Label="Web research for this message" Disabled="@(_researchUnavailable is not null)" />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Send"
-                           Class="nornis-prep-talk-send" Disabled="@string.IsNullOrWhiteSpace(_text)" OnClick="SendAsync">
+                           Class="nornis-prep-talk-send ml-auto" Disabled="@string.IsNullOrWhiteSpace(_text)" OnClick="SendAsync">
                     Send
                 </MudButton>
             }

@@ -36,6 +36,14 @@ public static class LibraryDisplay
         _ => Icons.Material.Outlined.InsertDriveFile,
     };
 
+    /// <summary>How a sort chip reads: what it puts first, not the enum's name.</summary>
+    public static string SortLabel(LibrarySort sort) => sort switch
+    {
+        LibrarySort.Newest => "Newest first",
+        LibrarySort.Title => "By title",
+        _ => sort.ToString(),
+    };
+
     /// <summary>A category chip's label: "Books", "Maps", "Handouts", "Prints", "Other".</summary>
     public static string ChipLabel(string category) => category switch
     {

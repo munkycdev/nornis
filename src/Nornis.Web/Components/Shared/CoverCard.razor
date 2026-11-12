@@ -32,8 +32,23 @@
                             <MudSelectItem T="string" Value="value">@label</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-cover-remove"
-                               StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked" OnClick="RemoveAsync">Remove art</MudButton>
+                    @* Removing discards the picture, so it asks first, in place (3.32). *@
+                    @if (_confirmingRemove)
+                    {
+                        <span class="nornis-inline-confirm">
+                            Discard this art?
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" Class="nornis-cover-remove-confirm"
+                                       Disabled="Locked" OnClick="RemoveAsync">Remove it</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Locked"
+                                       OnClick="() => _confirmingRemove = false">Keep it</MudButton>
+                        </span>
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-cover-remove"
+                                   StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked"
+                                   OnClick="() => _confirmingRemove = true">Remove art</MudButton>
+                    }
                 </div>
             </div>
         }
@@ -220,8 +235,13 @@
     private Task SetLayoutAsync(string layout) => RunAsync("Changing the layout…",
         () => Api.SetCoverLayoutAsync(WorldId, AdventureId, layout), changed: true);
 
-    private Task RemoveAsync() => RunAsync("Removing the art…",
-        () => Api.RemoveCoverAsync(WorldId, AdventureId), changed: true);
+    private bool _confirmingRemove;
+
+    private Task RemoveAsync()
+    {
+        _confirmingRemove = false;
+        return RunAsync("Removing the art…", () => Api.RemoveCoverAsync(WorldId, AdventureId), changed: true);
+    }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {

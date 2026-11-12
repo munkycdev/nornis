@@ -492,7 +492,7 @@ public class ReviewServiceAcceptTests
     {
         var proposal = MakePendingProposal();
         await _proposalRepo.CreateAsync(proposal);
-        _applicator.ConfigureFailure("validation_error", "Target artifact not found.");
+        _applicator.ConfigureFailure("validation_error", "The entry to merge into was not found.");
         var command = new AcceptProposalCommand(proposal.Id, _worldId, _gmUserId, WorldRole.GM);
 
         await _service.AcceptProposalAsync(command, CancellationToken.None);

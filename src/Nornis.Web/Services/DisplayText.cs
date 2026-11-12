@@ -14,6 +14,27 @@ public static class DisplayText
     public static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..(maxLength - 1)].TrimEnd() + "…";
 
+    /// <summary>
+    /// Dollars as a person reads them: two decimals, and "under $0.01" for a spend too small
+    /// to show in two. The Costs tab used four decimals below a dollar, so a new world's cards
+    /// read "$0.0000" (3.32).
+    /// </summary>
+    public static string Money(decimal usd) => usd switch
+    {
+        > 0 and < 0.005m => "under $0.01",
+        _ => usd.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-US")),
+    };
+
+    /// <summary>
+    /// The confidence below which a reader is told about it. Above it the figure is noise:
+    /// "97 % confidence" on nearly every row says nothing, so only doubt is shown (3.32).
+    /// </summary>
+    public const decimal LowConfidenceBelow = 0.6m;
+
+    /// <summary>"Low confidence (45%)" when the extraction was unsure, otherwise nothing.</summary>
+    public static string? LowConfidence(decimal? confidence) =>
+        confidence is { } c && c < LowConfidenceBelow ? $"Low confidence ({Math.Round(c * 100, MidpointRounding.AwayFromZero):0}%)" : null;
+
     /// <summary>PascalCase identifiers as words: "PartyVisible" → "Party Visible".</summary>
     public static string Humanize(string pascal) =>
         string.Concat(pascal.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));

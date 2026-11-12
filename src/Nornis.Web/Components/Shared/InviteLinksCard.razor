@@ -38,7 +38,7 @@
                     <div class="nornis-list-title">@InviteUrl(invite)</div>
                     <div class="nornis-list-sub">
                         Uses: @invite.UseCount@(invite.MaxUses is { } max ? $" / {max}" : " / ∞")
-                        · @(invite.ExpiresAt is { } exp ? $"Expires {exp.LocalDateTime:MMM d, yyyy}" : "No expiry")
+                        · @(invite.ExpiresAt is { } exp ? $"Expires {DateDisplay.Day(exp)}" : "No expiry")
                         @if (invite.Status != "Active")
                         {
                             <span> · @invite.Status</span>
@@ -66,7 +66,7 @@
                     <MudSelectItem Value="@role">@RoleLabel(role)</MudSelectItem>
                 }
             </MudSelect>
-            <MudDatePicker @bind-Date="_inviteExpiry" Label="Expiry (optional)" MinDate="DateTime.Today"
+            <MudDatePicker DateFormat="@DateDisplay.DayFormat" @bind-Date="_inviteExpiry" Label="Expiry (optional)" MinDate="DateTime.Today"
                            Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" Clearable="true" />
             <MudNumericField T="int?" @bind-Value="_inviteMaxUses" Label="Max uses" Min="1" Step="1"
                              Placeholder="∞" Variant="Variant.Outlined" Margin="Margin.Dense" Class="nornis-role-select" />

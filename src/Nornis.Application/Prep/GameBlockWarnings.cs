@@ -28,12 +28,12 @@ public static class GameBlockWarnings
             else if (block.Name is not { } name)
             {
                 var target = block.Kind == GameBlockKind.Stat ? "anyone" : "anything";
-                warnings.Add($"{Positional(position, kind)} has no name, so Export to Nornis can't file it on {target}. "
+                warnings.Add($"{Positional(position, kind)} has no name, so Add to the record can't file it on {target}. "
                     + "Start it with \"# Name\".");
             }
             else if (GameBlocks.ExportLineFor(block, null)!.WasCut)
             {
-                warnings.Add($"{name}'s {kind} is too long to file as one fact; Export to Nornis will cut it short.");
+                warnings.Add($"{name}'s {kind} is too long to file as one fact; Add to the record will cut it short.");
             }
         }
 

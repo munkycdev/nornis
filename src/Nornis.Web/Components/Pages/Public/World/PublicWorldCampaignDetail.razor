@@ -45,7 +45,7 @@
                 {
                     <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(CampaignDisplay.RecapBody(_detail.Recap.Content))</div>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
-                        Written @RelativeTime.Ago(_detail.Recap.GeneratedAt!.Value)
+                        AI-written from the record · @RelativeTime.Ago(_detail.Recap.GeneratedAt!.Value)
                     </MudText>
                 }
                 else
@@ -84,7 +84,7 @@
                                 <div class="d-flex flex-column gap-1">
                                     @foreach (var a in group.Items)
                                     {
-                                        <a href="@Links.PublicArtifact(Slug, a.Slug, a.Id)" class="nornis-list-row nornis-link">
+                                        <a href="@Links.PublicArtifact(Slug, a.Slug, a.Id)" class="nornis-list-row nornis-list-link">
                                             <TypeTile Type="@a.Type" />
                                             <div class="flex-grow-1">
                                                 <div class="d-flex align-center gap-2">
@@ -125,7 +125,7 @@
                     <div class="d-flex flex-column gap-1">
                         @foreach (var s in _detail.RecentSessions)
                         {
-                            <a href="@Links.PublicSource(Slug, s.Slug, s.Id)" class="nornis-list-row nornis-link">
+                            <a href="@Links.PublicSource(Slug, s.Slug, s.Id)" class="nornis-list-row nornis-list-link">
                                 <div class="nornis-list-thumb">
                                     <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
                                 </div>
@@ -133,7 +133,7 @@
                                     <span class="nornis-list-title">@s.Title</span>
                                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
                                         @SourceTypeDisplay.Label(s.Type)
-                                        @(s.OccurredAt is { } o ? $" · {o:yyyy-MM-dd}" : "")
+                                        @(s.OccurredAt is { } o ? $" · {DateDisplay.Day(o)}" : "")
                                     </MudText>
                                 </div>
                             </a>

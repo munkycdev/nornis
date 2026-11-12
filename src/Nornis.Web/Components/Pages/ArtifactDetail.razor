@@ -9,7 +9,7 @@
 @inject GmNoteContext NoteContext
 @inject BreadcrumbState Crumbs
 
-<PageTitle>@(_detail?.Name ?? "Artifact") — Nornis</PageTitle>
+<PageTitle>@(_detail?.Name ?? "Entry") — Nornis</PageTitle>
 
 <div class="nornis-detail-page">
     @if (Worlds.Current is null)
@@ -24,7 +24,7 @@
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">Artifact not found</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">Entry not found</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                 It may have been removed, or you may not have permission to see it.
             </MudText>
@@ -47,14 +47,35 @@
                     {
                         <MudTooltip Text="Rename">
                             <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
-                                           OnClick="RenameAsync" aria-label="Rename artifact" />
+                                           OnClick="RenameAsync" aria-label="Rename entry" />
                         </MudTooltip>
+                        @* The rare, heavy things a GM does to an entry (3.32). They were three full
+                           cards at the foot of every entry, a third of the page for actions taken
+                           once in a while, with the destructive one last. *@
+                        <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Size="Size.Small" Dense="true"
+                                 AriaLabel="More actions for this entry" Class="nornis-entry-more"
+                                 AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                            <MudMenuItem Icon="@Icons.Material.Outlined.MenuBook" OnClick="EnrichFromLibraryAsync">
+                                Enrich from the Library…
+                            </MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.CallMerge" OnClick="() => _mergeOpen = true">
+                                Merge into another entry…
+                            </MudMenuItem>
+                            <MudDivider />
+                            <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Error"
+                                         OnClick="RemoveFromCanonAsync" Disabled="_removeBusy">
+                                Remove from canon…
+                            </MudMenuItem>
+                        </MudMenu>
                     }
                 </div>
                 <div class="nornis-detail-chips">
                     <span class="nornis-type-label @ArtifactTypeDisplay.TypeClass(_detail.Type)">@_detail.Type</span>
                     @if (Worlds.IsGm)
                     {
+                        @* Said to be a control: the chip alone looked like a label, with only a
+                           small caret to say it opens (3.32). *@
+                        <span class="nornis-list-meta nornis-status-label">Status</span>
                         <MudMenu Dense="true" @ref="_statusMenu">
                             <ActivatorContent>
                                 <MudTooltip Text="Change status">
@@ -84,15 +105,50 @@
                             Played by @string.Join(", ", players)
                         </MudChip>
                     }
-                    @if (_detail.Confidence is not null)
+                    @if (DisplayText.LowConfidence(_detail.Confidence) is { } unsure)
                     {
-                        <span class="nornis-list-meta">@($"{_detail.Confidence:P0}") confidence</span>
+                        <span class="nornis-list-meta">@unsure</span>
                     }
                 </div>
             </div>
         </div>
         </Header>
         <Body>
+
+        @if (Worlds.IsGm && _removeError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">@_removeError</MudAlert>
+        }
+
+        @if (Worlds.IsGm && _mergeOpen)
+        {
+            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-entry-merge">
+                <div class="nornis-detail-section-title">Merge into another entry</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                    Is @_detail.Name a duplicate? Pick the real entry: this one's facts and
+                    relationships move there, and this entry is archived.
+                </MudText>
+                <div class="d-flex gap-3 align-center flex-wrap">
+                    <MudAutocomplete T="ArtifactListItem" @bind-Value="_mergeTarget"
+                                     SearchFunc="SearchMergeTargetsAsync"
+                                     ToStringFunc="@(a => a?.Name)"
+                                     Label="Merge into…" Variant="Variant.Outlined" Dense="true"
+                                     Class="flex-grow-1" Clearable="true" AutoFocus="true" />
+                    <MudCheckBox T="bool" Value="_mergeSameTypeOnly" ValueChanged="OnMergeSameTypeOnlyChanged"
+                                 Label="Same type only" Dense="true" />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.CallMerge"
+                               OnClick="MergeAsync" Disabled="@(_mergeBusy || _mergeTarget is null)">
+                        Merge
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="CloseMerge" Disabled="_mergeBusy">Cancel</MudButton>
+                </div>
+                @if (_mergeError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_mergeError</MudAlert>
+                }
+            </MudPaper>
+        }
 
         @if (Worlds.IsGm && ArtifactFindings.Count > 0)
         {
@@ -131,6 +187,11 @@
             </MudPaper>
         }
 
+        @if (_detail.Type == "Character")
+        {
+            <LinkedCharacterSheet ArtifactId="_detail.Id" />
+        }
+
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
             @if (OpenQuestions.Count > 0)
             {
@@ -162,6 +223,14 @@
                     @if (f.Visibility != "PartyVisible")
                     {
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@VisibilityDisplay.Label(f.Visibility)</MudChip>
+                    }
+                    @* The place a wrong fact is read is the place to fix it (3.32). A correction
+                       is a GM note, so this opens one that already quotes the fact. *@
+                    @if (Worlds.IsGm)
+                    {
+                        var fact = f;
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Class="nornis-fact-correct"
+                                   OnClick="() => CorrectFactAsync(fact)">Correct</MudButton>
                     }
                 </div>
             }
@@ -237,8 +306,8 @@
                     <div class="nornis-detail-section-title">Connections</div>
                     <MudToggleGroup T="int" @bind-Value="_graphDepth" SelectionMode="SelectionMode.SingleSelection"
                                     Color="Color.Secondary" Size="Size.Small">
-                        <MudToggleItem Value="1">1 hop</MudToggleItem>
-                        <MudToggleItem Value="2">2 hops</MudToggleItem>
+                        <MudToggleItem Value="1">Direct</MudToggleItem>
+                        <MudToggleItem Value="2">One step further</MudToggleItem>
                     </MudToggleGroup>
                 </div>
                 <ArtifactGraph Nodes="_graph.Nodes" Edges="_graph.Edges" FocusId="_detail.Id" Depth="_graphDepth"
@@ -274,67 +343,6 @@
             </MudPaper>
         }
 
-        @if (Worlds.IsGm)
-        {
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">Enrich from the library</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                    Does a document in the Library say more about @_detail.Name than the record does?
-                    Find its passages, tick the ones that belong, and file them as a source — what
-                    they say arrives in Review as proposals for this entry.
-                </MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Outlined.MenuBook"
-                           OnClick="EnrichFromLibraryAsync">
-                    Enrich from the library…
-                </MudButton>
-            </MudPaper>
-
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">Merge duplicate</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                    Is @_detail.Name a duplicate? Merge it into the real artifact: its facts and
-                    relationships move there, and this artifact is archived.
-                </MudText>
-                <div class="d-flex gap-3 align-center">
-                    <MudAutocomplete T="ArtifactListItem" @bind-Value="_mergeTarget"
-                                     SearchFunc="SearchMergeTargetsAsync"
-                                     ToStringFunc="@(a => a?.Name)"
-                                     Label="Merge into…" Variant="Variant.Outlined" Dense="true"
-                                     Class="flex-grow-1" Clearable="true" />
-                    <MudCheckBox T="bool" Value="_mergeSameTypeOnly" ValueChanged="OnMergeSameTypeOnlyChanged"
-                                 Label="Same type only" Dense="true" />
-                    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
-                               StartIcon="@Icons.Material.Filled.CallMerge"
-                               OnClick="MergeAsync" Disabled="@(_mergeBusy || _mergeTarget is null)">
-                        Merge
-                    </MudButton>
-                </div>
-                @if (_mergeError is not null)
-                {
-                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_mergeError</MudAlert>
-                }
-            </MudPaper>
-
-            <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-                <div class="nornis-detail-section-title">Remove from canon</div>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-                    Was @_detail.Name never real, or extracted by mistake? Remove it and the knowledge
-                    attached to it — its facts, the relationships touching it, and any map pins. Other
-                    artifacts are untouched. This can't be undone.
-                </MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Error"
-                           StartIcon="@Icons.Material.Filled.DeleteForever"
-                           OnClick="RemoveFromCanonAsync" Disabled="_removeBusy">
-                    Remove from canon
-                </MudButton>
-                @if (_removeError is not null)
-                {
-                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_removeError</MudAlert>
-                }
-            </MudPaper>
-        }
-
         @if (Worlds.IsGm && HasGmOnlyContent)
         {
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
@@ -354,7 +362,7 @@
 
         </Body>
         <Rail>
-            <ContextRail Rows="@RailRows" Related="@RailRelated" RelatedTitle="Connected" />
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="This entry" RelatedTitle="Connected" LoremasterAbout="this entry" />
         </Rail>
         </EntityPage>
     }
@@ -412,6 +420,16 @@
             .Take(15);
     }
 
+    // The merge picker is opened from the entry's menu and is not on the page otherwise.
+    private bool _mergeOpen;
+
+    private void CloseMerge()
+    {
+        _mergeOpen = false;
+        _mergeTarget = null;
+        _mergeError = null;
+    }
+
     private async Task MergeAsync()
     {
         if (Worlds.Current is null || _detail is null || _mergeTarget is null)
@@ -420,7 +438,7 @@
         }
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Merge artifacts?",
+            "Merge entries?",
             $"Move all facts and relationships from \"{_detail.Name}\" to \"{_mergeTarget.Name}\" and archive \"{_detail.Name}\"? This cannot be undone from the UI.",
             yesText: "Merge", cancelText: "Cancel");
         if (confirmed != true)
@@ -479,7 +497,7 @@
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Remove from canon?",
-            $"Permanently remove \"{p.ArtifactName}\" from the Codex. {detail}Other artifacts are not affected. This cannot be undone.",
+            $"Permanently remove \"{p.ArtifactName}\" from the Codex. {detail}Other entries are not affected. This cannot be undone.",
             yesText: "Remove", cancelText: "Cancel");
 
         if (confirmed != true)
@@ -528,7 +546,7 @@
         if (result is not null && !result.Canceled && result.Data is RevealOutcome outcome)
         {
             var parts = new List<string>();
-            if (outcome.RevealedArtifacts > 0) parts.Add($"{outcome.RevealedArtifacts} artifact{(outcome.RevealedArtifacts == 1 ? "" : "s")}");
+            if (outcome.RevealedArtifacts > 0) parts.Add(outcome.RevealedArtifacts == 1 ? "1 entry" : $"{outcome.RevealedArtifacts} entries");
             if (outcome.RevealedFacts > 0) parts.Add($"{outcome.RevealedFacts} fact{(outcome.RevealedFacts == 1 ? "" : "s")}");
             if (outcome.RevealedRelationships > 0) parts.Add($"{outcome.RevealedRelationships} relationship{(outcome.RevealedRelationships == 1 ? "" : "s")}");
             Snackbar.Add(parts.Count > 0 ? $"Revealed {string.Join(", ", parts)} to the party." : "Nothing to reveal.", Severity.Success);
@@ -702,13 +720,13 @@
             { d => d.CurrentName, _detail.Name },
         };
 
-        var dialog = await DialogService.ShowAsync<RenameArtifactDialog>("Rename artifact", parameters);
+        var dialog = await DialogService.ShowAsync<RenameArtifactDialog>("Rename entry", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled && result.Data is ArtifactListItem renamed)
         {
             _detail = _detail with { Name = renamed.Name, UpdatedAt = renamed.UpdatedAt };
-            Snackbar.Add("Artifact renamed.", Severity.Success);
+            Snackbar.Add("Entry renamed.", Severity.Success);
         }
     }
 
@@ -738,6 +756,29 @@
 
     // The rail is built from the detail the page already rendered, so its counts can never
     // exceed what the body may show (feature 24, Property 1).
+    private async Task CorrectFactAsync(ArtifactFactDto fact)
+    {
+        if (Worlds.Current is null || _detail is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<GmNoteDialog>
+        {
+            { d => d.WorldId, Worlds.Current.Id },
+            { d => d.Subject, _detail.Name },
+            { d => d.InitialText, GmNoteWriter.CorrectionOpening(fact.Predicate, fact.Value) },
+            { d => d.InitialVisibility, fact.Visibility },
+        };
+
+        var dialog = await DialogService.ShowAsync<GmNoteDialog>(
+            "Correct a fact", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        if (await dialog.Result is { Canceled: false })
+        {
+            Snackbar.Add("Noted. The correction will appear in Review shortly.", Severity.Success);
+        }
+    }
+
     private IReadOnlyList<ContextRail.RailRow> RailRows => _detail is null ? [] :
     [
         new("Sources", _detail.SourceReferences.Count.ToString()),
@@ -768,6 +809,9 @@
         _notFound = false;
         _error = null;
         _loadedKey = Key;
+        // A merge picker or a removal error belongs to the entry it was opened on.
+        CloseMerge();
+        _removeError = null;
         StateHasChanged();
 
         var worldId = Worlds.Current.Id;
@@ -887,6 +931,11 @@
     private async Task DismissFindingAsync(ContinuityFinding finding)
     {
         if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        if (!await FindingDismissal.ConfirmAsync(DialogService, finding))
         {
             return;
         }

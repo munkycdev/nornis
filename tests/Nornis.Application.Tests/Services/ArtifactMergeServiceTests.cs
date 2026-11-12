@@ -210,7 +210,7 @@ public class ArtifactMergeServiceTests
 
         // Provenance: synthetic source + accepted MergeArtifact proposal
         var source = _sourceRepo.Sources.Single();
-        Assert.That(source.Title, Does.StartWith("Artifact merge — Karvosthi → Karvosti"));
+        Assert.That(source.Title, Does.StartWith("Entries merged — Karvosthi → Karvosti"));
         Assert.That(source.Visibility, Is.EqualTo(VisibilityScope.GMOnly));
         var proposal = _proposalRepo.Proposals.Single();
         Assert.That(proposal.ChangeType, Is.EqualTo(ReviewChangeType.MergeArtifact));

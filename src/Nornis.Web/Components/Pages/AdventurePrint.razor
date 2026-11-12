@@ -19,13 +19,7 @@
 }
 else if (!Worlds.IsGm)
 {
-    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
-        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
-        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-            Prep is the GM's planning, and it can hold anything the players haven't learned yet.
-        </MudText>
-    </MudPaper>
+    <GmOnlyNotice>Prep is the GM's planning, and it can hold anything the players haven't learned yet.</GmOnlyNotice>
 }
 else if (_loading && _adventure is null)
 {

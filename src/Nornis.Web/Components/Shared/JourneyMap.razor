@@ -57,14 +57,14 @@
                                         @onclick="() => ToggleNote(note.SourceId)">
                                     <span class="nornis-journey-tree-caret @(IsExpanded(note.SourceId) ? "is-open" : "")">&#9656;</span>
                                     <span class="nornis-journey-tree-title">@note.Title</span>
-                                    <span class="nornis-journey-tree-date">@note.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</span>
+                                    <span class="nornis-journey-tree-date">@DateDisplay.Day(note.OccurredAt)</span>
                                 </button>
 
                                 @if (IsExpanded(note.SourceId))
                                 {
                                     @if (note.Highlights.Count == 0)
                                     {
-                                        <div class="nornis-journey-tree-empty">No artifacts recorded for this note.</div>
+                                        <div class="nornis-journey-tree-empty">No entries recorded for this note.</div>
                                     }
                                     else
                                     {
@@ -87,7 +87,7 @@
                 <div class="nornis-journey-ledger-eye">@(_stopIndex + 1) <span>of @Data.Stops.Count</span></div>
                 <a class="nornis-journey-ledger-title nornis-serif" href="@($"{SourceLinkBase}/{Links.Key(stop.SourceSlug, stop.SourceId)}")">@stop.Title</a>
                 <div class="nornis-journey-ledger-meta">
-                    <b>@stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)</b>
+                    <b>@DateDisplay.Day(stop.OccurredAt)</b>
                     @if (VisitedNames(stop) is { Length: > 0 } names)
                     {
                         <span> · @names</span>
@@ -96,7 +96,7 @@
 
                 @if (stop.Highlights.Count == 0)
                 {
-                    <div class="nornis-journey-ledger-empty">No artifacts were recorded for this entry.</div>
+                    <div class="nornis-journey-ledger-empty">No entries were recorded for this session.</div>
                 }
                 else
                 {
@@ -112,7 +112,7 @@
             {
                 <div class="nornis-journey-ledger-eye">The timeline</div>
                 <div class="nornis-journey-ledger-empty">
-                    No dated session or imported note yet. Give one an "occurred at" date to place it
+                    No dated session or imported note yet. Give one a session date to place it
                     on the timeline.
                 </div>
             }
@@ -167,12 +167,12 @@
                 }
                 else
                 {
-                    <span class="nornis-journey-legend">Showing entry <b>@(_stopIndex + 1)</b> of @Data.Stops.Count.</span>
+                    <span class="nornis-journey-legend">Showing stop <b>@(_stopIndex + 1)</b> of @Data.Stops.Count.</span>
                 }
                 @if (Data.UndatedSessionCount > 0)
                 {
                     <span class="nornis-journey-note">
-                        @Data.UndatedSessionCount undated @(Data.UndatedSessionCount == 1 ? "entry is" : "entries are") not placed on the timeline
+                        @Data.UndatedSessionCount undated @(Data.UndatedSessionCount == 1 ? "session is" : "sessions are") not placed on the timeline
                     </span>
                 }
             </div>
@@ -181,7 +181,7 @@
     else if (Data.UndatedSessionCount > 0)
     {
         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
-            @Data.UndatedSessionCount @(Data.UndatedSessionCount == 1 ? "entry has" : "entries have") no "occurred at" date and cannot be placed on the timeline.
+            @Data.UndatedSessionCount @(Data.UndatedSessionCount == 1 ? "session has" : "sessions have") no session date and cannot be placed on the timeline.
         </MudText>
     }
 </div>
@@ -349,7 +349,7 @@
     private string PinTip(JourneyLocationDto loc) => $"{loc.Name}\nClick for the notes that visited it";
 
     private string StopTip(JourneyStopDto stop, int idx) =>
-        $"{idx + 1}. {stop.Title}\n{stop.OccurredAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+        $"{idx + 1}. {stop.Title}\n{DateDisplay.Day(stop.OccurredAt)}";
 
     // ------------------------------------------------------------- ledger bits --
 

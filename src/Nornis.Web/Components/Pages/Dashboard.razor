@@ -6,7 +6,7 @@
 @inject AskState AskState
 @inject NavigationManager Nav
 
-<PageTitle>Dashboard — Nornis</PageTitle>
+<PageTitle>Home — Nornis</PageTitle>
 
 <OnboardingPrompt />
 
@@ -77,7 +77,7 @@ else
 
                 <div class="nornis-capture-foot">
                     <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
-                    All inputs are private to your world
+                    Private to this world unless you share it
                 </div>
             </MudPaper>
 
@@ -94,7 +94,7 @@ else
         <div class="nornis-rail">
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-card-header">
-                    <span class="nornis-card-title">Review Queue</span>
+                    <span class="nornis-card-title">Review</span>
                     <span class="nornis-count-badge">@_proposals.Count</span>
                 </div>
                 @if (_proposals.Count == 0)
@@ -113,17 +113,19 @@ else
                     </div>
                 }
                 <div class="nornis-card-foot">
-                    <a href="/review" class="nornis-viewall">Open Review Queue <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
+                    <a href="/review" class="nornis-viewall">Open Review <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /></a>
                 </div>
             </MudPaper>
 
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-card-header">
-                    <span class="nornis-card-title">Recent Changes</span>
+                    @* It lists accepted relationships and only those, so it says so: as "Recent
+                       Changes" it read as everything new, and new entries and facts never showed. *@
+                    <span class="nornis-card-title">New connections</span>
                 </div>
                 @if (_canonRelationships.Count == 0)
                 {
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">No recent changes.</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No new connections yet.</MudText>
                 }
                 @foreach (var rel in _canonRelationships)
                 {
@@ -167,11 +169,15 @@ else
     private record Tile(string Title, string Subtitle, string Icon, string Type);
     private readonly Tile[] _captureTiles =
     [
-        new("Write Notes", "Start typing…", Icons.Material.Outlined.Create, "SessionNote"),
-        new("Session Audio", "Paste a session transcript", Icons.Material.Outlined.GraphicEq, "SessionAudio"),
-        new("Upload Image", "Maps, notes, assets", Icons.Material.Outlined.Image, "Image"),
-        new("Handwritten Note", "Upload or scan", Icons.Material.Outlined.Gesture, "HandwrittenNotes"),
-        new("Add Link", "Article, wiki, video", Icons.Material.Outlined.Link, "WebLink"),
+        // Each tile says what it takes. "Session Audio" took a pasted transcript, and "Upload
+        // Image: Maps" put a map where the Map page never looks: a map is its own tile now, and
+        // lands on Capture as a Map source, the one kind the Map page reads (3.32).
+        new("Write notes", "Start typing…", Icons.Material.Outlined.Create, "SessionNote"),
+        new("Session transcript", "Paste what was said", Icons.Material.Outlined.GraphicEq, "SessionAudio"),
+        new("Upload an image", "Handouts, notes, art", Icons.Material.Outlined.Image, "Image"),
+        new("Add a map", "It becomes the Map page", Icons.Material.Outlined.Map, "Map"),
+        new("Handwritten note", "Upload or scan", Icons.Material.Outlined.Gesture, "HandwrittenNotes"),
+        new("Add a link", "Article, wiki, video", Icons.Material.Outlined.Link, "WebLink"),
     ];
 
     private Guid _dashboardWorldId;

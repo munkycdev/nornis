@@ -6,20 +6,35 @@
 
 @* First-login onboarding prompt (feature 20 phase C). Shown once per user, ever: the
    server records it as seen the first time it renders, and dismissal is local-immediate.
-   Invite-aware — a user who already has a world came here to join their friend's game,
-   so that leads and the demo world is the side offer. *@
+   Invite-aware — a user who already has a world they do not run came here to join their
+   friend's game, so that leads and the demo world is the side offer. Which of the two it is
+   comes from their role in the world (3.32): "has a world" alone told the GM who made the
+   world that they had joined it. *@
 
 @if (_visible)
 {
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-onboarding mb-4">
         @if (Worlds.Worlds.Count > 0)
         {
-            <div class="nornis-onboarding-title">You've joined @(Worlds.Current?.Name ?? Worlds.Worlds[0].Name)</div>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                Your party's world is ready — everything your GM has shared is in the codex,
-                the timeline, and the map. Want to learn the ropes first? The demo world is a
-                ready-made campaign with a guided tour, all yours to poke at.
-            </MudText>
+            var world = Worlds.Current ?? Worlds.Worlds[0];
+            @if (world.MyRole == WorldRoles.Gm)
+            {
+                <div class="nornis-onboarding-title">@world.Name is yours to run</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Capture what happened at the table and Nornis builds the record from it.
+                    Want to learn the ropes first? The demo world is a ready-made campaign with a
+                    guided tour, all yours to poke at.
+                </MudText>
+            }
+            else
+            {
+                <div class="nornis-onboarding-title">You've joined @world.Name</div>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Your party's world is ready — everything your GM has shared is in the codex,
+                    the storylines, and the map. Want to learn the ropes first? The demo world is a
+                    ready-made campaign with a guided tour, all yours to poke at.
+                </MudText>
+            }
             <div class="d-flex gap-3 flex-wrap">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">
                     Jump in

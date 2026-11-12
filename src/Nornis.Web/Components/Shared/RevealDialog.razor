@@ -15,7 +15,7 @@
             @if (ArtifactIsGmOnly)
             {
                 <MudCheckBox T="bool" @bind-Value="_revealArtifact" Dense="true"
-                             Label="@($"This artifact — {Detail.Name}")" />
+                             Label="@($"This entry — {Detail.Name}")" />
             }
 
             @if (GmOnlyFacts.Count > 0)

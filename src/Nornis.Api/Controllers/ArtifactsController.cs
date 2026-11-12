@@ -256,7 +256,7 @@ public class ArtifactsController : ControllerBase
         var user = HttpContext.GetNornisUser();
         var member = HttpContext.GetWorldMember();
 
-        var resolved = await slugResolver.ResolveKeyAsync<Artifact>(worldId, key, "Artifact", ct);
+        var resolved = await slugResolver.ResolveKeyAsync<Artifact>(worldId, key, "Entry", ct);
         if (!resolved.IsSuccess)
         {
             return resolved.Error!.ToActionResult();

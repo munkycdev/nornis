@@ -15,7 +15,7 @@
         @if (_hero is { } hero && HeroDisplay.PictureUrl(hero, Slug) is { } picture)
         {
             <div class="mb-4">
-                <HeroBand Hero="hero" PictureUrl="@picture" />
+                <HeroBand Hero="hero" PictureUrl="@picture" Wide="true" />
             </div>
         }
 
@@ -40,7 +40,7 @@
 
                 <div class="nornis-lm-composer mb-2">
                     <MudTextField T="string" @bind-Value="_question" Immediate="true"
-                                  Placeholder="Who is the watch captain of Black Harbor?"
+                                  Placeholder="Ask about a person, a place or what happened"
                                   Variant="Variant.Outlined" Margin="Margin.Dense"
                                   OnKeyUp="OnKeyUp" Disabled="_asking" Class="flex-grow-1" />
                     <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Filled"

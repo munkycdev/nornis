@@ -1085,7 +1085,7 @@ public class AdventureConversationServiceTests
             Assert.That(failed.Error.StatusCode, Is.EqualTo(422));
             Assert.That(failed.Error.Code, Is.EqualTo("web_research_unsupported"));
             Assert.That(failed.Error.Message, Is.EqualTo(
-                "This model can't search the web. Turn Web research off, or pick another Prep model under Profile, Models."));
+                "This model can't search the web. Turn Web research off, or pick another Prep model under Your account, AI."));
             Assert.That(_conversations.Messages.Select(m => m.Role), Is.EqualTo([ConversationRole.User]), "the question stays, no answer");
             Assert.That(_ledger.Records.Single().ErrorCode, Is.EqualTo("WebSearchUnsupported"));
         });

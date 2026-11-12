@@ -112,7 +112,7 @@ public class WorldDigestService : IWorldDigestService
         if (gmRecord.ArtifactCount == 0)
         {
             return AppResult<WorldDigestView>.Fail(new AppError(400, "empty_world",
-                "There is nothing to digest yet — the record has no artifacts."));
+                "There is nothing to recap yet: the record has no entries."));
         }
 
         var gmMarkdown = await GenerateRenderingAsync(worldId, actingUserId, GmSystemPrompt, gmRecord.Text, ct);

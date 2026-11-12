@@ -23,18 +23,25 @@
             <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
         }
 
-        <MudDivider Class="my-4" />
-
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">
-            Or start with the demo world — a ready-made campaign to explore.
+    @* The demo is a different thing from the world being named above, so it sits in a
+       box of its own with buttons of its own (3.32). It was a tick and a text button inside
+       the form, and the tick, "Walk me through it", read as applying to the new world. *@
+    <div class="nornis-demo-offer">
+        <MudText Typo="Typo.subtitle2">Or look around first</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+            The demo world is a ready-made campaign you can explore and delete. It ignores the form above.
         </MudText>
-        <div class="d-flex align-center justify-space-between">
-            <MudCheckBox @bind-Value="_withTutorial" Dense="true" Color="Color.Secondary"
-                         Label="Walk me through it" Disabled="_busy" />
-            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="SubmitDemo" Disabled="_busy">
-                Create demo world
+        <div class="d-flex gap-2 flex-wrap">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small"
+                       OnClick="() => SubmitDemo(withTutorial: true)" Disabled="_busy">
+                Open the demo with a walkthrough
+            </MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small"
+                       OnClick="() => SubmitDemo(withTutorial: false)" Disabled="_busy">
+                Open the demo on its own
             </MudButton>
         </div>
+    </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
@@ -51,7 +58,6 @@
     private string _name = string.Empty;
     private string? _description;
     private string? _gameSystem;
-    private bool _withTutorial = true;
     private bool _busy;
     private string? _error;
 
@@ -79,12 +85,12 @@
         MudDialog.Close(DialogResult.Ok(result.Value!));
     }
 
-    private async Task SubmitDemo()
+    private async Task SubmitDemo(bool withTutorial)
     {
         _busy = true;
         _error = null;
 
-        var result = await Api.CreateDemoWorldAsync(_withTutorial);
+        var result = await Api.CreateDemoWorldAsync(withTutorial);
 
         _busy = false;
 

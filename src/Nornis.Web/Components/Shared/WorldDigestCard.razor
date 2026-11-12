@@ -10,10 +10,11 @@
 
 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
     <div class="nornis-card-header">
-        <span class="nornis-card-title">World Digest</span>
-        <MudTooltip Text="An LLM-maintained synthesis of the record: active storylines, recent movements, open questions.">
-            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Tertiary" Size="Size.Small" />
-        </MudTooltip>
+        @* "Recap" for the GM and the party alike (3.32): the card said "digest" to one and
+           "recap" to the other, and Campaigns already called its own "recap". The sparkle that
+           sat here looked like a button and was a tooltip; what it said is now a caption under
+           the text it describes. *@
+        <span class="nornis-card-title">World recap</span>
     </div>
 
     @if (_loading)
@@ -23,8 +24,8 @@
     else if (_digest is { HasData: true } d)
     {
         <div class="nornis-digest-body nornis-markdown">@MarkdownRenderer.ToHtml(d.Content)</div>
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
-            Generated @RelativeTime.Ago(d.GeneratedAt!.Value)
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1 nornis-ai-written">
+            AI-written from the record · @RelativeTime.Ago(d.GeneratedAt!.Value)
         </MudText>
 
         @if (Worlds.IsGm)
@@ -43,7 +44,7 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.Refresh"
                        Disabled="_generating" OnClick="GenerateAsync" Class="nornis-ai-run"
-                       aria-label="Refresh digest">
+                       aria-label="Refresh recap">
                 @(_generating ? "Generating…" : "Refresh")
             </MudButton>
             @if (_generating)
@@ -54,12 +55,14 @@
     }
     else if (Worlds.IsGm)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">No digest yet.</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            No recap yet. Nornis writes one from the record: active storylines, recent movements, open questions.
+        </MudText>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.AutoAwesome"
                    Disabled="_generating" OnClick="GenerateAsync" Class="nornis-ai-run"
-                   aria-label="Generate digest">
-            @(_generating ? "Generating…" : "Generate digest")
+                   aria-label="Write the recap">
+            @(_generating ? "Writing…" : "Write the recap")
         </MudButton>
         @if (_generating)
         {

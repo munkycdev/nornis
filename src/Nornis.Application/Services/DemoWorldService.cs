@@ -101,6 +101,16 @@ public class DemoWorldService : IDemoWorldService
 
             await _importWriter.WriteAsync(world, member, rows, ct);
 
+            // A world with nothing current adopts its first active campaign: that is
+            // CampaignService.CreateAsync's rule, and the demo's campaigns arrive as rows, past
+            // it. Without this the demo opened with a campaign and "Make current" beside it.
+            // The package's order is the display order, so its first active one is in play.
+            if (rows.Campaigns.FirstOrDefault(c => c.Status == CampaignStatus.Active) is { } current)
+            {
+                await _worldRepository.SetCurrentCampaignAsync(world.Id, current.Id, ct);
+                world.CurrentCampaignId = current.Id;
+            }
+
             _logger.LogInformation(
                 "Demo world {WorldId} (\"{Name}\") created for user {UserId}: {Sources} sources, {Artifacts} artifacts, {Attachments} attachments",
                 world.Id, world.Name, command.ActingUserId,

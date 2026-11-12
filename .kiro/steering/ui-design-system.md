@@ -1,5 +1,46 @@
 # UI Design System
 
+> **Amendment (2026-11-12, Nornis 3.32, "one word for each thing"):** a walk of the whole app
+> at 3.31 found seventy places where a reader had to stop and work something out, most of them
+> the same few causes. Dave asked for all of them fixed. What is now the rule, on top of the
+> notes below:
+>
+> - **Reader-facing words.** The code's vocabulary (`domain-model.md`) is unchanged; these are
+>   the words on screen. An Artifact is an **entry** ("the Codex" is the collection). A Source's
+>   `OccurredAt` is its **session date** for anything played at the table and its **date**
+>   otherwise (`SourceTypeDisplay.DateLabel`). The campaign in play is the **current campaign**.
+>   The AI's summary of a campaign is the **campaign recap**. Convergence is **Ready to reveal**.
+>   Sending a Prep adventure through extraction is **Add to the record**. A source is **Draft**,
+>   **Waiting**, **Reading**, **In the record** or **Failed** (`SourceStatusDisplay.Label`),
+>   and a button that starts the reading says so ("Save and read", "Read now").
+> - **Labels, not stored values.** A pick list, chip or caption never prints an enum name or a
+>   payload key. Each kind of value has one `…Display.Label`; `SelectShowsALabelTests` reads the
+>   components and fails on a select that prints its own value.
+> - **One date format.** `DateDisplay` is the only place a date is formatted: "8 Oct 2025",
+>   read in UTC, because a session date is stored as midnight UTC of the day that was picked and
+>   the reader's zone must not move it. Date pickers show the same format.
+> - **Numbers a person can use.** Money is dollars and cents (`DisplayText.Money`). Extraction
+>   confidence is mentioned only when it is low (`DisplayText.LowConfidence`), and never on the
+>   public site.
+> - **The sidebar lists places, not views.** A second way of looking at the same things is a
+>   toggle on the page (Storylines: Cards, Timeline, Journey), not a second entry. People at the
+>   table are one place (Party: players, characters, accounts, invites). The sidebar must fit a
+>   1440 by 900 window without scrolling; it has fifteen entries. A page's heading is its sidebar
+>   label (Capture, which opens on "Tell Nornis what happened", is the one that keeps its own).
+> - **Sentence case** for every label, chip, button and tab, MudBlazor's tabs included.
+> - **A toggle of icons carries words** (or a visible label beside it), and a filter row says
+>   what it filters.
+> - **Actions on a thing sit at its head.** An entry's rarely used actions (Enrich, Merge, Remove)
+>   are a menu beside its name, not cards under its content.
+> - **Ask before what cannot be put back.** Removing art and dismissing a finding confirm in
+>   place. A bulk action under a filter names its count and asks first.
+> - **A tab is a step.** Choosing a tab pushes browser history, so Back returns to the tab
+>   before.
+> - **Review's Edit is a form** (`ProposalEditForm`); the proposal's JSON is behind "Advanced".
+>
+> Where this note and the sections below disagree (the Navigation list still names Canon and
+> Costs as sidebar entries), `NavGroups.cs` is the authority on what is in the sidebar.
+
 > **Amendment (2026-11-08, Nornis 3.22, "the welcome page is a call to action"):** Dave asked
 > for a /welcome that is more visually compelling and says "sign in and try this out". The page
 > now opens on the demo world's key art (a static copy in `wwwroot/images/welcome/`, the same

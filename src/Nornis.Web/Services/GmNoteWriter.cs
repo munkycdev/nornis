@@ -79,6 +79,13 @@ public class GmNoteWriter
         return ApiResult<FiledNote>.Ok(new FiledNote(sourceId, slug));
     }
 
+    /// <summary>
+    /// What a correction note opens with: the fact as the record has it, quoted, so extraction
+    /// can find the one being corrected and the GM only has to write what is true instead.
+    /// </summary>
+    public static string CorrectionOpening(string predicate, string value) =>
+        $"The record says \"{predicate}: {value}\". That is wrong. What is true: ";
+
     internal static CreateSourceRequest BuildRequest(string? subject, string text, string visibility)
     {
         var trimmed = text.Trim();
@@ -86,8 +93,8 @@ public class GmNoteWriter
 
         return new CreateSourceRequest(
             Title: named
-                ? $"Note on {subject} — {DateTime.Now:yyyy-MM-dd}"
-                : $"GM note — {DateTime.Now:yyyy-MM-dd}",
+                ? $"Note on {subject} — {DateDisplay.Day(DateTime.Now)}"
+                : $"GM note — {DateDisplay.Day(DateTime.Now)}",
             Type: "GMNote",
             Visibility: visibility,
             Body: named ? $"Regarding {subject}: {trimmed}" : trimmed,
@@ -102,7 +109,7 @@ public class GmNoteWriter
     /// </summary>
     internal static CreateSourceRequest BuildAskFileBackRequest(string question, string answer) =>
         new(
-            Title: $"Filed from Ask — {DateTime.Now:yyyy-MM-dd}",
+            Title: $"Filed from Ask — {DateDisplay.Day(DateTime.Now)}",
             Type: "GMNote",
             Visibility: "GMOnly",
             Body: $"Asked the Loremaster: {question.Trim()}\n\n{answer.Trim()}",

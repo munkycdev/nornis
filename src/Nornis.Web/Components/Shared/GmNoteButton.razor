@@ -8,11 +8,15 @@
    leaving the page for /capture. Hidden for players, and hidden for a GM viewing as one. *@
 @if (Visible)
 {
-    <MudTooltip Text="Write a GM note — Nornis reads it and proposes updates">
-        <MudIconButton Icon="@Icons.Material.Filled.NoteAdd"
-                       Color="Color.Default"
-                       OnClick="OpenAsync"
-                       aria-label="Write a GM note" />
+    @* Labelled since 3.32: this is the main way to add or correct lore by hand, and a lone
+       icon did not say so. The label drops away at phone width, where the bar has no room. *@
+    <MudTooltip Text="Write a GM note. Nornis reads it and proposes updates for Review.">
+        <MudButton Variant="Variant.Text" Color="Color.Default" Class="nornis-topbar-note"
+                   StartIcon="@Icons.Material.Filled.NoteAdd"
+                   OnClick="OpenAsync"
+                   aria-label="Add a note">
+            <span class="nornis-topbar-label">Add a note</span>
+        </MudButton>
     </MudTooltip>
 }
 
@@ -42,7 +46,7 @@
 
         if (result is not null && !result.Canceled)
         {
-            Snackbar.Add("Noted — proposals will appear in the review queue shortly.", Severity.Success);
+            Snackbar.Add("Noted — proposals will appear in Review shortly.", Severity.Success);
         }
     }
 

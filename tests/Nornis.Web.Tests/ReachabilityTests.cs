@@ -33,6 +33,9 @@ public class ReachabilityTests
         "/artifacts", "/artifacts/{Key}",
         // /extract is the older alias of /import; the page carries both.
         "/extract",
+        // Timeline is a view of Storylines and Members a part of Party since 3.32; the stubs
+        // redirect old bookmarks.
+        "/timeline", "/members",
         // Bibliotaph sends the browser here mid-Connect (feature 31); nothing in Nornis links to it.
         "/profile/bibliotaph/{State}",
         // Reading a Bibliotaph book (feature 31): Open calls the API directly, and Bibliotaph's

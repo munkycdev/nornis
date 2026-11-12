@@ -37,7 +37,7 @@ public static class HeroDisplay
         if (hero.LastSessionAt is { } last)
         {
             // A session's date is the day it was played, not a moment: written as a date.
-            facts.Add($"last played {last.ToString("d MMM yyyy", CultureInfo.InvariantCulture)}");
+            facts.Add($"last played {DateDisplay.Day(last)}");
         }
 
         return facts;

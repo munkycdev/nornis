@@ -23,9 +23,9 @@ else if (_form is { } form)
        tabs (3.23), each hidden from everyone else rather than refused, and the API refuses their
        calls regardless. The shown tab is in the URL. Every field card shares the one form, so
        moving between tabs keeps what was typed; each card's Save sends only its own fields. *@
-    @if (VisibleTabs(Worlds.IsGm).Count > 1)
+    @if (Tabs.Count > 1)
     {
-        <TabStrip Tabs="VisibleTabs(Worlds.IsGm)" Active="@Shown" Selected="ShowTab" Label="World settings" Class="nornis-settings-tabs" />
+        <TabStrip Tabs="Tabs" Active="@Shown" Selected="ShowTab" Label="World settings" Class="nornis-settings-tabs" />
     }
 
     <div class="nornis-settings nornis-settings-tab-@Shown">
@@ -46,12 +46,19 @@ else if (_form is { } form)
 
             case ProcessingTab:
                 <WorldSettingsPanel Form="form" Section="WorldSettingsSection.Review" Class="mb-6" />
-                <ProcessingQueuePanel />
+                <StorylineBackfillCard />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    A source that failed or is stuck in the queue can be retried from
+                    <a href="/sources" class="nornis-link">Sources</a>.
+                </MudText>
                 break;
 
             case ExportTab:
-                <WorldSettingsPanel Form="form" Section="WorldSettingsSection.Template" />
                 <ExportAndDeletePanel />
+                break;
+
+            case TemplateTab:
+                <WorldSettingsPanel Form="form" Section="WorldSettingsSection.Template" />
                 break;
 
             default:
@@ -72,6 +79,7 @@ else if (_form is { } form)
     public const string AiTab = "ai";
     public const string ProcessingTab = "processing";
     public const string ExportTab = "export";
+    public const string TemplateTab = "template";
 
     private static readonly TabStrip.Item You = new(YouTab, "You");
 
@@ -92,15 +100,26 @@ else if (_form is { } form)
     /// <summary>Everyone else's: the one tab that is theirs.</summary>
     public static readonly IReadOnlyList<TabStrip.Item> MemberTabs = [You];
 
-    public static IReadOnlyList<TabStrip.Item> VisibleTabs(bool isGm) => isGm ? GmTabs : MemberTabs;
+    private static readonly TabStrip.Item Template = new(TemplateTab, "Template");
+
+    /// <summary>
+    /// The tabs in the strip. The Template tab is the operator's tool for making demo templates,
+    /// and until 3.32 its switch was the first card every GM met on Export and delete. It is in
+    /// the strip only for someone who already runs a template master (<paramref name="runsTemplates"/>),
+    /// which in practice is the one person who makes them. It is hidden, not secured: the switch
+    /// only moves a GM's own world in their own switcher, and the API accepts it from any GM as before.
+    /// </summary>
+    public static IReadOnlyList<TabStrip.Item> VisibleTabs(bool isGm, bool runsTemplates = false) =>
+        !isGm ? MemberTabs : runsTemplates ? [.. GmTabs, Template] : GmTabs;
 
     /// <summary>
     /// The tab to show: the one the URL names, whatever its case, when this member can see it; else
     /// World for the GM and You for everyone else. A GM's tab named to a player (a shared link, or
-    /// the GM viewing as a player) falls back to You rather than to a refusal.
+    /// the GM viewing as a player) falls back to You rather than to a refusal. A GM may always open
+    /// the Template tab by its address (?tab=template), which is how the first template master is made.
     /// </summary>
     public static string TabFor(string? tab, bool isGm) =>
-        VisibleTabs(isGm).FirstOrDefault(t => string.Equals(t.Key, tab?.Trim(), StringComparison.OrdinalIgnoreCase))?.Key
+        VisibleTabs(isGm, runsTemplates: true).FirstOrDefault(t => string.Equals(t.Key, tab?.Trim(), StringComparison.OrdinalIgnoreCase))?.Key
         ?? (isGm ? WorldTab : YouTab);
 
     [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
@@ -110,6 +129,10 @@ else if (_form is { } form)
     private string? _requested;
 
     private string Shown => TabFor(_requested, Worlds.IsGm);
+
+    // The strip shows Template to someone who runs one, and to anyone standing on it.
+    private IReadOnlyList<TabStrip.Item> Tabs =>
+        VisibleTabs(Worlds.IsGm, runsTemplates: Shown == TemplateTab || Worlds.Worlds.Any(w => w.IsTemplate && w.MyRole == WorldRoles.Gm));
 
     private WorldSettingsForm? _form;
 
@@ -141,8 +164,14 @@ else if (_form is { } form)
 
     private void ShowTab(string tab)
     {
+        if (string.Equals(Tab, tab, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         _requested = tab;
-        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab), replace: true);
+        // A step in the browser's history (3.32): Back returns to the tab before.
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab));
     }
 
     private void OnWorldsChanged() => InvokeAsync(() =>

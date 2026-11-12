@@ -30,8 +30,8 @@ public class GameBlockWarningsTests
 
         Assert.That(GameBlockWarnings.For(markdown), Is.EqualTo((string[])
         [
-            "The first item block has no name, so Export to Nornis can't file it on anything. Start it with \"# Name\".",
-            "The second stat block has no name, so Export to Nornis can't file it on anyone. Start it with \"# Name\".",
+            "The first item block has no name, so Add to the record can't file it on anything. Start it with \"# Name\".",
+            "The second stat block has no name, so Add to the record can't file it on anyone. Start it with \"# Name\".",
         ]));
     }
 
@@ -49,7 +49,7 @@ public class GameBlockWarningsTests
         {
             Assert.That(GameBlocks.ExportLineFor(GameBlocks.InMarkdown(Fence("statblock", block)).Single(), "Shadowdark")!.WasCut, Is.True);
             Assert.That(GameBlockWarnings.For(Fence("statblock", block)), Is.EqualTo((string[])
-                ["Hydra's stat block is too long to file as one fact; Export to Nornis will cut it short."]));
+                ["Hydra's stat block is too long to file as one fact; Add to the record will cut it short."]));
         });
     }
 

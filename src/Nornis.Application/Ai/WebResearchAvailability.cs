@@ -48,9 +48,9 @@ public static class WebResearchAvailability
     public static string? Reason(WebResearchAvailabilityKind kind) => kind switch
     {
         WebResearchAvailabilityKind.Available => null,
-        WebResearchAvailabilityKind.NeedsOwnKey => "Web research runs on your own AI key. Add one under Profile, AI keys.",
+        WebResearchAvailabilityKind.NeedsOwnKey => "Web research runs on your own AI key. Add one under Your account, AI.",
         WebResearchAvailabilityKind.NotOnCompatible => "Web research isn't available on OpenAI-compatible endpoints.",
-        WebResearchAvailabilityKind.ModelCantSearch => "Your Prep model can't search the web. Pick another under Profile, Models.",
+        WebResearchAvailabilityKind.ModelCantSearch => "Your Prep model can't search the web. Pick another under Your account, AI.",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "An availability with no reason."),
     };
 }

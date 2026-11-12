@@ -15,13 +15,7 @@
 }
 else if (!Worlds.IsGm)
 {
-    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
-        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
-        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-            Prep is the GM's planning, and it can hold anything the players haven't learned yet.
-        </MudText>
-    </MudPaper>
+    <GmOnlyNotice>Prep is the GM's planning, and it can hold anything the players haven't learned yet.</GmOnlyNotice>
 }
 else if (_loading && _adventure is null)
 {
@@ -53,7 +47,7 @@ else if (_adventure is not null)
                 </MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="nornis-prep-export"
                            StartIcon="@Icons.Material.Outlined.MoveToInbox" OnClick="ExportAsync" Disabled="_busy">
-                    Export to Nornis
+                    Add to the record
                 </MudButton>
                 @* Delete is hard and cascades (every section, draft and conversation), so it does not
                    sit beside Print at the same weight; it is one step away, behind the menu. *@
@@ -307,6 +301,23 @@ else if (_adventure is not null)
         if (Key != _loadedKey)
         {
             await LoadAsync();
+            return;
+        }
+
+        // Back or Forward between two tabs of the same adventure (3.32): the address changed
+        // and the page did not. Leaving a tab saves it, as a click does; if that fails, or a
+        // turn is running, the page stays where it is and the address is put back to match.
+        if (_adventure is not null && _modeFor == _adventure.Id && ModeFromQuery(Tab) is { } asked && asked != _mode)
+        {
+            if (!_busy && !_talkRunning)
+            {
+                await SwitchModeAsync(asked);
+            }
+
+            if (_mode != asked)
+            {
+                Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", _mode.ToLowerInvariant()), replace: true);
+            }
         }
     }
 
@@ -343,6 +354,12 @@ else if (_adventure is not null)
             if (!Links.IsCanonical(Key, _adventure!.Slug))
             {
                 _loadedKey = _adventure.Slug;
+                Nav.NavigateTo(AdventureUrl(_adventure), replace: true);
+            }
+            else if (ModeFromQuery(Tab) is null)
+            {
+                // The entry in the browser's history names its tab from the start, so Back
+                // from a later tab has somewhere to return to.
                 Nav.NavigateTo(AdventureUrl(_adventure), replace: true);
             }
 
@@ -412,12 +429,16 @@ else if (_adventure is not null)
     private string AdventureUrl(AdventureDto adventure) =>
         $"{Links.Adventure(adventure.Slug, adventure.Id)}?tab={_mode.ToLowerInvariant()}";
 
-    /// <summary>Puts the tab shown in the address bar, replacing the entry rather than adding one.</summary>
+    /// <summary>
+    /// Puts the tab shown in the address bar as a new step in the browser's history (3.32), so
+    /// Back returns to the tab before instead of leaving the adventure. Does nothing when the
+    /// address already names the tab, which is how a Back or Forward arrives here.
+    /// </summary>
     private void ShowTabInUrl()
     {
-        if (_adventure is not null)
+        if (_adventure is not null && ModeFromQuery(Tab) != _mode)
         {
-            Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", _mode.ToLowerInvariant()), replace: true);
+            Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", _mode.ToLowerInvariant()));
         }
     }
 
@@ -1017,7 +1038,7 @@ else if (_adventure is not null)
             { d => d.AdventureId, _adventure.Id },
             { d => d.Chapters, _adventure.Sections.Where(s => s.Kind == "Chapter").ToList() },
         };
-        await DialogService.ShowAsync<AdventureExportDialog>("Export to Nornis", parameters,
+        await DialogService.ShowAsync<AdventureExportDialog>("Add to the record", parameters,
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
     }
 
@@ -1030,7 +1051,7 @@ else if (_adventure is not null)
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete adventure?",
-            $"Delete \"{_adventure.Title}\", every section and every kept draft? Anything you've already printed or sent into Nornis stays. This can't be undone.",
+            $"Delete \"{_adventure.Title}\", every section and every kept draft? Anything you've already printed or added to the record stays. This can't be undone.",
             yesText: "Delete", cancelText: "Cancel");
         if (confirmed != true)
         {

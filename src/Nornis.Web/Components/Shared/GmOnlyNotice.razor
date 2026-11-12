@@ -1,0 +1,14 @@
+@* What a player sees on a GM's page they reached by address (3.32). One component, because the
+   same refusal was four screens: a lock card on two pages and a blue info bar on two others. The
+   page says in a sentence why it is the GM's; the API refuses the data regardless. *@
+
+<MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon nornis-gm-only">
+    <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
+    <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
+    <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">@ChildContent</MudText>
+</MudPaper>
+
+@code {
+    /// <summary>Why this page is the GM's, in a sentence.</summary>
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = null!;
+}

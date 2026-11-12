@@ -174,7 +174,7 @@ public class CaptureHandwritingTests : BunitContext
         var cut = await RenderCaptureAsync("SessionNote");
         EnterTitle(cut, "Session 4 notes");
 
-        await cut.InvokeAsync(() => FindButton(cut, "Save draft")!.ClickAsync(new()));
+        await cut.InvokeAsync(() => FindButton(cut, "Save as draft")!.ClickAsync(new()));
 
         Assert.That(_handler.CreatedCampaignIds, Has.Count.EqualTo(1));
         Assert.That(_handler.CreatedCampaignIds[0], Is.EqualTo(_handler.CurrentCampaignId));
@@ -189,7 +189,7 @@ public class CaptureHandwritingTests : BunitContext
         var cut = await RenderCaptureAsync("SessionNote");
         EnterTitle(cut, "Session 4 notes");
 
-        await cut.InvokeAsync(() => FindButton(cut, "Save draft")!.ClickAsync(new()));
+        await cut.InvokeAsync(() => FindButton(cut, "Save as draft")!.ClickAsync(new()));
 
         Assert.That(_handler.CreatedCampaignIds, Has.Count.EqualTo(1));
         Assert.That(_handler.CreatedCampaignIds[0], Is.Null);
@@ -212,7 +212,7 @@ public class CaptureHandwritingTests : BunitContext
         Assert.That(cut.FindAll("input[placeholder='https://…']"), Is.Empty);
 
         EnterTitle(cut, "Session 4 notes");
-        await cut.InvokeAsync(() => FindButton(cut, "Save draft")!.ClickAsync(new()));
+        await cut.InvokeAsync(() => FindButton(cut, "Save as draft")!.ClickAsync(new()));
 
         Assert.That(_handler.CreatedUris, Has.Count.EqualTo(1));
         Assert.That(_handler.CreatedUris[0], Is.Null, "the link left with the type that owned it");
@@ -296,7 +296,7 @@ public class CaptureHandwritingTests : BunitContext
         EnterTitle(cut, "Session 4 notes");
         await PickAndReadAsync(cut);
 
-        await cut.InvokeAsync(() => FindButton(cut, "Save & process")!.ClickAsync(new()));
+        await cut.InvokeAsync(() => FindButton(cut, "Save and read")!.ClickAsync(new()));
 
         Assert.That(_handler.CreateCount, Is.EqualTo(1),
             "the reading and the save share one draft — two sources would split the photos "

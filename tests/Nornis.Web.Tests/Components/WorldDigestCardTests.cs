@@ -75,10 +75,10 @@ public class WorldDigestCardTests : BunitContext
     }
 
     private static bool HasGenerateButton(IRenderedComponent<Host> cut) =>
-        cut.FindAll("button[aria-label='Generate digest']").Count > 0;
+        cut.FindAll("button[aria-label='Write the recap']").Count > 0;
 
     private static bool HasRefreshButton(IRenderedComponent<Host> cut) =>
-        cut.FindAll("button[aria-label='Refresh digest']").Count > 0;
+        cut.FindAll("button[aria-label='Refresh recap']").Count > 0;
 
     private static bool HasPreviewToggle(IRenderedComponent<Host> cut) =>
         cut.FindAll("button[aria-label='What players see']").Count > 0;
@@ -92,7 +92,7 @@ public class WorldDigestCardTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.That(HasGenerateButton(cut), Is.True);
-            Assert.That(cut.Markup, Does.Contain("No digest yet."));
+            Assert.That(cut.Markup, Does.Contain("No recap yet."));
         });
     }
 
@@ -150,7 +150,7 @@ public class WorldDigestCardTests : BunitContext
         var cut = Render<Host>();
         cut.WaitForAssertion(() => Assert.That(HasGenerateButton(cut), Is.True));
 
-        await cut.Find("button[aria-label='Generate digest']").ClickAsync(new());
+        await cut.Find("button[aria-label='Write the recap']").ClickAsync(new());
 
         Assert.That(_handler.GenerateCalls, Is.EqualTo(1), "the click must reach the generate endpoint");
         cut.WaitForAssertion(() =>
@@ -170,7 +170,7 @@ public class WorldDigestCardTests : BunitContext
         var cut = Render<Host>();
         cut.WaitForAssertion(() => Assert.That(HasGenerateButton(cut), Is.True));
 
-        await cut.Find("button[aria-label='Generate digest']").ClickAsync(new());
+        await cut.Find("button[aria-label='Write the recap']").ClickAsync(new());
 
         Assert.That(HasGenerateButton(cut), Is.True, "a failed generation must stay retryable");
         Assert.That(cut.Markup, Does.Not.Contain("Freshly generated digest"));

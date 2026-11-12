@@ -32,7 +32,7 @@
                 <div class="nornis-list-body">
                     <div class="nornis-list-title">@signIn.Provider</div>
                     <div class="nornis-list-sub">
-                        <span>Added @signIn.AddedAt.LocalDateTime.ToString("d MMM yyyy")</span>
+                        <span>Added @DateDisplay.Day(signIn.AddedAt)</span>
                         @if (signIn.Current)
                         {
                             <span> · signed in with this now</span>

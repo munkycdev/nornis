@@ -46,6 +46,15 @@
                     <MudText Typo="Typo.h5" Class="nornis-serif">@ch.Name</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">Played by @_dossier.PlayerName</MudText>
                 </div>
+                @* Renaming and removing a character live with the rest of a player's own things;
+                   this page had no pointer to them (3.32). *@
+                @if (_dossier.CanEditSheet)
+                {
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Class="ml-auto"
+                               StartIcon="@Icons.Material.Outlined.Edit" Href="@Links.WorldSettingsYou">
+                        Rename or remove
+                    </MudButton>
+                }
             </div>
 
             @if (!string.IsNullOrWhiteSpace(ch.Description))
@@ -72,7 +81,7 @@
             <MudPaper Elevation="0" Class="@($"nornis-card nornis-card-pad mb-3{(_editingSheet ? " nornis-fill" : "")}")">
                 <div class="d-flex align-center gap-2 mb-2">
                     <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" Color="Color.Secondary" />
-                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">Their sheet</MudText>
+                    <MudText Typo="Typo.subtitle1" Class="nornis-serif flex-grow-1">Character sheet</MudText>
 
                     @if (_dossier.CanShareSheet)
                     {
@@ -208,7 +217,7 @@
                         }
                     </MudSelect>
 
-                    <MudDatePicker @bind-Date="_attachAsOf" Label="The sheet as it stood on"
+                    <MudDatePicker DateFormat="@DateDisplay.DayFormat" @bind-Date="_attachAsOf" Label="The sheet as it stood on"
                                    Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
 
                     <MudTextField @bind-Value="_attachNote" Label="Note (optional)" MaxLength="500"
@@ -245,7 +254,7 @@
                                     <a href="@Links.Source(snap.SourceSlug, snap.SourceId)" class="nornis-link">@snap.SourceTitle</a>
                                 </div>
                                 <div class="nornis-list-sub">
-                                    <span>As of @snap.AsOf.ToString("d MMM yyyy")</span>
+                                    <span>As of @DateDisplay.Day(snap.AsOf)</span>
                                     @if (!string.IsNullOrWhiteSpace(snap.Note))
                                     {
                                         <span> · @snap.Note</span>
@@ -276,7 +285,7 @@
                     This character isn't linked to a world record.
                     @if (_dossier.CanShareSheet)
                     {
-                        <text> Link one from your profile to see what the sources say about them.</text>
+                        <text> Link one under <a href="@Links.WorldSettingsYou" class="nornis-link">World settings</a> to see what the sources say about them.</text>
                     }
                 </MudText>
             </MudPaper>
@@ -358,7 +367,7 @@
         }
         </Body>
         <Rail>
-            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="The record" RelatedTitle="Connected" />
+            <ContextRail Rows="@RailRows" Related="@RailRelated" RowsTitle="The record" RelatedTitle="Connected" LoremasterAbout="this character" />
         </Rail>
         </EntityPage>
     }

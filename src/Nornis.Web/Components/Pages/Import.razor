@@ -1,22 +1,27 @@
-﻿@page "/extract"
-@* The original address, kept working: the feature shipped as "import" and links to it exist. *@
-@page "/import"
+﻿@page "/import"
+@* /extract was this page's second address and "Extract your campaign" its title, while Capture
+   called it "Import a whole vault" and Sources "Extract campaign": two doors, three names, one
+   of them a letter from Export. Since 3.32 it is "Import past sessions" at /import, reached
+   from Sources; the old address still works. "Extracting" stays the word for reading a note. *@
+@page "/extract"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject Nornis.Web.State.AuthSessionState AuthSession
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject NavigationManager Nav
+@inject Nornis.Web.State.BreadcrumbState Crumbs
 
-<PageTitle>Extract Campaign — Nornis</PageTitle>
+<PageTitle>Import past sessions — Nornis</PageTitle>
 
 <div class="nornis-page-head">
     <div>
-        <MudText Typo="Typo.h4" Class="nornis-serif">Extract your campaign</MudText>
+        <MudText Typo="Typo.h4" Class="nornis-serif">Import past sessions</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
-            Choose the notes to read — ones already in your world, or new ones pasted in — put them
-            in order, then walk them one at a time, each read against the record the ones before
-            it built.
+            For a campaign that has already been played. Choose the notes to read, ones already in
+            your world or new ones pasted in, put them in order, then walk them one at a time,
+            each read against the record the ones before it built.
         </MudText>
     </div>
 </div>
@@ -27,7 +32,7 @@
 }
 else if (!Worlds.IsGm)
 {
-    <MudAlert Severity="Severity.Info">Only the GM can extract a campaign.</MudAlert>
+    <GmOnlyNotice>Importing past sessions writes to the whole record, so it is the GM's to run.</GmOnlyNotice>
 }
 else if (_loading)
 {
@@ -46,9 +51,9 @@ else
            to create a second one, leaving nowhere to go. *@
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">Could not load your extraction</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">Could not load your import</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-                This is a connection problem, not a lost backlog — if an extraction was in progress
+                This is a connection problem, not a lost backlog — if an import was in progress
                 it is still there. Try again in a moment.
             </MudText>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
@@ -61,14 +66,14 @@ else
     {
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.LibraryBooks" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">No extraction in progress</MudText>
+            <MudText Typo="Typo.h5" Class="nornis-serif">No import in progress</MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                 Start one and add your notes oldest first. Nothing is read until you say go, and then
                 only one note at a time — so the second session is read knowing what the first established.
             </MudText>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                        OnClick="CreateAsync" Disabled="@_busy" Class="mt-4">
-                Start extracting
+                Start an import
             </MudButton>
         </MudPaper>
     }
@@ -80,7 +85,7 @@ else
                           MaxLength="200" Variant="Variant.Outlined" Class="mb-3" />
             <MudTextField @bind-Value="_body" Label="What happened" Lines="8"
                           Variant="Variant.Outlined" Class="mb-3" />
-            <MudDatePicker @bind-Date="_occurredAt" Label="Session date" Variant="Variant.Outlined"
+            <MudDatePicker DateFormat="@DateDisplay.DayFormat" @bind-Date="_occurredAt" Label="Session date" Variant="Variant.Outlined"
                            Clearable="true" Class="mb-3" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                        OnClick="AddNoteAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">
@@ -146,16 +151,16 @@ else
                                 <div class="nornis-list-body">
                                     <div class="nornis-list-title">@candidate.Title</div>
                                     <div class="nornis-list-sub">
-                                        @candidate.Type
+                                        @SourceTypeDisplay.Label(candidate.Type)
                                         &middot;
                                         @(candidate.IsDated
-                                            ? candidate.StoryPosition.LocalDateTime.ToString("d MMM yyyy")
-                                            : $"undated, filed {candidate.StoryPosition.LocalDateTime:d MMM yyyy}")
+                                            ? DateDisplay.Day(candidate.StoryPosition)
+                                            : $"undated, filed {DateDisplay.Day(candidate.StoryPosition)}")
                                         @* A source that has never been submitted may be someone's
                                            unfinished note; say so rather than let it look extracted. *@
                                         @if (candidate.ProcessingStatus != "Processed")
                                         {
-                                            <span> &middot; @candidate.ProcessingStatus</span>
+                                            <span> &middot; @SourceStatusDisplay.Label(candidate.ProcessingStatus)</span>
                                         }
                                     </div>
                                 </div>
@@ -241,7 +246,7 @@ else
                         <div class="nornis-list-body">
                             <div class="nornis-list-title">@item.Title</div>
                             <div class="nornis-list-sub">
-                                @(item.OccurredAt is { } occurred ? occurred.LocalDateTime.ToString("d MMM yyyy") : "No session date")
+                                @(item.OccurredAt is { } occurred ? DateDisplay.Day(occurred) : "No session date")
                             </div>
                         </div>
                         @if (item.ExistingReferenceCount > 0)
@@ -318,7 +323,7 @@ else
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.PlayArrow"
                            OnClick="StartAsync" Disabled="@(_busy || _session.Items.Count == 0)">
-                    Start extracting
+                    Start reading
                 </MudButton>
                 <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="AbandonAsync" Disabled="@_busy">
                     Abandon
@@ -495,7 +500,7 @@ else
                     <div class="nornis-list-body">
                         <div class="nornis-list-title">@item.Title</div>
                         <div class="nornis-list-sub">
-                            @(item.OccurredAt is { } occurred ? occurred.LocalDateTime.ToString("d MMM yyyy") : "No session date")
+                            @(item.OccurredAt is { } occurred ? DateDisplay.Day(occurred) : "No session date")
                         </div>
                     </div>
                     @if (item.State == "Reviewing")
@@ -519,7 +524,7 @@ else
 
             <div class="d-flex gap-2 mt-4">
                 <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="AbandonAsync" Disabled="@_busy">
-                    Stop extracting
+                    Stop the import
                 </MudButton>
             </div>
         </MudPaper>
@@ -531,7 +536,7 @@ else
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
             <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Large" Class="nornis-comingsoon-icon" />
             <MudText Typo="Typo.h5" Class="nornis-serif">
-                @(_session.Status == "Completed" ? "Campaign extracted" : "Extraction stopped")
+                @(_session.Status == "Completed" ? "Import finished" : "Import stopped")
             </MudText>
             <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
                 @ProcessedCount read, @SkippedCount skipped, of @_session.Items.Count notes.
@@ -607,6 +612,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // The page has no sidebar entry of its own: Sources is its door, and the trail says so.
+        Crumbs.Set(new Uri(Nav.Uri).AbsolutePath, new Crumb("Sources", "/sources"), new Crumb("Import past sessions"));
+
         Worlds.Changed += OnWorldChanged;
         await Worlds.EnsureLoadedAsync();
         await LoadAsync();

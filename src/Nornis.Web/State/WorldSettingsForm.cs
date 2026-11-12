@@ -70,6 +70,29 @@ public sealed class WorldSettingsForm
         section == WorldSettingsSection.World && string.IsNullOrWhiteSpace(Name) ? "Name is required." : null;
 
     /// <summary>
+    /// Whether a section holds something its Save has not sent: the form against the world as the
+    /// API last answered it. Text is compared the way <see cref="RequestFor"/> sends it, so a
+    /// trailing space or an empty box where the world has nothing is not a change.
+    /// </summary>
+    public bool IsChanged(WorldSettingsSection section, WorldSummary saved) => section switch
+    {
+        WorldSettingsSection.World =>
+            Name.Trim() != saved.Name
+            || (Description ?? string.Empty) != (saved.Description ?? string.Empty)
+            || (GameSystem ?? string.Empty) != (saved.GameSystem ?? string.Empty),
+        WorldSettingsSection.PublicPage =>
+            // An emptied slug is not sent, so it is not a pending change either.
+            (!string.IsNullOrWhiteSpace(PublicSlug) && PublicSlug.Trim().ToLowerInvariant() != (saved.PublicSlug ?? string.Empty))
+            || PublicAccessEnabled != saved.PublicAccessEnabled
+            || PublicAskMonthlyBudget != saved.PublicAskMonthlyBudgetUsd,
+        WorldSettingsSection.Budgets =>
+            DailyAiBudget != saved.DailyAiBudgetUsd || PrepMonthlyBudget != saved.PrepMonthlyBudgetUsd,
+        WorldSettingsSection.Review => SummaryReviewRequired != saved.SummaryReviewRequired,
+        WorldSettingsSection.Template => IsTemplate != saved.IsTemplate,
+        _ => throw new ArgumentOutOfRangeException(nameof(section), section, null),
+    };
+
+    /// <summary>
     /// The update for one section, every other field left null so the API keeps it. An emptied
     /// description or game system is sent as empty text (null would mean "unchanged"); an emptied
     /// budget is sent as its Clear flag; an emptied slug is left as it was, as before.
