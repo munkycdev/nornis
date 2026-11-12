@@ -201,7 +201,7 @@
         }
 
         await ClearBackupAsync();
-        await JS.InvokeVoidAsync("nornisEditor.setContent", _elementId, MarkdownRenderer.ToHtml(markdown).Value);
+        await JS.TryInvokeVoidAsync("nornisEditor.setContent", _elementId, MarkdownRenderer.ToHtml(markdown).Value);
     }
 
     private readonly string _elementId = $"nornis-editor-{Guid.NewGuid():N}";
@@ -217,7 +217,7 @@
         }
 
         await ClearBackupAsync();
-        await JS.InvokeVoidAsync("nornisEditor.setContent", _elementId, string.Empty);
+        await JS.TryInvokeVoidAsync("nornisEditor.setContent", _elementId, string.Empty);
     }
 
     /// <summary>Forgets the kept notes. The page calls this the moment a save has succeeded.</summary>
@@ -225,10 +225,13 @@
     {
         if (BackupKey is not null)
         {
-            await JS.InvokeVoidAsync("nornisEditor.clearBackup", BackupKey);
+            await JS.TryInvokeVoidAsync("nornisEditor.clearBackup", BackupKey);
         }
     }
 
+    // BL0012 is off for this method: the render is asked for first so the new layout reaches
+    // the browser ahead of the focus call. Left to Blazor, the focus call would go first.
+#pragma warning disable BL0012
     /// <summary>
     /// A presentation state, not content: the TipTap instance stays mounted in the same element
     /// and only the wrapper's class changes, so nothing typed is at risk in the toggle.
@@ -244,6 +247,7 @@
             await JS.InvokeVoidAsync("nornisEditor.focus", _elementId);
         }
     }
+#pragma warning restore BL0012
 
     private Task OnKeyDownAsync(KeyboardEventArgs e) =>
         _maximized && e.Key == "Escape" ? ToggleMaximizeAsync() : Task.CompletedTask;
@@ -253,10 +257,20 @@
         if (firstRender)
         {
             // The return is the ISO time of a backup loaded in place of empty content, or null.
-            var restoredAt = await JS.InvokeAsync<string?>("nornisEditor.init",
-                _elementId, InitialHtml ?? MarkdownRenderer.ToHtml(InitialMarkdown).Value,
-                ReadOnly ? null : Placeholder, !ReadOnly,
-                ReadOnly ? null : BackupKey, PreferBackup);
+            string? restoredAt;
+            try
+            {
+                restoredAt = await JS.InvokeAsync<string?>("nornisEditor.init",
+                    _elementId, InitialHtml ?? MarkdownRenderer.ToHtml(InitialMarkdown).Value,
+                    ReadOnly ? null : Placeholder, !ReadOnly,
+                    ReadOnly ? null : BackupKey, PreferBackup);
+            }
+            catch (JSDisconnectedException)
+            {
+                // The reader left before the page reached them: no editor to initialise.
+                return;
+            }
+
             _initialized = true;
             await ApplyLockAsync();
 
@@ -286,7 +300,7 @@
         }
 
         _lockedInBrowser = Locked;
-        await JS.InvokeVoidAsync("nornisEditor.setEditable", _elementId, !Locked);
+        await JS.TryInvokeVoidAsync("nornisEditor.setEditable", _elementId, !Locked);
     }
 
     /// <summary>

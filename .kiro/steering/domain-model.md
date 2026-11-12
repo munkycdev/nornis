@@ -1,6 +1,6 @@
 # Domain Model
 
-> **Amendment (2026-11-12): the check-in and the editorial brief.** Feature 44 (Nornis 3.39)
+> **Amendment (2026-11-12): the check-in and the editorial brief.** Feature 44 (Nornis 3.42)
 > adds three world-scoped entities. `CheckIn`: one round of questions, with `CreatedAt`, the
 > model that chose them, the latest dated session at the time (`LatestSessionSourceId`,
 > `LatestSessionAt`, the anchor the cadence counts from) and `ClosedAt`, stamped when a later

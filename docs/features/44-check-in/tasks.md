@@ -1,6 +1,6 @@
 # Tasks
 
-Ships as Nornis 3.39. One migration, `AddCheckIn` (three tables, one column on Worlds), which
+Ships as Nornis 3.42. One migration, `AddCheckIn` (three tables, one column on Worlds), which
 Dave applies before the deploy.
 
 **Status (2026-11-12): built in one PR; Phases A–D done, Phase E is Dave's.** Where the build
@@ -47,10 +47,10 @@ and a larger list to work through when ambitious.
 
 - [x] D1. Client contracts and `NornisApiClient` methods; `CheckInCard` on Home; `CheckIn` page;
       the nav entry; the settings card; CSS.
-- [x] D2. Change log 3.39, Features page line, version bump.
+- [x] D2. Change log 3.42, Features page line, version bump.
 
 ## Phase E — Dave
 
-- [ ] E1. Apply the migration, deploy, confirm 3.39 on /health.
+- [ ] E1. Apply the migration, deploy, confirm 3.42 on /health.
 - [ ] E2. Ask me now on Symbaroum. The witch's question should arrive; answer Background on
       Koves and add the rule. Then extract the next session note and read the proposals.

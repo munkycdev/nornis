@@ -408,7 +408,7 @@
     {
         // Snooze entries are "storylineId:latestSessionId"; a storyline is snoozed only while
         // the latest session it was snoozed against is still the latest one.
-        var raw = await JS.InvokeAsync<string?>("localStorage.getItem", SnoozeStorageKey);
+        var raw = await ReadSnoozedAsync();
         if (string.IsNullOrWhiteSpace(raw))
         {
             return new HashSet<Guid>();
@@ -429,6 +429,22 @@
         return set;
     }
 
+    /// <summary>
+    /// The stored snooze list, or null when there is none or the browser will not say (storage
+    /// switched off, or the tab already closed). No storage is the same as nothing snoozed.
+    /// </summary>
+    private async Task<string?> ReadSnoozedAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string?>("localStorage.getItem", SnoozeStorageKey);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+            return null;
+        }
+    }
+
     private async Task DismissQuietAsync(QuietStorylineDto q)
     {
         if (!_busy.Add(q.StorylineId))
@@ -438,10 +454,18 @@
 
         // Persist against the current latest session so it re-surfaces after a newer one.
         var latest = _view?.LatestSession?.SourceId ?? Guid.Empty;
-        var raw = await JS.InvokeAsync<string?>("localStorage.getItem", SnoozeStorageKey) ?? string.Empty;
+        var raw = await ReadSnoozedAsync() ?? string.Empty;
         var entries = raw.Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
         entries.Add(SnoozeKeyFor(q.StorylineId, latest));
-        await JS.InvokeVoidAsync("localStorage.setItem", SnoozeStorageKey, string.Join(',', entries));
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", SnoozeStorageKey, string.Join(',', entries));
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+            // No storage to keep it in: the storyline still leaves the card for this visit, and
+            // comes back on the next one.
+        }
 
         _busy.Remove(q.StorylineId);
         DropQuiet(q.StorylineId);

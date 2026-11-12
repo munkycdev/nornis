@@ -1,7 +1,7 @@
 # AI Extraction and Loremaster Behavior
 
 > **Amendment (2026-11-12): the GM's standing instructions ride on every extraction.** Feature 44
-> (Nornis 3.39) gives a world an editorial brief: up to 40 `EditorialRule` rows of 300 characters,
+> (Nornis 3.42) gives a world an editorial brief: up to 40 `EditorialRule` rows of 300 characters,
 > written by the GM on the Check-in page or by answering a check-in question. `ExtractionService`
 > reads them fresh on every attempt and `ExtractionPromptBuilder` renders them, through the one
 > `EditorialBriefPrompt.Render`, as a "## Standing Instructions" section between the prompt's

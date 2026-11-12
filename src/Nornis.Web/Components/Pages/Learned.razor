@@ -168,7 +168,6 @@ else
         var newest = _learned.Entries.Max(e => e.OccurredAt);
 
         _marking = true;
-        StateHasChanged();
 
         var result = await Api.MarkLearnedSeenAsync(Worlds.Current.Id, newest);
         _marking = false;
@@ -180,7 +179,6 @@ else
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
-            StateHasChanged();
         }
     }
 

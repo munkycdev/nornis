@@ -32,6 +32,17 @@ public static class Links
 
     public static string Source(string? slug, Guid id) => $"/sources/{Key(slug, id)}";
 
+    /// <summary>
+    /// The sources list, showing sources of <paramref name="type"/>. The list opens on sessions
+    /// only, so a way back to it from a map or a GM note asks for every type, or the source the
+    /// reader came from would not be on it.
+    /// </summary>
+    public static string SourcesShowing(string type) =>
+        Services.SourceTypeDisplay.DefaultFilter.Contains(type) ? "/sources" : $"/sources?type={SourcesAllTypes}";
+
+    /// <summary>The <c>?type=</c> value that asks the sources list for every type.</summary>
+    public const string SourcesAllTypes = "all";
+
     public static string LibraryDocument(string? slug, Guid id) => $"/library/{Key(slug, id)}";
 
     public static string Adventure(string? slug, Guid id) => $"/prep/{Key(slug, id)}";

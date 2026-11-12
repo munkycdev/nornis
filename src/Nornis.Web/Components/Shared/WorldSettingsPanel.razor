@@ -206,8 +206,8 @@
             return;
         }
 
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", live);
-        Snackbar.Add("Public link copied.", Severity.Info);
+        var copied = await JS.TryCopyTextAsync(live);
+        Snackbar.Add(copied ? "Public link copied." : DisplayText.CopyRefused, copied ? Severity.Info : Severity.Warning);
     }
 
     private async Task SaveAsync()

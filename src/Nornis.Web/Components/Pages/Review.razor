@@ -55,11 +55,7 @@ else
             StateHasChanged();
         });
 
-    private void OnCountChanged(int count)
-    {
-        _count = count;
-        StateHasChanged();
-    }
+    private void OnCountChanged(int count) => _count = count;
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;
 }

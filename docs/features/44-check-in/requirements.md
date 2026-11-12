@@ -26,7 +26,7 @@ warning on Koves and retires the storyline, and the GM can add, in one line, the
 that a player character's development is recorded on the character and never as a storyline.
 From then on extraction reads that line on every note.
 
-Ships as Nornis 3.39. One migration (`AddCheckIn`), which Dave applies before the deploy.
+Ships as Nornis 3.42. One migration (`AddCheckIn`), which Dave applies before the deploy.
 
 ## Glossary
 

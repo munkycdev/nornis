@@ -3,6 +3,7 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject Nornis.Web.State.AuthSessionState AuthSession
+@inject NavigationManager Nav
 
 <PageTitle>Sources — Nornis</PageTitle>
 
@@ -78,8 +79,26 @@ else
 {
     <SourcesNeedingAttention Sources="_sources" OnRetried="LoadSourcesAsync" />
 
-    <div class="nornis-filter-row mb-3">
+    @* The list opens on sessions (3.40); the row says so by having those chips on, and "All"
+         is one click. Only types the world has are offered, so the row stays short. *@
+    <div class="nornis-filter-row mb-2" role="group" aria-label="Filter by type">
+        <span class="nornis-filter-label">Type</span>
         <MudChip T="string"
+                 Variant="@(_typeFilter.Count == 0 ? Variant.Filled : Variant.Outlined)"
+                 Color="@(_typeFilter.Count == 0 ? Color.Secondary : Color.Default)"
+                 OnClick="ShowAllTypes">All</MudChip>
+        @foreach (var type in TypesPresent)
+        {
+            var t = type;
+            <MudChip T="string"
+                     Variant="@(_typeFilter.Contains(t) ? Variant.Filled : Variant.Outlined)"
+                     Color="@(_typeFilter.Contains(t) ? Color.Secondary : Color.Default)"
+                     OnClick="() => ToggleType(t)">@SourceTypeDisplay.Label(t)</MudChip>
+        }
+    </div>
+    <div class="nornis-filter-row mb-3" role="group" aria-label="Filter by status">
+        <span class="nornis-filter-label">Status</span>
+        <MudChip T="string" Size="Size.Small"
                  Variant="@(_statusFilter is null ? Variant.Filled : Variant.Outlined)"
                  Color="@(_statusFilter is null ? Color.Secondary : Color.Default)"
                  OnClick="() => _statusFilter = null">All</MudChip>
@@ -95,7 +114,7 @@ else
 
     @if (FilteredSources.Count == 0)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">No sources are @SourceStatusDisplay.Label(_statusFilter!).ToLowerInvariant().</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">@NothingMatches</MudText>
     }
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
         @foreach (var source in FilteredSources)
@@ -139,6 +158,15 @@ else
     [SupplyParameterFromQuery(Name = "campaign")]
     public Guid? CampaignQuery { get; set; }
 
+    /// <summary>
+    /// The types to show, comma-separated, or <c>all</c>. Absent means the default (the
+    /// sessions), so a plain <c>/sources</c> opens on the record of play. The choice lives in
+    /// the address, as the Codex's does, so Back from a source, a refresh and a shared link all
+    /// show the same list.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "type")]
+    public string? TypeQuery { get; set; }
+
     private bool _loading;
     private string? _error;
     private IReadOnlyList<SourceListItem> _sources = [];
@@ -146,11 +174,125 @@ else
     private string _campaignFilter = string.Empty;
     private string? _statusFilter;
 
+    // Empty means every type. It is never a sentinel for "the default": the default is a set
+    // like any other (SourceTypeDisplay.DefaultFilter), and only the address spells it as absent.
+    private readonly HashSet<string> _typeFilter = new(SourceTypeDisplay.DefaultFilter, StringComparer.Ordinal);
 
     private IReadOnlyList<SourceListItem> FilteredSources =>
-        _statusFilter is null
-            ? _sources
-            : _sources.Where(s => SourceStatusDisplay.Matches(_statusFilter, s.ProcessingStatus)).ToList();
+        _sources
+            .Where(s => _typeFilter.Count == 0 || _typeFilter.Contains(s.Type))
+            .Where(s => _statusFilter is null || SourceStatusDisplay.Matches(_statusFilter, s.ProcessingStatus))
+            .ToList();
+
+    // The chips on offer: the types this list holds, in display order. A type the world has
+    // never seen would be a chip that can only ever show nothing.
+    private IEnumerable<string> TypesPresent
+    {
+        get
+        {
+            var present = _sources.Select(s => s.Type).ToHashSet(StringComparer.Ordinal);
+            return SourceTypeDisplay.FilterOrder.Where(present.Contains)
+                .Concat(present.Where(t => !SourceTypeDisplay.FilterOrder.Contains(t)).Order(StringComparer.Ordinal));
+        }
+    }
+
+    private string NothingMatches
+    {
+        get
+        {
+            var types = _typeFilter.Count == 0 ? null
+                : _typeFilter.SetEquals(SourceTypeDisplay.DefaultFilter) ? "sessions" : "sources of the chosen types";
+            var status = _statusFilter is null ? null : SourceStatusDisplay.Label(_statusFilter).ToLowerInvariant();
+            return (types, status) switch
+            {
+                ("sessions", null) => "No sessions here yet. Choose All to see every source.",
+                ({ } t, null) => $"No {t} here.",
+                (null, { } st) => $"No sources are {st}.",
+                ({ } t, { } st) => $"No {t} are {st}.",
+                _ => "No sources here.",
+            };
+        }
+    }
+
+    private void ToggleType(string type)
+    {
+        // Picking a type when every type is showing narrows to that type, as on the Codex.
+        if (!_typeFilter.Remove(type))
+        {
+            _typeFilter.Add(type);
+        }
+
+        // A filter left holding only types this list does not have would show nothing with no
+        // chip lit to say why; with nothing chosen that can be seen, it is every type.
+        if (!_typeFilter.Overlaps(TypesPresent))
+        {
+            _typeFilter.Clear();
+        }
+        SyncUrl();
+    }
+
+    private void ShowAllTypes()
+    {
+        _typeFilter.Clear();
+        SyncUrl();
+    }
+
+    private void ResetTypeFilter()
+    {
+        _typeFilter.Clear();
+        _typeFilter.UnionWith(SourceTypeDisplay.DefaultFilter);
+    }
+
+    // Every time the address changes, not only on first load: the sidebar's Sources link lands
+    // on this same page instance, and must bring back the default rather than keep "All".
+    protected override void OnParametersSet() => RestoreTypeFilter();
+
+    private void RestoreTypeFilter()
+    {
+        ResetTypeFilter();
+        if (string.IsNullOrWhiteSpace(TypeQuery))
+        {
+            return;
+        }
+
+        if (string.Equals(TypeQuery.Trim(), Links.SourcesAllTypes, StringComparison.OrdinalIgnoreCase))
+        {
+            _typeFilter.Clear();
+            return;
+        }
+
+        var asked = TypeQuery.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(v => SourceTypeDisplay.FilterOrder.FirstOrDefault(t => t.Equals(v, StringComparison.OrdinalIgnoreCase)))
+            .OfType<string>()
+            .ToList();
+
+        // A link naming no type this version knows keeps the default rather than showing nothing.
+        if (asked.Count > 0)
+        {
+            _typeFilter.Clear();
+            _typeFilter.UnionWith(asked);
+        }
+    }
+
+    // Replace, not push: a chip is a refinement of this page, not a step Back should undo.
+    private void SyncUrl()
+    {
+        var type = _typeFilter.Count == 0 ? Links.SourcesAllTypes
+            : _typeFilter.SetEquals(SourceTypeDisplay.DefaultFilter) ? null
+            : string.Join(',', SourceTypeDisplay.FilterOrder.Where(_typeFilter.Contains));
+        var uri = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["type"] = type,
+            // The campaign picker writes the address too, or Back from a source would restore
+            // the campaign this page was opened on rather than the one picked since. "No
+            // campaign" is not a Guid the parameter can carry, so it is dropped.
+            ["campaign"] = Guid.TryParse(_campaignFilter, out var campaign) ? campaign : null,
+        });
+        if (uri != Nav.Uri)
+        {
+            Nav.NavigateTo(uri, replace: true);
+        }
+    }
 
     // Extraction runs out-of-process; poll while any source is mid-pipeline so the
     // list moves Queued -> Processing -> Processed without a manual refresh.
@@ -171,6 +313,8 @@ else
     private void OnWorldChanged() => InvokeAsync(async () =>
     {
         _campaignFilter = string.Empty;
+        ResetTypeFilter();
+        SyncUrl();
         await Task.WhenAll(LoadCampaignsAsync(), LoadSourcesAsync());
     });
 
@@ -189,6 +333,7 @@ else
     private async Task OnCampaignFilterChanged(string value)
     {
         _campaignFilter = value;
+        SyncUrl();
         await LoadSourcesAsync();
     }
 
@@ -229,6 +374,10 @@ else
         }
     }
 
+    // BL0012 is off for this method: a retry runs it as an event handler, which is what the
+    // rule sees, but WorldState.Changed also runs it through InvokeAsync, and there nothing
+    // renders unless this does.
+#pragma warning disable BL0012
     private async Task LoadSourcesAsync()
     {
         if (Worlds.Current is null)
@@ -267,6 +416,7 @@ else
         }
         StateHasChanged();
     }
+#pragma warning restore BL0012
 
     private string? CampaignFilterOrNull => string.IsNullOrEmpty(_campaignFilter) ? null : _campaignFilter;
 

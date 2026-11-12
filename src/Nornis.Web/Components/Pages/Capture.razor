@@ -882,8 +882,8 @@
         // The editor is about to leave the render tree with the reading it was holding.
         _editor = null;
 
-        await JS.InvokeVoidAsync("nornisUpload.release", _cameraInputId);
-        await JS.InvokeVoidAsync("nornisUpload.release", _libraryInputId);
+        await JS.TryInvokeVoidAsync("nornisUpload.release", _cameraInputId);
+        await JS.TryInvokeVoidAsync("nornisUpload.release", _libraryInputId);
     }
 
     private async Task SaveAsync(bool process)
@@ -948,7 +948,7 @@
             !process ? "Draft saved."
             : _extractionEnabled ? "Source saved and queued for processing."
             : "Source stored in the record — no extraction.", Severity.Success);
-        Nav.NavigateTo("/sources");
+        Nav.NavigateTo(Links.SourcesShowing(_type));
     }
 
     private ApiError ShownError(string message) =>
