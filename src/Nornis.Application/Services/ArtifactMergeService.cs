@@ -35,24 +35,24 @@ public class ArtifactMergeService : IArtifactMergeService
     {
         if (role != WorldRole.GM)
         {
-            return AppResult<Guid>.Fail(new AppError(403, "insufficient_role", "Only GMs can merge artifacts."));
+            return AppResult<Guid>.Fail(new AppError(403, "insufficient_role", "Only GMs can merge entries."));
         }
 
         if (duplicateArtifactId == targetArtifactId)
         {
-            return AppResult<Guid>.Fail(new AppError(400, "invalid_merge", "An artifact cannot be merged into itself."));
+            return AppResult<Guid>.Fail(new AppError(400, "invalid_merge", "An entry cannot be merged into itself."));
         }
 
         var duplicate = await _artifactRepository.GetByIdAsync(duplicateArtifactId, ct);
         if (duplicate is null || duplicate.WorldId != worldId)
         {
-            return AppResult<Guid>.Fail(new AppError(404, "not_found", "Duplicate artifact not found."));
+            return AppResult<Guid>.Fail(new AppError(404, "not_found", "The duplicate entry was not found."));
         }
 
         var target = await _artifactRepository.GetByIdAsync(targetArtifactId, ct);
         if (target is null || target.WorldId != worldId)
         {
-            return AppResult<Guid>.Fail(new AppError(404, "not_found", "Target artifact not found."));
+            return AppResult<Guid>.Fail(new AppError(404, "not_found", "The entry to merge into was not found."));
         }
 
         // Provenance: the merge is an ordinary accepted MergeArtifact proposal, tied to
@@ -62,8 +62,8 @@ public class ArtifactMergeService : IArtifactMergeService
             {
                 WorldId = worldId,
                 ActingUserId = actingUserId,
-                Title = $"Artifact merge — {duplicate.Name} → {target.Name} — {DateTimeOffset.UtcNow:yyyy-MM-dd}".Truncate(200),
-                Body = $"GM merged duplicate artifact \"{duplicate.Name}\" ({duplicate.Id}) into \"{target.Name}\" ({target.Id})."
+                Title = $"Entries merged — {duplicate.Name} → {target.Name} — {DateTimeOffset.UtcNow:yyyy-MM-dd}".Truncate(200),
+                Body = $"GM merged duplicate entry \"{duplicate.Name}\" ({duplicate.Id}) into \"{target.Name}\" ({target.Id})."
             },
             ReviewBatchKinds.ArtifactMerge,
             [
@@ -73,7 +73,7 @@ public class ArtifactMergeService : IArtifactMergeService
                     TargetType = ReviewTargetType.Artifact,
                     TargetId = target.Id,
                     ProposedValueJson = $$"""{"sourceArtifactId":"{{duplicate.Id}}"}""",
-                    Rationale = "GM-initiated merge of duplicate artifact."
+                    Rationale = "GM-initiated merge of a duplicate entry."
                 }
             ],
             ct);

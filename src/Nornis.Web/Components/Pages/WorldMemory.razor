@@ -3,15 +3,16 @@
 @inject WorldState Worlds
 @inject NornisApiClient Api
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject NavigationManager Nav
 
-<PageTitle>World Memory — Nornis</PageTitle>
+<PageTitle>World memory — Nornis</PageTitle>
 
 <div>
     <div class="nornis-page-head">
         <div>
-            <MudText Typo="Typo.h4" Class="nornis-serif">World Memory</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">How the health number is derived.</MudText>
+            <MudText Typo="Typo.h4" Class="nornis-serif">World memory</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Continuity risks in your record, and how its health is scored.</MudText>
         </div>
         @if (Worlds.IsGm)
         {
@@ -31,13 +32,7 @@
     }
     else if (!Worlds.IsGm)
     {
-        <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-            <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
-            <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
-            <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-                The health assessment reads the full record, including GM-only material.
-            </MudText>
-        </MudPaper>
+        <GmOnlyNotice>World memory reads the full record, including what only the GM may see.</GmOnlyNotice>
     }
     else if (_loading)
     {
@@ -69,13 +64,13 @@
                 </div>
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="nornis-wm-formula">
-                        Heuristic <b>@assessment.HeuristicScore</b>
-                        − findings penalty <b>@Penalty.CappedPenalty</b>@(Penalty.IsCapped ? $" (capped at {Penalty.Cap})" : "")
-                        = effective <b>@assessment.EffectiveScore</b>
+                        The record scores <b>@assessment.HeuristicScore</b> on its own.
+                        Open findings take off <b>@Penalty.CappedPenalty</b>@(Penalty.IsCapped ? $" (the most they can, {Penalty.Cap})" : ""),
+                        which leaves <b>@assessment.EffectiveScore</b>.
                     </MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
                         AI audit ran @RelativeTime.Ago(assessment.CreatedAt!.Value) with @assessment.Model ·
-                        the heuristic is recomputed live, so the effective score stays current between audits
+                        the record's own score is worked out afresh each time, so the number stays current between audits
                     </MudText>
                 </div>
             </div>
@@ -83,7 +78,7 @@
 
         @* The AI audit — findings and their penalty arithmetic *@
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4">
-            <div class="nornis-detail-section-title">The AI audit — named risks, deterministic penalties</div>
+            <div class="nornis-detail-section-title">The AI audit: named risks, and what each takes off the score</div>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                 The auditor reads the whole record and names specific continuity risks; every finding
                 must cite real record items or it is dropped. The AI never grades the score — each
@@ -193,7 +188,7 @@
                         @if (finding.ArtifactId is { } artifactId)
                         {
                             <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Href="@Links.Artifact(finding.ArtifactSlug, artifactId)">
-                                Open artifact
+                                Open entry
                             </MudButton>
                         }
                         @if (finding.Status == "Open")
@@ -288,6 +283,11 @@
     private async Task DismissAsync(ContinuityFinding finding)
     {
         if (Worlds.Current is null)
+        {
+            return;
+        }
+
+        if (!await FindingDismissal.ConfirmAsync(DialogService, finding))
         {
             return;
         }

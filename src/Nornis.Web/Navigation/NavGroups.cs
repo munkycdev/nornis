@@ -34,7 +34,10 @@ public sealed record NavPlacement(NavGroup Group, NavItem Item);
 /// Grouped by what the member is doing rather than by feature: <b>Play</b> is the loop —
 /// capture, review, learn; <b>World</b> is the record in its views; <b>Table</b> is the people
 /// and the runs of play; <b>GM</b> is what only the GM does. Fourteen flat entries became four
-/// groups of three to five on 2026-09-09 (feature 24, phase A).
+/// groups of three to five on 2026-09-09 (feature 24, phase A). By 3.31 the groups held seventeen
+/// and the GM group sat below the fold on a laptop; 3.32 merged Storylines with Timeline and
+/// Party with Members. An entry is a place, not a view of one: a second view of the same page
+/// belongs in that page's own toggle.
 /// </summary>
 public static class NavGroups
 {
@@ -50,8 +53,8 @@ public static class NavGroups
         new("World",
         [
             new("Codex", "/codex", Icons.Material.Outlined.Hub),
+            // One entry since 3.32: cards, the timeline chart and the journey are views of one page.
             new("Storylines", "/storylines", Icons.Material.Outlined.AutoStories),
-            new("Timeline", "/timeline", Icons.Material.Outlined.Route),
             new("Map", "/locations", Icons.Material.Outlined.Place),
             new("Library", "/library", Icons.Material.Outlined.MenuBook),
             new("Sources", "/sources", Icons.Material.Outlined.Layers, NavBadge.SourceActivity),
@@ -59,15 +62,16 @@ public static class NavGroups
         new("Table",
         [
             new("Campaigns", "/campaigns", Icons.Material.Outlined.Flag),
+            // One entry since 3.32: the people at the table, with roles and invites as the GM's part.
             new("Party", "/party", Icons.Material.Outlined.Groups),
-            new("Members", "/members", Icons.Material.Outlined.People),
+            // Every member's since 3.31: the You tab is theirs, the rest of the tabs the GM's.
+            new("World settings", "/settings", Icons.Material.Outlined.Tune),
         ]),
         new("GM",
         [
             new("Prep", "/prep", Icons.Material.Outlined.HistoryEdu),
-            new("Reveal", "/convergence", Icons.Material.Outlined.Visibility),
+            new("Ready to reveal", "/convergence", Icons.Material.Outlined.Visibility),
             new("World memory", "/world-memory", Icons.Material.Outlined.Psychology),
-            new("Settings", "/admin", Icons.Material.Outlined.Tune),
         ], GmOnly: true),
     ];
 

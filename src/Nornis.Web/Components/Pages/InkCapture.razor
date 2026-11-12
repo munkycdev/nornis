@@ -12,13 +12,13 @@
 
 <div class="nornis-ink-bar">
     <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small"
-                   OnClick="ExitAsync" aria-label="Back to sources" />
+                   OnClick="ExitAsync" aria-label="@BackLabel" title="@BackLabel" />
     <MudTextField T="string" @bind-Value="_title" Immediate="true" Variant="Variant.Text"
                   Placeholder="Session notes title" Class="nornis-ink-title" MaxLength="200" />
     <MudToggleGroup T="string" Value="_tool" ValueChanged="SetToolAsync" SelectionMode="SelectionMode.SingleSelection"
                     Color="Color.Secondary" Size="Size.Small">
-        <MudToggleItem Value="@("pen")"><MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" /></MudToggleItem>
-        <MudToggleItem Value="@("eraser")"><MudIcon Icon="@Icons.Material.Outlined.Backspace" Size="Size.Small" /></MudToggleItem>
+        <MudToggleItem Value="@("pen")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />Pen</span></MudToggleItem>
+        <MudToggleItem Value="@("eraser")"><span class="nornis-toggle-label"><MudIcon Icon="@Icons.Material.Outlined.Backspace" Size="Size.Small" />Eraser</span></MudToggleItem>
     </MudToggleGroup>
     <MudIconButton Icon="@Icons.Material.Filled.Undo" Size="Size.Small"
                    OnClick="UndoAsync" aria-label="Undo" />
@@ -41,7 +41,7 @@
     private DotNetObjectReference<InkCapture>? _selfRef;
     private Guid? _sourceId;
     private string? _sourceSlug;
-    private string _title = $"Session notes — {DateTime.Today:d MMM yyyy}";
+    private string _title = $"Session notes — {DateDisplay.Day(DateTime.Today)}";
     private string _tool = "pen";
     private string _status = "";
     private bool _busy;
@@ -205,7 +205,7 @@
     private async Task<bool> CreateDraftSourceAsync()
     {
         var created = await Api.CreateSourceAsync(Worlds.Current!.Id, new CreateSourceRequest(
-            string.IsNullOrWhiteSpace(_title) ? $"Session notes — {DateTime.Today:d MMM yyyy}" : _title.Trim(),
+            string.IsNullOrWhiteSpace(_title) ? $"Session notes — {DateDisplay.Day(DateTime.Today)}" : _title.Trim(),
             "HandwrittenNotes",
             "PartyVisible",
             Body: null,
@@ -326,13 +326,18 @@
         }
     }
 
+    // Where the arrow goes: the source these pages belong to once there is one, and Capture,
+    // where this page is opened from, before that. It said "Back to sources" either way and
+    // went to the Sources list from an empty page (3.32).
+    private string BackLabel => _sourceId is null ? "Back to Capture" : "Back to this source";
+
     private async Task ExitAsync()
     {
         if (_initialized && await JS.InvokeAsync<bool>("nornisInk.hasInk", _canvasId))
         {
             await SaveInkAsync();
         }
-        Nav.NavigateTo(_sourceId is { } id ? Links.Source(_sourceSlug, id) : "/sources");
+        Nav.NavigateTo(_sourceId is { } id ? Links.Source(_sourceSlug, id) : "/capture?type=HandwrittenNotes");
     }
 
     public async ValueTask DisposeAsync()

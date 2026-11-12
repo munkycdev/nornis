@@ -49,7 +49,7 @@ internal static class CoverArtImage
     }
 
     /// <summary>Null for bytes no codec reads: Skia throws for those rather than returning null.</summary>
-    private static SKBitmap? Decode(byte[] art)
+    internal static SKBitmap? Decode(byte[] art)
     {
         using var data = SKData.CreateCopy(art);
         using var codec = SKCodec.Create(data);

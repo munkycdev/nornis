@@ -14,7 +14,7 @@ using ProfilePage = Nornis.Web.Components.Pages.Profile;
 namespace Nornis.Web.Tests.Components;
 
 /// <summary>
-/// Your settings (Nornis 3.24): three tabs with the shown one in the URL; a sign-in link or a
+/// Your account (Nornis 3.31): AI and Account, the shown one in the URL; a sign-in link or a
 /// Bibliotaph connect that comes back here opens Account, where its outcome is shown.
 /// </summary>
 [TestFixture]
@@ -44,13 +44,14 @@ public class ProfilePageTests : BunitContext
     [TearDown]
     public async Task TearDown() => await DisposeAsync();
 
-    [TestCase(null, null, null, "world")]
+    [TestCase(null, null, null, "ai")]
     [TestCase("AI", null, null, "ai")]
     [TestCase("account", null, null, "account")]
-    [TestCase("nonsense", null, null, "world")]
+    [TestCase("nonsense", null, null, "ai")]
+    [TestCase("world", null, null, "ai")]
     [TestCase(null, "linked", null, "account")]
     [TestCase(null, null, "connected", "account")]
-    [TestCase("world", "linked", null, "world")]
+    [TestCase("ai", "linked", null, "ai")]
     public void TheTab_IsTheUrlsOrElseWhereAnOutcomeIsShown(string? tab, string? signIn, string? bibliotaph, string expected) =>
         Assert.That(ProfilePage.TabFor(tab, signIn, bibliotaph), Is.EqualTo(expected));
 
@@ -66,17 +67,18 @@ public class ProfilePageTests : BunitContext
         cut.Find(".nornis-profile-tabs .nornis-tab-active").GetAttribute("data-tab")!;
 
     [Test]
-    public async Task ThePage_OpensOnThisWorld_NamingIt()
+    public async Task ThePage_OpensOnAi_SayingYourWorldsRunOnYourKeys()
     {
         var cut = await RenderAsync("/profile");
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-profile-world-note"), Has.Count.EqualTo(1)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll("#ai-keys"), Has.Count.EqualTo(1)));
         Assert.Multiple(() =>
         {
-            Assert.That(ActiveTab(cut), Is.EqualTo("world"));
-            Assert.That(cut.Find(".nornis-profile-world-note").TextContent, Does.Contain("Black Harbor"));
-            Assert.That(cut.Markup, Does.Contain("Display name"));
-            Assert.That(cut.FindAll("#ai-keys"), Is.Empty, "AI keys are on their own tab");
+            Assert.That(ActiveTab(cut), Is.EqualTo("ai"));
+            Assert.That(cut.Find(".nornis-profile-ai-scope").TextContent,
+                Does.Contain("Every world you create runs its AI on these keys and models, for everyone in it."));
+            Assert.That(cut.FindAll(".nornis-tab"), Has.Count.EqualTo(2));
+            Assert.That(cut.Markup, Does.Not.Contain("Display name"), "what is yours at one table is on World settings");
         });
     }
 
@@ -110,12 +112,12 @@ public class ProfilePageTests : BunitContext
     public async Task PickingATab_PutsItInTheUrl()
     {
         var cut = await RenderAsync("/profile");
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-tab"), Has.Count.EqualTo(3)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-tab"), Has.Count.EqualTo(2)));
 
-        cut.Find(".nornis-tab[data-tab=ai]").Click();
+        cut.Find(".nornis-tab[data-tab=account]").Click();
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll("#ai-keys"), Has.Count.EqualTo(1)));
-        Assert.That(Services.GetRequiredService<NavigationManager>().Uri, Does.EndWith("/profile?tab=ai"));
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Sign-ins")));
+        Assert.That(Services.GetRequiredService<NavigationManager>().Uri, Does.EndWith("/profile?tab=account"));
     }
 
     private sealed class StubHandler : HttpMessageHandler

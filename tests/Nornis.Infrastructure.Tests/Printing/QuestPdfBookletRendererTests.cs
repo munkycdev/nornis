@@ -152,6 +152,7 @@ public class QuestPdfBookletRendererTests
     [TestCase(CoverLayout.FullBleed)]
     [TestCase(CoverLayout.Framed)]
     [TestCase(CoverLayout.ClassicModule)]
+    [TestCase(CoverLayout.ScrollBanner)]
     public void EachLayout_IsOnePage_WithTheArtAndTheType(CoverLayout layout)
     {
         var pdf = RenderWithArt(layout);
@@ -215,10 +216,56 @@ public class QuestPdfBookletRendererTests
         });
     }
 
+    [Test]
+    public void TheScrollBanner_FillsThePageWithArt_TitleOnTheScrollAtTheTop_AuthorAtTheFoot()
+    {
+        var pdf = RenderWithArt(CoverLayout.ScrollBanner);
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var page = document.GetPage(1);
+        var image = page.GetImages().Single().BoundingBox;
+        var words = Words(page).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(image.Width, Is.EqualTo(PageWidth).Within(1));
+            Assert.That(image.Height, Is.EqualTo(PageHeight).Within(1));
+            Assert.That(words.First(w => w.Text == "Silver").BoundingBox.Bottom, Is.GreaterThan(PageHeight * 0.8), "the title is in the frame near the top");
+            Assert.That(words.First(w => w.Text == "Shadowdark").BoundingBox.Bottom, Is.GreaterThan(PageHeight * 0.75), "the system line is in the frame too");
+            Assert.That(words.First(w => w.Text == "Dave").BoundingBox.Top, Is.LessThan(PageHeight * 0.12), "the author is at the foot");
+            Assert.That(words.Select(w => w.Text), Does.Not.Contain("heist"), "the scroll banner carries no pitch, as full bleed doesn't");
+        });
+    }
+
+    /// <summary>Feature 46: the author line is set on the art in white over dark art and in ink over light art.</summary>
+    [TestCase(0x10, 0x18, 0x10, true)]
+    [TestCase(0xF4, 0xEE, 0xE0, false)]
+    public void TheScrollBannersAuthorLine_TakesTheColourThatReadsOnTheArt(byte r, byte g, byte b, bool white)
+    {
+        var pdf = RenderWithArt(CoverLayout.ScrollBanner, art: Solid(new SkiaSharp.SKColor(r, g, b)));
+
+        using var document = PdfDocument.Open(pdf.Bytes);
+        var author = Words(document.GetPage(1)).First(w => w.Text == "Dave");
+        var (red, green, blue) = author.Letters[0].Color.ToRGBValues();
+        Assert.That((red + green + blue) / 3, white ? Is.GreaterThan(0.9) : Is.LessThan(0.2));
+    }
+
+    private static byte[] Solid(SkiaSharp.SKColor color, int width = 1024, int height = 1536)
+    {
+        using var bitmap = new SkiaSharp.SKBitmap(width, height);
+        using (var canvas = new SkiaSharp.SKCanvas(bitmap))
+        {
+            canvas.Clear(color);
+        }
+
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        return image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100).ToArray();
+    }
+
     /// <summary>A title or pitch as long as the bounds allow still leaves the cover one page.</summary>
     [TestCase(CoverLayout.FullBleed)]
     [TestCase(CoverLayout.Framed)]
     [TestCase(CoverLayout.ClassicModule)]
+    [TestCase(CoverLayout.ScrollBanner)]
     public void TheLongestTitleAndPitch_NeverPushTheCoverOntoASecondPage(CoverLayout layout)
     {
         var title = string.Join(' ', Enumerable.Repeat("Interminable", 16));

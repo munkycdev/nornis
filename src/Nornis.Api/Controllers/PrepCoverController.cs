@@ -55,6 +55,11 @@ public class PrepCoverController : ControllerBase
     public async Task<IActionResult> Choose(Guid worldId, Guid adventureId, [FromBody] ChooseCoverRequest request, CancellationToken ct) =>
         Respond(await _covers.ChooseAsync(new ChooseCoverCommand(worldId, adventureId, UserId, Role, request.OptionId), ct));
 
+    /// <summary>Refines one option on the refining model (feature 45); the result is a new option.</summary>
+    [HttpPost("refine")]
+    public async Task<IActionResult> Refine(Guid worldId, Guid adventureId, [FromBody] ChooseCoverRequest request, CancellationToken ct) =>
+        Respond(await _covers.RefineAsync(new RefineCoverCommand(worldId, adventureId, UserId, Role, request.OptionId), ct));
+
     /// <summary>The GM's own art, as the raw request body. Its type is read from its bytes, not the header.</summary>
     [HttpPut("image")]
     public async Task<IActionResult> Upload(Guid worldId, Guid adventureId, CancellationToken ct)
@@ -72,7 +77,7 @@ public class PrepCoverController : ControllerBase
     {
         if (!EnumParsing.TryParseDefined<CoverLayout>(request.Layout ?? "", out var layout))
         {
-            return BadRequest(new ErrorResponse("invalid_layout", $"'{request.Layout}' is not FullBleed, Framed or ClassicModule."));
+            return BadRequest(new ErrorResponse("invalid_layout", $"'{request.Layout}' is not a cover layout: use one of {string.Join(", ", Enum.GetNames<CoverLayout>())}."));
         }
 
         return Respond(await _covers.SetLayoutAsync(new SetCoverLayoutCommand(worldId, adventureId, UserId, Role, layout), ct));

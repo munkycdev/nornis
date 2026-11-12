@@ -14,7 +14,11 @@
 <div class="nornis-page-head">
     <div>
         <MudText Typo="Typo.h4" Class="nornis-serif">What you learned</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">Everything the party has learned since you last looked.</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            @(Worlds.IsGm
+                ? "What the party has learned since you last looked: what you revealed, and what the sessions added."
+                : "Everything the party has learned since you last looked.")
+        </MudText>
     </div>
     @if (_learned is { Entries.Count: > 0 })
     {
@@ -46,7 +50,9 @@ else if (_learned.Entries.Count == 0)
         @* "Nothing new", never "nothing left" — this page must not imply anything about what
            has or has not been withheld. *@
         <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-            You're up to date. When your GM shares something with the party, it will appear here.
+            @(Worlds.IsGm
+                ? "You're up to date. When you reveal something to the party, it appears here as they will see it."
+                : "You're up to date. When your GM shares something with the party, it will appear here.")
         </MudText>
     </MudPaper>
 }
@@ -64,7 +70,7 @@ else
         <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mb-3">
             <div class="nornis-learned-head">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    @entry.OccurredAt.ToLocalTime().ToString("d MMMM yyyy")
+                    @DateDisplay.Day(entry.OccurredAt)
                 </MudText>
                 @* What the GM chose to tell you is not the same event as the record catching
                    up, and the page says which without making the reader work it out. *@

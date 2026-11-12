@@ -1,0 +1,71 @@
+@inject WorldState Worlds
+@inject NornisApiClient Api
+
+@* The sheet of the player character a Codex entry is linked to, shown on the entry (3.32).
+   A played character exists twice: the Character record under Party, which holds the sheet,
+   and the Codex entry the sessions write to. They were joined by a link and nothing else, so
+   the entry page said what the record knows and never showed the sheet. The API decides what
+   of the sheet this reader may see; an unshared sheet arrives as null and is said, not shown. *@
+
+@if (_dossier is { } dossier)
+{
+    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad mt-4 nornis-linked-sheet">
+        <div class="d-flex align-center gap-2 flex-wrap mb-1">
+            <div class="nornis-detail-section-title mb-0 flex-grow-1">Character sheet</div>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                       Href="@Links.Character(dossier.Character.Slug, dossier.Character.Id)">
+                Open @dossier.Character.Name's page
+            </MudButton>
+        </div>
+        @if (string.IsNullOrWhiteSpace(dossier.Sheet))
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @(dossier.CanEditSheet
+                    ? "No sheet yet. You can start one on the character's page."
+                    : $"{dossier.PlayerName} has not shared a sheet with the party.")
+            </MudText>
+        }
+        else
+        {
+            <div class="nornis-markdown nornis-linked-sheet-body">@MarkdownRenderer.ToHtml(dossier.Sheet)</div>
+        }
+    </MudPaper>
+}
+
+@code {
+    /// <summary>The Codex entry on screen. The card shows only if a Character record links to it.</summary>
+    [Parameter, EditorRequired] public Guid ArtifactId { get; set; }
+
+    private Guid _loadedFor;
+    private CharacterDossierDto? _dossier;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ArtifactId == _loadedFor)
+        {
+            return;
+        }
+
+        var artifactId = _loadedFor = ArtifactId;
+        _dossier = null;
+        if (Worlds.Current is not { } world)
+        {
+            return;
+        }
+
+        var characters = await Api.GetCharactersAsync(world.Id);
+        if (!characters.IsSuccess || characters.Value!.FirstOrDefault(c => c.ArtifactId == artifactId) is not { } linked)
+        {
+            return;
+        }
+
+        var dossier = await Api.GetCharacterDossierAsync(world.Id, linked.Id);
+
+        // The reader may have moved to another entry while this was in flight; a reply for the
+        // one they left must not paint under the one they are on.
+        if (artifactId == ArtifactId && dossier.IsSuccess)
+        {
+            _dossier = dossier.Value;
+        }
+    }
+}

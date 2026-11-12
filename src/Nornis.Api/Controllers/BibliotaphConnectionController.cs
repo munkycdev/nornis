@@ -36,10 +36,10 @@ public class BibliotaphConnectionController : ControllerBase
         return result.IsSuccess ? Ok(new BibliotaphRedirectResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 
-    [HttpPost("authorize")]
-    public IActionResult Authorize([FromBody] BibliotaphAuthorizeRequest request)
+    [HttpPost("resume")]
+    public IActionResult Resume([FromBody] BibliotaphResumeRequest request)
     {
-        var result = _connect.AuthorizeUrl(HttpContext.GetNornisUser().Id, request.State);
+        var result = _connect.ResumeUrl(HttpContext.GetNornisUser().Id, request.State, request.Outcome);
         return result.IsSuccess ? Ok(new BibliotaphRedirectResponse(result.Value!)) : result.Error!.ToActionResult();
     }
 

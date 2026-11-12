@@ -29,7 +29,7 @@
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@SourceTypeDisplay.Label(_source.Type)</MudChip>
                         @if (_source.OccurredAt is not null)
                         {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@_source.OccurredAt.Value.LocalDateTime.ToString("d MMM yyyy")</MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@DateDisplay.Day(_source.OccurredAt.Value)</MudChip>
                         }
                         @if (_source.CampaignName is not null && _source.CampaignId is { } campaignId)
                         {

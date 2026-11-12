@@ -9,16 +9,17 @@
 @inject NavigationManager Nav
 @using Nornis.Web.Services
 
-@* Everyone who plays, whether or not they are on Nornis. A player is a person at the table;
-   Members (the other page) is who can log in. The two lists agree on the people who are both,
-   and this one also has the people who are not — a quiet "Not on Nornis" beside the name. *@
+@* Everyone who plays, whether or not they are on Nornis. A player is a person at the table; a
+   member is someone who can sign in. Until 3.32 those were two sidebar entries listing nearly the
+   same people, so the accounts (roles, removing, inviting) are now the GM's section at the foot
+   of this page. A player sees one list, with each person's role beside their name. *@
 
 <PageTitle>Party — Nornis</PageTitle>
 
 <MudText Typo="Typo.h4" Class="nornis-serif">Party</MudText>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-    Everyone at the table, and the characters they play. Your own are managed on
-    <a href="@Links.ProfileWorld" class="nornis-link">your settings</a>.
+    Everyone at the table, and the characters they play. Your own are managed in
+    <a href="@Links.WorldSettingsYou" class="nornis-link">World settings</a>.
 </MudText>
 
 @if (Worlds.Current is null)
@@ -85,7 +86,9 @@ else
             </div>
             @if (characters.Count == 0)
             {
-                <MudText Typo="Typo.body2" Color="Color.Secondary">No characters yet.</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @(player.Role == WorldRoles.Gm ? "Runs the game. No character of their own." : "No characters yet.")
+                </MudText>
             }
             else
             {
@@ -102,10 +105,22 @@ else
             {
                 @* The GM gives anyone at the table a character: an existing record moves here, a
                    Codex entry becomes a linked record, a new name becomes a fresh one. *@
-                <div class="mt-3">
-                    <CharacterPicker Label="@($"Character for {player.Name}")" ExcludePlayerId="player.Id" Busy="_busy"
-                                     OnPick="pick => PickForPlayerAsync(player, pick)" />
-                </div>
+                @* A GM's row is not waiting for a character the way a player's is (3.32), so the
+                   picker there is one click away instead of always open. *@
+                @if (player.Role == WorldRoles.Gm && !_pickerOpenFor.Contains(player.Id))
+                {
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Class="mt-1"
+                               OnClick="() => _pickerOpenFor.Add(player.Id)">
+                        @(characters.Count == 0 ? $"Give {player.Name} a character" : $"Give {player.Name} another character")
+                    </MudButton>
+                }
+                else
+                {
+                    <div class="mt-3">
+                        <CharacterPicker Label="@($"Character for {player.Name}")" ExcludePlayerId="player.Id" Busy="_busy"
+                                         OnPick="pick => PickForPlayerAsync(player, pick)" />
+                    </div>
+                }
             }
             @if (IsGm && player.WorldMemberId is null)
             {
@@ -178,7 +193,7 @@ else
             <div class="nornis-detail-section-title">Someone who plays without Nornis</div>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                 Add them by name so their characters have a place here. If they sign up later, they
-                can claim themselves from their settings, or you can link them from this page.
+                can claim themselves under World settings, or you can link them from this page.
             </MudText>
             <div class="nornis-add-member">
                 <MudTextField @bind-Value="_newName" Label="Name" MaxLength="200"
@@ -193,6 +208,13 @@ else
                 <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_addError</MudAlert>
             }
         </MudPaper>
+
+        <MudText Typo="Typo.h6" Class="nornis-serif mt-8" id="accounts">Accounts and invites</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Who can sign in to this world, and as what. Only you see this part.
+        </MudText>
+        <MembersPanel />
+        <InviteLinksCard />
     }
 }
 
@@ -202,6 +224,9 @@ else
     private string? _error;
     private IReadOnlyList<PlayerDto> _players = [];
     private IReadOnlyList<CharacterDto> _characters = [];
+
+    // GM rows whose character picker has been asked for.
+    private readonly HashSet<Guid> _pickerOpenFor = [];
     private IReadOnlyList<WorldMember> _members = [];
     private readonly Dictionary<Guid, Guid?> _linkTargets = [];
     private IReadOnlyList<ShelfLinkDto> _shelfLinks = [];

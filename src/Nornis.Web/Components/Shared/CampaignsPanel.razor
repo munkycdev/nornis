@@ -50,7 +50,7 @@ else
                         <a href="@Links.Campaign(c.Slug, c.Id)" class="nornis-link">@c.Name</a>
                         @if (isCurrent)
                         {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="ml-1">Playing now</MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="ml-1">Current campaign</MudChip>
                         }
                     </div>
                     <div class="nornis-list-sub">
@@ -123,8 +123,12 @@ else
 
         var campaignsTask = Api.GetCampaignsAsync(Worlds.Current.Id);
         var charactersTask = Api.GetCharactersAsync(Worlds.Current.Id);
+        var sourcesTask = Api.GetSourcesAsync(Worlds.Current.Id);
         var campaigns = await campaignsTask;
         var characters = await charactersTask;
+        var sources = await sourcesTask;
+        // The dates decorate the list; a failure leaves each row with what the GM typed.
+        _spans = sources.IsSuccess ? CampaignDisplay.SessionSpans(sources.Value!) : new Dictionary<Guid, CampaignDisplay.SessionSpan>();
 
         _loadingCampaigns = false;
         if (campaigns.IsSuccess)
@@ -146,17 +150,13 @@ else
         StateHasChanged();
     }
 
+    private IReadOnlyDictionary<Guid, CampaignDisplay.SessionSpan> _spans = new Dictionary<Guid, CampaignDisplay.SessionSpan>();
+
+    /// <summary>The same line the campaign's own page puts under its name.</summary>
     private string CampaignDates(CampaignDto c)
     {
-        var start = c.StartedAt?.ToString("MMM yyyy");
-        var end = c.EndedAt?.ToString("MMM yyyy");
-        return (start, end) switch
-        {
-            (null, null) => "No dates set",
-            (not null, null) => $"Since {start}",
-            (null, not null) => $"Until {end}",
-            _ => $"{start} – {end}"
-        };
+        var span = _spans.GetValueOrDefault(c.Id);
+        return CampaignDisplay.PlayedSpan(c, span?.First, span?.Last, span?.Count ?? 0);
     }
 
     private string CampaignCharacterNames(CampaignDto c) =>

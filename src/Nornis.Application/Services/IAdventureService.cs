@@ -8,7 +8,8 @@ using Nornis.Domain.Models;
 namespace Nornis.Application.Services;
 
 /// <summary>
-/// Prep, without the AI: the GM's Adventures and their sections. Every operation is GM-only
+/// Prep, without the AI: the GM's Adventures and their sections, and the month's Prep spend the
+/// AI paths draw on. Every operation is GM-only
 /// and checks the caller's role first, the effective one, so a GM viewing as a player is
 /// refused like a player. Controllers carry no role logic of their own.
 /// </summary>
@@ -58,4 +59,7 @@ public interface IAdventureService
 
     /// <summary>Restores the section's latest revision, the body an AI write replaced, and drops it.</summary>
     Task<AppResult<AdventureSection>> UndoAsync(UndoSectionCommand command, CancellationToken ct);
+
+    /// <summary>The month's Prep spend against its ceiling.</summary>
+    Task<AppResult<PrepBudgetStatus>> GetBudgetAsync(Guid worldId, WorldRole role, CancellationToken ct);
 }

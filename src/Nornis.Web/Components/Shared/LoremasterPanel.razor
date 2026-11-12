@@ -8,7 +8,12 @@
 
 @* Compact ask-the-Loremaster panel for page rails — quick questions mid-session without
    leaving the page. Threads persist into the same per-world localStorage history the /ask
-   page reads, so a mid-session thread can be picked up there later. *@
+   page reads, so a mid-session thread can be picked up there later.
+
+   Since 3.32 it reads the way the Ask page does: oldest first, the question box under the
+   thread. It was newest first under a box on top, so the same conversation ran in opposite
+   directions on two pages. The words under the title are the page's (Lead), because the one
+   line it had was written for Capture and said "while you take notes" beside a campaign. *@
 
 <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-lm">
     <div class="nornis-card-header">
@@ -22,25 +27,6 @@
         }
     </div>
 
-    <div class="nornis-lm-composer mb-2">
-        <MudTextField T="string"
-                      @bind-Value="_input"
-                      Immediate="true"
-                      Placeholder="@(_conversation.Exchanges.Count > 0 ? "Ask a follow-up…" : "Who is the watch captain?")"
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      OnKeyUp="OnKeyUp"
-                      Disabled="_asking"
-                      Class="flex-grow-1" />
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       Size="Size.Small"
-                       OnClick="SendAsync"
-                       Disabled="_asking"
-                       aria-label="Ask" />
-    </div>
-
     @if (_error is not null)
     {
         <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2"
@@ -49,15 +35,13 @@
 
     @if (_conversation.Exchanges.Count == 0 && !_asking)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            Quick questions while you take notes — answered from your world record, with citations.
-        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@Lead</MudText>
     }
     else
     {
-        @* Newest first: the composer sits on top and the freshest answer lands right
-           under it; older exchanges scroll away below. *@
-        <div class="nornis-lm-thread">
+        @* Written newest first and drawn bottom-up (column-reverse), so the page reads oldest
+           first and the scroll rests on the newest answer, just above the question box. *@
+        <div class="nornis-lm-thread nornis-lm-thread-chat mb-2">
             @if (_asking)
             {
                 <div class="nornis-lm-exchange">
@@ -144,9 +128,40 @@
         </div>
     }
 
+    <div class="nornis-lm-composer">
+        <MudTextField T="string"
+                      @bind-Value="_input"
+                      Immediate="true"
+                      Placeholder="@(_conversation.Exchanges.Count > 0 ? "Ask a follow-up…" : Prompt)"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      OnKeyUp="OnKeyUp"
+                      Disabled="_asking"
+                      Class="flex-grow-1" />
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       OnClick="SendAsync"
+                       Disabled="_asking"
+                       aria-label="Ask" />
+    </div>
+
+    @if (_conversation.Exchanges.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+            Kept in this browser only. <a href="/ask" class="nornis-link">Open it in Ask</a>.
+        </MudText>
+    }
 </MudPaper>
 
 @code {
+    /// <summary>What the panel says before the first question: what to ask here, in the page's words.</summary>
+    [Parameter] public string Lead { get; set; } = "Answered from your world record, with citations.";
+
+    /// <summary>The question box's hint before the first question.</summary>
+    [Parameter] public string Prompt { get; set; } = "Ask about a person, a place or what happened";
+
     private AskConversation _conversation = new();
     private string _input = string.Empty;
     private string? _pendingQuestion;

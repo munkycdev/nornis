@@ -46,8 +46,23 @@
                         }
                     </MudSelect>
                 </div>
-                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-keyart-remove"
-                           StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked" OnClick="RemoveAsync">Remove</MudButton>
+                @* Removing discards the picture, so it asks first, in place (3.32). *@
+                @if (_confirmingRemove)
+                {
+                    <span class="nornis-inline-confirm">
+                        Discard this key art?
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" Class="nornis-keyart-remove-confirm"
+                                   Disabled="Locked" OnClick="RemoveAsync">Remove it</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Locked"
+                                   OnClick="() => _confirmingRemove = false">Keep it</MudButton>
+                    </span>
+                }
+                else
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-keyart-remove"
+                               StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked"
+                               OnClick="() => _confirmingRemove = true">Remove</MudButton>
+                }
             </div>
         }
 
@@ -101,16 +116,21 @@
 
         @if (_state.Options.Count > 0)
         {
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">Generated options: choose one.</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">Generated options: choose one, or refine one for more detail.</MudText>
             <div class="nornis-keyart-options">
                 @foreach (var option in _state.Options)
                 {
                     var chosen = option == _state.ChosenOptionId;
-                    <button type="button" class="nornis-cover-option nornis-keyart-option @(chosen ? "nornis-cover-option-chosen" : null)"
-                            disabled="@(Locked || chosen)" aria-pressed="@(chosen ? "true" : "false")"
-                            aria-label="@(chosen ? "The key art" : "Use this option")" @onclick="() => ChooseAsync(option)">
-                        <img src="@Links.WorldArtOption(WorldId, option)" alt="A generated key-art option" loading="lazy" />
-                    </button>
+                    <div class="nornis-art-option">
+                        <button type="button" class="nornis-cover-option nornis-keyart-option @(chosen ? "nornis-cover-option-chosen" : null)"
+                                disabled="@(Locked || chosen)" aria-pressed="@(chosen ? "true" : "false")"
+                                aria-label="@(chosen ? "The key art" : "Use this option")" @onclick="() => ChooseAsync(option)">
+                            <img src="@Links.WorldArtOption(WorldId, option)" alt="A generated key-art option" loading="lazy" />
+                        </button>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-art-refine"
+                                   StartIcon="@Icons.Material.Outlined.AutoFixHigh" Disabled="@(Locked || !_state.CanGenerate)"
+                                   aria-label="Refine this option with more detail" OnClick="() => RefineAsync(option)">Refine</MudButton>
+                    </div>
                 }
             </div>
         }
@@ -186,14 +206,22 @@
     private Task GenerateAsync() => RunAsync("Painting two options. This can take a minute…",
         () => Api.GenerateKeyArtAsync(WorldId, _brief ?? string.Empty), changed: false);
 
+    private Task RefineAsync(Guid option) => RunAsync(CoverCard.RefiningText,
+        () => Api.RefineKeyArtAsync(WorldId, option), changed: false);
+
     private Task ChooseAsync(Guid option) => RunAsync("Setting the key art…",
         () => Api.ChooseKeyArtAsync(WorldId, option), changed: true);
 
     private Task SetAnchorAsync(string anchor) => RunAsync("Moving the picture…",
         () => Api.SetKeyArtAnchorAsync(WorldId, anchor), changed: true);
 
-    private Task RemoveAsync() => RunAsync("Removing the key art…",
-        () => Api.RemoveKeyArtAsync(WorldId), changed: true);
+    private bool _confirmingRemove;
+
+    private Task RemoveAsync()
+    {
+        _confirmingRemove = false;
+        return RunAsync("Removing the key art…", () => Api.RemoveKeyArtAsync(WorldId), changed: true);
+    }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {

@@ -209,7 +209,7 @@ public class LoremasterServiceUsageTrackingAndErrorHandlingTests
         {
             Assert.That(result.Error!.StatusCode, Is.EqualTo(409));
             Assert.That(result.Error!.Code, Is.EqualTo(code));
-            Assert.That(result.Error!.Message, Does.Contain("Profile").Or.Contain("credit"));
+            Assert.That(result.Error!.Message, Does.Contain("Your account").Or.Contain("credit"));
             Assert.That(_aiUsageRecordRepository.Records, Is.Empty);
         });
     }

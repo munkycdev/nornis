@@ -73,7 +73,7 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheDocumentsCard_ListsWhatBelongsToThisAdventure_AndNothingElse()
+    public async Task TheFilesCard_ListsWhatBelongsToThisAdventure_AndNothingElse()
     {
         var other = Guid.NewGuid();
         _handler.LibraryJson = JsonSerializer.Serialize(new[]
@@ -92,7 +92,7 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task TheDocumentsCard_SaysHowToAddOne_WhenNothingBelongs()
+    public async Task TheFilesCard_SaysHowToAddOne_WhenNothingBelongs()
     {
         var cut = await RenderOnBookAsync();
 
@@ -123,6 +123,26 @@ public class AdventurePageTests : BunitContext
         }));
     }
 
+    /// <summary>
+    /// 3.30: Talk it through is the one way to ask the Loremaster on Structure. The section has
+    /// no draft card of its own, and nothing on the page posts to the removed draft route.
+    /// </summary>
+    [Test]
+    public async Task TheStructureTab_HasNoDraftCard_OnlyTalkItThrough()
+    {
+        var cut = await RenderAsync();
+
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.FindAll(".nornis-prep-draft"), Is.Empty);
+            Assert.That(cut.Markup, Does.Not.Contain("Draft with the Loremaster"));
+            Assert.That(cut.FindAll("button").Select(b => b.TextContent.Trim()), Has.None.EqualTo("Revise").And.None.EqualTo("Draft"));
+            Assert.That(cut.FindAll(".nornis-prep-talk"), Has.Count.EqualTo(1));
+            Assert.That(_handler.Requests, Has.None.Contains("/convergence"), "threads to use went with the card");
+        });
+    }
+
     [Test]
     public async Task Save_IsBasedOnTheVersionOpened_AndAConflictSaysNothingWasOverwritten()
     {
@@ -141,7 +161,7 @@ public class AdventurePageTests : BunitContext
     [Test]
     public async Task ASavesBlockWarnings_ShowUnderTheEditor_AndGoWhenFixed()
     {
-        _handler.SaveWarningsJson = """["The first stat block has no name, so Export to Nornis can't file it on anyone. Start it with \"# Name\"."]""";
+        _handler.SaveWarningsJson = """["The first stat block has no name, so Add to the record can't file it on anyone. Start it with \"# Name\"."]""";
         var cut = await RenderAsync();
         cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
         Assert.That(cut.FindAll(".nornis-prep-block-warnings"), Is.Empty, "a section with no warnings shows no alert");
@@ -170,43 +190,6 @@ public class AdventurePageTests : BunitContext
     }
 
     [Test]
-    public async Task Revise_SavesWhatWasTypedFirst_ThenDraftsFromThatVersion_AndShowsTheResult()
-    {
-        var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
-
-        await cut.InvokeAsync(() => cut.Find(".nornis-prep-draft textarea").Input("Make it tense."));
-        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Revise").Click());
-
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Undo (1)")));
-        var draft = JsonDocument.Parse(_handler.LastDraftBody!).RootElement;
-        Assert.Multiple(() =>
-        {
-            Assert.That(_handler.Requests.FindIndex(r => r.StartsWith("PUT", StringComparison.Ordinal) && r.Contains("/sections/")),
-                Is.LessThan(_handler.Requests.FindIndex(r => r.EndsWith("/draft", StringComparison.Ordinal))),
-                "what was typed is saved before the draft starts");
-            Assert.That(draft.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.SavedStamp),
-                "the draft is based on the version the save just wrote");
-            Assert.That(draft.GetProperty("instruction").GetString(), Is.EqualTo("Make it tense."));
-            Assert.That(cut.FindAll(".nornis-prep-draft-preview"), Is.Empty, "a saved draft is in the editor, not the preview");
-        });
-    }
-
-    [Test]
-    public async Task AFailedDraft_SaysNothingWasSaved_AndKeepsWhatWasWrittenToRead()
-    {
-        _handler.DraftFails = true;
-        var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Scene 1: The Docks")));
-
-        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Revise").Click());
-
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("Drafting is temporarily unavailable")));
-        Assert.That(cut.Find(".nornis-prep-draft-preview").TextContent, Does.Contain("> Gulls wheel"));
-        Assert.That(cut.Markup, Does.Not.Contain("Undo (1)"));
-    }
-
-    [Test]
     public async Task Export_FilesTheChapterChosen_AndLinksToTheSourceAndOnToReview()
     {
         _handler.WithChapter = true;
@@ -217,7 +200,7 @@ public class AdventurePageTests : BunitContext
         await cut.InvokeAsync(() => cut.Find("button.nornis-prep-export").Click());
         dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("The whole adventure")));
         await dialogs.InvokeAsync(() => dialogs.FindAll(".nornis-prep-export-choice input[type=radio]")[1].Click());
-        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Export").Click());
+        await dialogs.InvokeAsync(() => dialogs.FindAll("button").First(b => b.TextContent.Trim() == "Add to the record").Click());
 
         dialogs.WaitForAssertion(() => Assert.That(dialogs.Markup, Does.Contain("Nornis is reading it now")));
         var body = JsonDocument.Parse(_handler.LastExportBody!).RootElement;
@@ -291,7 +274,7 @@ public class AdventurePageTests : BunitContext
     public async Task WebResearch_WhenTheKeyCantSearch_IsOff_Disabled_AndSaysWhy()
     {
         _handler.ConversationJson = """
-            {"messages":[],"isFull":false,"webResearch":{"available":false,"reason":"Web research runs on your own AI key. Add one under Profile, AI keys."}}
+            {"messages":[],"isFull":false,"webResearch":{"available":false,"reason":"Web research runs on your own AI key. Add one under Your account, AI."}}
             """;
 
         var cut = await RenderAsync();
@@ -300,7 +283,7 @@ public class AdventurePageTests : BunitContext
         {
             Assert.That(cut.Find(".nornis-prep-talk-research input").HasAttribute("disabled"), Is.True);
             Assert.That(cut.Find(".nornis-prep-talk-research-reason").TextContent,
-                Is.EqualTo("Web research runs on your own AI key. Add one under Profile, AI keys."));
+                Is.EqualTo("Web research runs on your own AI key. Add one under Your account, AI."));
         }));
     }
 
@@ -482,68 +465,6 @@ public class AdventurePageTests : BunitContext
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-talk-message"), Is.Empty));
     }
 
-    // ---------------------------------------------------------- Threads to use --
-
-    [Test]
-    public async Task TheOverview_ShowsTheGaugesTopFive_WithTheirReasons()
-    {
-        _handler.ConvergenceJson = StubHandler.Gauge(Enumerable.Range(1, 7)
-            .Select(i => ($"Anchor {i}", $"Secret number {i}.")).ToArray());
-
-        var cut = await RenderAsync();
-
-        cut.WaitForAssertion(() => Assert.Multiple(() =>
-        {
-            Assert.That(cut.FindAll(".nornis-prep-thread"), Has.Count.EqualTo(ThreadsToUseCard.MaxThreads));
-            Assert.That(cut.Find(".nornis-prep-threads").TextContent, Does.Contain("Anchor 1"));
-            Assert.That(cut.Find(".nornis-prep-threads").TextContent, Does.Not.Contain("Anchor 6"));
-            Assert.That(cut.Find(".nornis-prep-thread").TextContent, Does.Contain("hidden for 32 days"), "the gauge's own reasons");
-        }));
-        Assert.That(_handler.Requests, Has.None.Contains("/narrate"), "threads to use never spend");
-    }
-
-    [Test]
-    public async Task UseInThisAdventure_AddsTheThreadToTheInstruction_OnceAndAfterWhatWasTyped()
-    {
-        _handler.ConvergenceJson = StubHandler.Gauge(("Captain Voss", "Voss is the smuggler king."));
-        var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll("button.nornis-prep-thread-use"), Has.Count.EqualTo(1)));
-
-        await cut.InvokeAsync(() => cut.Find(".nornis-prep-draft textarea").Input("Keep it short."));
-        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-thread-use").Click());
-        await cut.InvokeAsync(() => cut.Find("button.nornis-prep-thread-use").Click());
-        await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Trim() == "Revise").Click());
-
-        cut.WaitForAssertion(() => Assert.That(_handler.LastDraftBody, Is.Not.Null));
-        var instruction = JsonDocument.Parse(_handler.LastDraftBody!).RootElement.GetProperty("instruction").GetString();
-        Assert.Multiple(() =>
-        {
-            Assert.That(instruction, Is.EqualTo("Keep it short.\nBuild toward this hidden thread: Captain Voss: Voss is the smuggler king."));
-            Assert.That(_handler.LastSaveBody, Does.Not.Contain("smuggler king"), "the thread goes to the instruction, never a section");
-        });
-    }
-
-    [Test]
-    public async Task AWorldWithNothingHidden_SaysSoInOneLine()
-    {
-        var cut = await RenderAsync();
-
-        cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-prep-threads-empty").TextContent, Does.Contain("Nothing hidden yet")));
-        Assert.That(cut.FindAll(".nornis-prep-thread"), Is.Empty);
-    }
-
-    [Test]
-    public async Task AScene_HasNoThreadsCard()
-    {
-        _handler.ConvergenceJson = StubHandler.Gauge(("Captain Voss", "Voss is the smuggler king."));
-        var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-threads"), Has.Count.EqualTo(1)));
-
-        await cut.InvokeAsync(() => cut.FindAll("button.nornis-prep-outline-title").First(b => b.TextContent.Contains("Scene 1")).Click());
-
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-threads"), Is.Empty));
-    }
-
     [Test]
     public async Task TheBookDetails_SitOnTheBookTab_WithTheCover_AndTalkItThrough()
     {
@@ -560,7 +481,6 @@ public class AdventurePageTests : BunitContext
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-cover-card"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-book-catalog .nornis-typography"), Has.Count.EqualTo(1), "Typography sits above Book details");
             Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-handouts"), Has.Count.EqualTo(1));
-            Assert.That(cut.FindAll(".nornis-prep-book-contents .nornis-adventure-documents"), Has.Count.EqualTo(1));
             Assert.That(cut.FindAll(".nornis-prep-talk-column .nornis-prep-talk"), Has.Count.EqualTo(1), "Talk it through is beside the book");
         });
     }
@@ -601,7 +521,7 @@ public class AdventurePageTests : BunitContext
     {
         var nav = Services.GetRequiredService<NavigationManager>();
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-outline"), Has.Count.EqualTo(1)));
 
         await cut.InvokeAsync(() => ModeButton(cut, "Book").Click());
 
@@ -676,7 +596,7 @@ public class AdventurePageTests : BunitContext
     {
         var cut = await RenderAsync();
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-outline"), Has.Count.EqualTo(1)));
         Assert.That(cut.FindAll(".nornis-prep-design"), Is.Empty);
     }
 
@@ -691,7 +611,7 @@ public class AdventurePageTests : BunitContext
         Assert.Multiple(() =>
         {
             Assert.That(cut.Find(".nornis-prep-design-empty").TextContent, Does.Contain("never prints"));
-            Assert.That(cut.FindAll(".nornis-prep-draft"), Is.Empty, "the section editor isn't on the page");
+            Assert.That(cut.FindAll(".nornis-prep-outline"), Is.Empty, "Structure isn't open");
         });
     }
 
@@ -742,7 +662,7 @@ public class AdventurePageTests : BunitContext
 
         await cut.InvokeAsync(() => ModeButton(cut, "Structure").Click());
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-outline"), Has.Count.EqualTo(1)));
         Assert.That(JsonDocument.Parse(_handler.LastDraftSaveBody!).RootElement.GetProperty("markdown").GetString(),
             Is.EqualTo("The key opens the vault."));
     }
@@ -986,7 +906,7 @@ public class AdventurePageTests : BunitContext
             Assert.That(split.GetProperty("mode").GetString(), Is.EqualTo("Replace"));
             Assert.That(split.GetProperty("basedOnUpdatedAt").GetDateTimeOffset(), Is.EqualTo(StubHandler.DraftStamp));
         });
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-draft"), Has.Count.EqualTo(1), "the Structure tab opens"));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-outline"), Has.Count.EqualTo(1), "the Structure tab opens"));
         Assert.That(cut.FindAll("button.nornis-prep-outline-title").Select(b => b.TextContent.Trim()), Is.EqualTo(["Arrival", "The Baths"]));
     }
 
@@ -1027,8 +947,6 @@ public class AdventurePageTests : BunitContext
 
         /// <summary>The block warnings a save answers with, as a JSON array.</summary>
         public string SaveWarningsJson { get; set; } = "[]";
-        public bool DraftFails { get; set; }
-        public string? LastDraftBody { get; private set; }
         public List<string> Requests { get; } = [];
         public string? LastSaveBody { get; private set; }
         public string? LastReorderBody { get; private set; }
@@ -1044,9 +962,6 @@ public class AdventurePageTests : BunitContext
 
         /// <summary>What GET conversation answers once a message has been sent.</summary>
         public string? ConversationAfterSendJson { get; set; }
-
-        /// <summary>What GET convergence answers; a world with nothing hidden until a test says otherwise.</summary>
-        public string ConvergenceJson { get; set; } = Gauge();
 
         /// <summary>What GET library answers: the world's documents, for the Documents card (feature 36).</summary>
         public string LibraryJson { get; set; } = "[]";
@@ -1094,23 +1009,6 @@ public class AdventurePageTests : BunitContext
         public string Pitch { get; private set; } = "A heist.";
         public bool Cleared { get; private set; }
 
-        /// <summary>A gauge of these candidates, strongest first: (anchor, description) each.</summary>
-        public static string Gauge(params (string Anchor, string Description)[] candidates)
-        {
-            var rows = candidates.Select((c, i) => $$"""
-                {"kind":"Fact","id":"{{Guid.NewGuid()}}","anchorArtifactId":"{{Guid.NewGuid()}}","anchorName":"{{c.Anchor}}",
-                 "description":"{{c.Description}}","createdAt":"2026-10-01T00:00:00+00:00","missingArtifactIds":[],
-                 "components":{"daysHidden":32,"partyVisibleFactsOnAnchor":2,"missingArtifactCount":0,"isSelfContained":true,
-                   "storylineStatus":null,"contradictionSeverity":null,"contradictionAssessed":false,"dormancy":0.5,
-                   "anchorFamiliarity":0.5,"selfContainment":1.0,"storylineState":0.0,"contradictionPressure":null},
-                 "score":{{90 - i}},"rationale":null}
-                """);
-            return $$"""
-                {"worldId":"{{Guid.NewGuid()}}","generatedAt":"2026-11-02T10:00:00+00:00","assessmentId":null,
-                 "totalCandidates":{{candidates.Length}},"candidates":[{{string.Join(",", rows)}}]}
-                """;
-        }
-
         public static string Answered(string question, string answer) => $$"""
             {"messages":[
               {"id":"{{Guid.NewGuid()}}","role":"User","content":"{{question}}","model":null,"createdAt":"2026-11-02T10:30:00+00:00"},
@@ -1128,11 +1026,6 @@ public class AdventurePageTests : BunitContext
                 return Json($$"""
                     [{"id":"{{_worldId}}","name":"Black Harbor","description":null,"gameSystem":null,"myRole":"{{Role}}"}]
                     """);
-            }
-
-            if (path.EndsWith("/convergence", StringComparison.Ordinal))
-            {
-                return Json(ConvergenceJson);
             }
 
             if (path.EndsWith("/campaigns", StringComparison.Ordinal))
@@ -1154,18 +1047,6 @@ public class AdventurePageTests : BunitContext
                          "sortOrder":1,"updatedAt":"2026-11-02T11:00:00+00:00","isFilled":true,
                          "blockWarnings":{{SaveWarningsJson}}}
                         """);
-            }
-
-            if (request.Method == HttpMethod.Post && path.EndsWith("/draft", StringComparison.Ordinal))
-            {
-                LastDraftBody = await request.Content!.ReadAsStringAsync(ct);
-                var end = DraftFails
-                    ? "event: error\ndata: {\"code\":\"service_unavailable\",\"message\":\"Drafting is temporarily unavailable. Nothing was changed. Please try again.\"}\n\n"
-                    : $"event: done\ndata: {{\"id\":\"{OverviewId}\",\"kind\":\"Overview\",\"title\":\"Overview\",\"bodyMarkdown\":\"> Gulls wheel over the docks.\",\"sortOrder\":1,\"updatedAt\":\"2026-11-02T11:05:00+00:00\",\"revisionCount\":1,\"isFilled\":true}}\n\n";
-                var stream = "event: delta\ndata: {\"text\":\"> Gulls wheel \"}\n\n" + end;
-                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(stream, Encoding.UTF8) };
-                response.Content.Headers.ContentType = new("text/event-stream");
-                return response;
             }
 
             if (path.EndsWith("/conversation", StringComparison.Ordinal))

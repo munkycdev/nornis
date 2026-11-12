@@ -65,7 +65,7 @@ else
                        Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
                 @foreach (var t in ReviewQueueFilter.Types(_proposals))
                 {
-                    <MudSelectItem T="string" Value="@t">@DisplayText.Humanize(t)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@t">@ProposalEditForm.ChangeLabel(t)</MudSelectItem>
                 }
             </MudSelect>
             <MudSelect T="string" @bind-Value="_visibilityFilter" Label="Visibility" Placeholder="All"
@@ -96,12 +96,12 @@ else
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.DoneAll"
                        OnClick="AcceptAllAsync" Disabled="@_batchActing">
-                @(_batchActing && _batchAccepting ? "Accepting…" : "Accept all")
+                @(_batchActing && _batchAccepting ? "Accepting…" : BatchLabel("Accept"))
             </MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Error"
                        StartIcon="@Icons.Material.Filled.ClearAll"
                        OnClick="RejectAllAsync" Disabled="@_batchActing">
-                @(_batchActing && !_batchAccepting ? "Rejecting…" : "Reject all")
+                @(_batchActing && !_batchAccepting ? "Rejecting…" : BatchLabel("Reject"))
             </MudButton>
             @if (_batchActing)
             {
@@ -119,15 +119,15 @@ else
             <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
                 <div class="nornis-proposal-head">
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@ChangeColor(p.ChangeType)">
-                        @DisplayText.Humanize(p.ChangeType)
+                        @ProposalEditForm.ChangeLabel(p.ChangeType)
                     </MudChip>
                     @if (TargetLabel(p) is { } target)
                     {
                         <span class="nornis-proposal-target">@target</span>
                     }
-                    @if (p.Confidence is not null)
+                    @if (DisplayText.LowConfidence(p.Confidence) is { } unsure)
                     {
-                        <span class="nornis-list-meta">@($"{p.Confidence:P0}") confidence</span>
+                        <span class="nornis-list-meta">@unsure</span>
                     }
                     @if (p.Status == "Edited")
                     {
@@ -149,12 +149,12 @@ else
                     }
                     @if (p.BatchKind == "RelationshipBackfill")
                     {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Tertiary">Backfill</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Tertiary">From older sources</MudChip>
                     }
                 </div>
 
                 <div class="nornis-proposal-fields">
-                    @foreach (var (key, value) in Fields(p.ProposedValueJson))
+                    @foreach (var (key, value) in Fields(p.ChangeType, p.ProposedValueJson))
                     {
                         <div class="nornis-kv">
                             <span class="nornis-kv-key">@key</span>
@@ -330,7 +330,7 @@ else
         };
 
         var dialog = await DialogService.ShowAsync<ResolveArtifactReferenceDialog>(
-            "Which artifact does this mean?", parameters);
+            "Which entry does this mean?", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled && result.Data is ProposalActionResult accepted)
@@ -354,7 +354,7 @@ else
         // the artifact it had to invent is the part they did not ask for.
         if (result.CreatedMissingArtifactNames is { Count: > 0 } created)
         {
-            return $"Accepted. Added {string.Join(", ", created.Select(n => $"'{n}'"))} as new artifacts to attach it to.";
+            return $"Accepted. Added {string.Join(", ", created.Select(n => $"'{n}'"))} as new entries to attach it to.";
         }
 
         if (!result.MatchedExistingArtifact)
@@ -364,7 +364,7 @@ else
 
         var name = PayloadName(p.ProposedValueJson);
         return name is null
-            ? "Matched an artifact already in your record — no duplicate created."
+            ? "Matched an entry already in your record, so no duplicate was created."
             : $"Matched existing '{name}' — no duplicate created.";
     }
 
@@ -427,7 +427,37 @@ else
             .Select(p => p.Id)
             .ToList();
 
-    private Task AcceptAllAsync() => RunBatchAsync(accept: true);
+    private bool IsFiltered => _typeFilter is not null || _visibilityFilter is not null;
+
+    /// <summary>
+    /// What a bulk button says: how many it acts on, and "these" rather than "all" when a
+    /// filter has narrowed the list. Both buttons act on what is on screen, and "Accept all"
+    /// over a filtered list read as accepting the whole queue (3.32).
+    /// </summary>
+    private string BatchLabel(string verb) =>
+        IsFiltered ? $"{verb} these {OpenIds().Count}" : $"{verb} all {OpenIds().Count}";
+
+    private async Task AcceptAllAsync()
+    {
+        // Unfiltered, the button does what it says and is not worth a question. With a filter
+        // on, part of the queue is out of sight, so say which part this accepts.
+        if (IsFiltered)
+        {
+            var count = OpenIds().Count;
+            var hidden = _proposals.Count - Visible.Count;
+            var confirmed = await DialogService.ShowMessageBoxAsync(
+                $"Accept these {count}?",
+                $"This accepts the {count} proposed {(count == 1 ? "change" : "changes")} showing under the current filter and puts {(count == 1 ? "it" : "them")} in the record. "
+                    + $"The {hidden} outside the filter {(hidden == 1 ? "stays" : "stay")} in Review.",
+                yesText: $"Accept these {count}", cancelText: "Cancel");
+            if (confirmed != true)
+            {
+                return;
+            }
+        }
+
+        await RunBatchAsync(accept: true);
+    }
 
     /// <summary>
     /// Accept everything open, for a caller driving the queue rather than a user clicking.
@@ -449,9 +479,11 @@ else
     {
         var openCount = OpenIds().Count;
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Reject all proposals?",
-            $"This discards all {openCount} open proposed changes. It can't be undone.",
-            yesText: "Reject all", cancelText: "Cancel");
+            IsFiltered ? $"Reject these {openCount}?" : "Reject all proposals?",
+            IsFiltered
+                ? $"This discards the {openCount} proposed {(openCount == 1 ? "change" : "changes")} showing under the current filter. It can't be undone."
+                : $"This discards all {openCount} open proposed changes. It can't be undone.",
+            yesText: BatchLabel("Reject"), cancelText: "Cancel");
         if (confirmed != true)
         {
             return;
@@ -545,9 +577,11 @@ else
             { nameof(EditProposalDialog.WorldId), Worlds.Current!.Id },
             { nameof(EditProposalDialog.ProposalId), p.Id },
             { nameof(EditProposalDialog.ProposedValueJson), p.ProposedValueJson },
+            { nameof(EditProposalDialog.ChangeType), p.ChangeType },
         };
 
-        var dialog = await DialogService.ShowAsync<EditProposalDialog>("Edit proposal", parameters);
+        var dialog = await DialogService.ShowAsync<EditProposalDialog>("Edit proposal", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled && result.Data is ProposalActionResult updated)
@@ -563,7 +597,9 @@ else
         }
     }
 
-    private static IEnumerable<(string Key, string Value)> Fields(string json)
+    // Each property under the label and value words Edit uses for it (ProposalEditForm), so the
+    // row and the form read the same.
+    private static IEnumerable<(string Key, string Value)> Fields(string changeType, string json)
     {
         var list = new List<(string, string)>();
         try
@@ -573,13 +609,19 @@ else
             {
                 foreach (var prop in doc.RootElement.EnumerateObject())
                 {
+                    // The card's head says so when the extraction was unsure, and only then.
+                    if (string.Equals(prop.Name, "confidence", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     var value = prop.Value.ValueKind switch
                     {
                         JsonValueKind.Null => "—",
                         JsonValueKind.String => prop.Value.GetString() ?? "",
                         _ => prop.Value.ToString(),
                     };
-                    list.Add((DisplayText.Humanize(prop.Name), value));
+                    list.Add(ProposalEditForm.Describe(changeType, prop.Name, value));
                 }
             }
         }

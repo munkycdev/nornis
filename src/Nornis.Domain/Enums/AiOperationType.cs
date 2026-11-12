@@ -46,5 +46,12 @@ public enum AiOperationType
 
     /// <summary>Generating a world's key art from the GM's brief (feature 42), on the key holder's
     /// image model, against the monthly Prep pool, where the GM already sees creative spend.</summary>
-    KeyArt
+    KeyArt,
+
+    /// <summary>Refining one cover option (feature 45): the option sent as an edit to the key
+    /// holder's refining model, against the monthly Prep pool.</summary>
+    CoverArtRefinement,
+
+    /// <summary>Refining one key-art option (feature 45), as <see cref="CoverArtRefinement"/>.</summary>
+    KeyArtRefinement
 }

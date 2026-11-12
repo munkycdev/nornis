@@ -34,6 +34,28 @@ public class WorldSettingsFormTests
     }
 
     [Test]
+    public void ACardIsMarkedUnsaved_OnlyWhenItsOwnSaveWouldChangeTheWorld()
+    {
+        // Each card saves alone, and a value typed and not saved survived a tab switch with
+        // nothing to say so (3.32). The mark must follow what Save would send: a trailing
+        // space, or a slug in other capitals, is not a change, and neither is another card's.
+        var form = WorldSettingsForm.From(World);
+        Assert.That(Enum.GetValues<WorldSettingsSection>().Where(s => form.IsChanged(s, World)), Is.Empty, "a fresh form has nothing to save");
+
+        form.Name = "Black Harbor ";
+        form.PublicSlug = " Black-Harbor";
+        Assert.That(Enum.GetValues<WorldSettingsSection>().Where(s => form.IsChanged(s, World)), Is.Empty);
+
+        form.DailyAiBudget = null;
+        Assert.Multiple(() =>
+        {
+            Assert.That(form.IsChanged(WorldSettingsSection.Budgets, World), Is.True, "clearing a budget is a change");
+            Assert.That(form.IsChanged(WorldSettingsSection.World, World), Is.False);
+            Assert.That(form.IsChanged(WorldSettingsSection.PublicPage, World), Is.False);
+        });
+    }
+
+    [Test]
     public void SavingThePublicPage_NeverSendsANameTypedOnAnotherTab()
     {
         var form = WorldSettingsForm.From(World);

@@ -10,14 +10,15 @@ using Nornis.Web.ApiClient;
 using Nornis.Web.State;
 using NUnit.Framework;
 using AdminPage = Nornis.Web.Components.Pages.Admin;
-using MembersPage = Nornis.Web.Components.Pages.Members;
+using PartyPage = Nornis.Web.Components.Pages.Party;
 
 namespace Nornis.Web.Tests.Components;
 
 /// <summary>
-/// The world's Settings page (Nornis 3.23): five tabs with the shown one in the URL, one form
-/// shared by every tab so typing survives a switch, each Save sending only its own fields; and
-/// invite links on the Members page, for the GM only.
+/// World settings (Nornis 3.23, open to every member since 3.31): the You tab for everyone, the
+/// world's five tabs for the GM only, the shown one in the URL; one form shared by every tab so
+/// typing survives a switch, each Save sending only its own fields; and invite links on the Members
+/// page, for the GM only.
 /// </summary>
 [TestFixture]
 [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
@@ -49,7 +50,7 @@ public class SettingsPageTests : BunitContext
     [TearDown]
     public async Task TearDown() => await DisposeAsync();
 
-    private async Task<IRenderedComponent<AdminPage>> RenderAsync(string url = "/admin")
+    private async Task<IRenderedComponent<AdminPage>> RenderAsync(string url = "/settings")
     {
         Services.GetRequiredService<NavigationManager>().NavigateTo(url);
         await Services.GetRequiredService<WorldState>().EnsureSelectionRestoredAsync();
@@ -65,7 +66,7 @@ public class SettingsPageTests : BunitContext
     {
         var cut = await RenderAsync();
 
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-settings-tabs .nornis-tab"), Has.Count.EqualTo(5)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-settings-tabs .nornis-tab"), Has.Count.EqualTo(6)));
         Assert.Multiple(() =>
         {
             Assert.That(ActiveTab(cut), Is.EqualTo("world"));
@@ -76,11 +77,13 @@ public class SettingsPageTests : BunitContext
         });
     }
 
-    [TestCase("/admin?tab=ai", "ai", ".nornis-settings-budgets")]
-    [TestCase("/admin?tab=Public", "public", ".nornis-settings-publicpage")]
-    [TestCase("/admin?tab=processing", "processing", ".nornis-settings-review")]
+    [TestCase("/settings?tab=ai", "ai", ".nornis-settings-budgets")]
+    [TestCase("/settings?tab=Public", "public", ".nornis-settings-publicpage")]
+    [TestCase("/settings?tab=processing", "processing", ".nornis-settings-review")]
+    [TestCase("/settings?tab=export", "export", ".nornis-danger")]
+    [TestCase("/settings?tab=you", "you", ".nornis-you-world-note")]
+    [TestCase("/settings?tab=nonsense", "world", ".nornis-settings-world")]
     [TestCase("/admin?tab=export", "export", ".nornis-danger")]
-    [TestCase("/admin?tab=nonsense", "world", ".nornis-settings-world")]
     public async Task TheTabInTheUrl_IsTheOneShown(string url, string tab, string selector)
     {
         var cut = await RenderAsync(url);
@@ -93,13 +96,13 @@ public class SettingsPageTests : BunitContext
     public async Task PickingATab_PutsItInTheUrl()
     {
         var cut = await RenderAsync();
-        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-tab"), Has.Count.EqualTo(5)));
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-tab"), Has.Count.EqualTo(6)));
 
         cut.Find(".nornis-tab[data-tab=export]").Click();
 
         var nav = Services.GetRequiredService<NavigationManager>();
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-danger"), Has.Count.EqualTo(1)));
-        Assert.That(nav.Uri, Does.EndWith("/admin?tab=export"));
+        Assert.That(nav.Uri, Does.EndWith("/settings?tab=export"));
     }
 
     [Test]
@@ -121,26 +124,42 @@ public class SettingsPageTests : BunitContext
             cut.Find(".nornis-settings-world input").GetAttribute("value"), Is.EqualTo("Black Harb")));
     }
 
-    [Test]
-    public async Task APlayer_SeesGmsOnly_AndNoTabs()
+    [TestCase(null, true, "world")]
+    [TestCase(null, false, "you")]
+    [TestCase("export", true, "export")]
+    [TestCase("export", false, "you")]
+    [TestCase("YOU", true, "you")]
+    public void TheTab_IsTheUrlsWhenThisMemberCanSeeIt(string? tab, bool isGm, string expected) =>
+        Assert.That(AdminPage.TabFor(tab, isGm), Is.EqualTo(expected));
+
+    [TestCase("/settings")]
+    [TestCase("/settings?tab=export")]
+    public async Task APlayer_SeesOnlyTheirOwnTab_WithNoTabRow(string url)
     {
         _handler.Role = "Player";
 
-        var cut = await RenderAsync();
+        var cut = await RenderAsync(url);
 
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("GMs only")));
-        Assert.That(cut.FindAll(".nornis-tab"), Is.Empty);
+        cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-you-world-note"), Has.Count.EqualTo(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.FindAll(".nornis-tab"), Is.Empty);
+            Assert.That(cut.Markup, Does.Contain("Display name"));
+            Assert.That(cut.FindAll(".nornis-danger, .nornis-settings-card"), Is.Empty, "no GM card reaches a player");
+            Assert.That(_handler.Puts, Is.Empty);
+        });
     }
 
     [TestCase("GM", true)]
     [TestCase("Player", false)]
-    public async Task InviteLinks_AreOnTheMembersPage_ForTheGmOnly(string role, bool sees)
+    public async Task InviteLinks_AreOnThePartyPage_ForTheGmOnly(string role, bool sees)
     {
         _handler.Role = role;
         await Services.GetRequiredService<WorldState>().EnsureSelectionRestoredAsync();
         Render<MudPopoverProvider>();
 
-        var cut = Render<MembersPage>();
+        // Invites sit with the accounts they create, which moved onto Party in 3.32.
+        var cut = Render<PartyPage>();
 
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-invites").Count > 0, Is.EqualTo(sees)));
         if (!sees)
@@ -177,6 +196,10 @@ public class SettingsPageTests : BunitContext
                 "/api/worlds" => Json($"[{World}]"),
                 _ when path.EndsWith("/invites", StringComparison.Ordinal) => Json("[]"),
                 _ when path.EndsWith("/members", StringComparison.Ordinal) => Json("[]"),
+                _ when path.EndsWith("/players", StringComparison.Ordinal) => Json("[]"),
+                _ when path.EndsWith("/shelf-links", StringComparison.Ordinal) => Json("[]"),
+                _ when path.EndsWith("/characters", StringComparison.Ordinal) => Json("[]"),
+                _ when path.EndsWith("/campaigns", StringComparison.Ordinal) => Json("[]"),
                 _ => new HttpResponseMessage(HttpStatusCode.NotFound),
             };
         }

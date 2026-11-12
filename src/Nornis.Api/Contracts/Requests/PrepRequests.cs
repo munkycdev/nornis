@@ -31,9 +31,6 @@ public record AddAdventureSectionRequest(string Kind, string Title, Guid? AfterS
 
 public record ReorderAdventureSectionsRequest(IReadOnlyList<Guid> SectionIds);
 
-/// <summary>Draft or revise one section. A null or blank instruction is a plain Draft or Revise.</summary>
-public record DraftAdventureSectionRequest(string? Instruction, DateTimeOffset BasedOnUpdatedAt);
-
 /// <summary>Export to Nornis. A null chapter is the whole Adventure; otherwise one Chapter and the sections under it.</summary>
 public record ExportAdventureRequest(Guid? ChapterSectionId);
 
@@ -51,5 +48,5 @@ public record CoverBriefRequest(string? Brief);
 /// <summary>Makes one generated option the cover.</summary>
 public record ChooseCoverRequest(Guid OptionId);
 
-/// <summary>FullBleed, Framed or ClassicModule.</summary>
+/// <summary>A <c>CoverLayout</c> name: FullBleed, Framed, ClassicModule or ScrollBanner.</summary>
 public record SetCoverLayoutRequest(string? Layout);

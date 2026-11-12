@@ -35,15 +35,22 @@
             <div class="d-flex align-center flex-wrap gap-3 mb-3">
                 <MudSwitch T="bool" @bind-Value="Form.PublicAccessEnabled" Color="Color.Secondary"
                            Label="Publicly accessible" Disabled="@(string.IsNullOrWhiteSpace(Form.PublicSlug))" />
-                @if (Form.PublicAccessEnabled && !string.IsNullOrWhiteSpace(Form.PublicSlug))
+                @* The link shown and copied is the one that is live, from the world as saved. Until
+                   3.32 it was built from what was typed, so copying before Save shared an address
+                   that did not exist. What is typed and not yet saved is only a labelled preview. *@
+                @if (SavedPublicUrl is { } live)
                 {
                     <MudTooltip Text="Copy public link">
                         <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small"
                                        OnClick="CopyPublicLinkAsync" aria-label="Copy public link" />
                     </MudTooltip>
-                    <a href="@PublicUrl" target="_blank" rel="noopener" class="nornis-link">@PublicUrl</a>
+                    <a href="@live" target="_blank" rel="noopener" class="nornis-link">@live</a>
                 }
             </div>
+            @if (PendingPublicNote is { } pending)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3 nornis-settings-pending">@pending</MudText>
+            }
             <MudNumericField T="decimal?" @bind-Value="Form.PublicAskMonthlyBudget" Label="Public Ask budget (USD / month)"
                              Placeholder="off" Min="0.01m" Max="1000m" Step="1m"
                              HelperText="Let visitors to the public page Ask the Loremaster, capped at this AI spend per calendar month. Leave empty to keep public questions off."
@@ -54,14 +61,16 @@
             <div class="nornis-detail-section-title">Budgets</div>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
                 The most this world's AI may spend. The public Ask budget is on the Public page tab.
+                The keys and models it spends on are the world creator's, under
+                <a href="@Links.ProfileAi" class="nornis-link">Your account, AI</a>.
             </MudText>
             <MudNumericField T="decimal?" @bind-Value="Form.DailyAiBudget" Label="Daily AI budget (USD)"
-                             Placeholder="server default" Min="0.01m" Max="100m" Step="0.5m"
-                             HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use the server default."
+                             Placeholder="@(_defaultDailyUsd is { } daily ? $"Default: {DisplayText.Money(daily)} a day" : "Nornis default")" Min="0.01m" Max="100m" Step="0.5m"
+                             HelperText="Cap on this world's AI spend per day (extraction, Loremaster, audits). Leave empty to use Nornis's default."
                              Variant="Variant.Outlined" Class="mb-3" />
             @* Prep's own pool (feature 29): drafting never spends the daily budget above. *@
             <MudNumericField T="decimal?" @bind-Value="Form.PrepMonthlyBudget" Label="Prep budget (USD / month)"
-                             Placeholder="default" Min="0.01m" Max="1000m" Step="1m"
+                             Placeholder="@(_defaultPrepUsd is { } monthly ? $"Default: {DisplayText.Money(monthly)} a month" : "Nornis default")" Min="0.01m" Max="1000m" Step="1m"
                              HelperText="The most AI drafting in Prep may spend each calendar month. Separate from the daily budget, so prep never holds up extraction. Leave empty for the default."
                              Variant="Variant.Outlined" Class="mb-3" />
             break;
@@ -71,7 +80,7 @@
             <MudSwitch T="bool" @bind-Value="Form.SummaryReviewRequired" Color="Color.Secondary"
                        Label="Review summary updates" Class="mb-1" />
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
-                After you accept changes, Nornis refreshes the affected artifacts' summaries
+                After you accept changes, Nornis refreshes the affected entries' summaries
                 automatically. Turn this on to route those refreshed summaries through the
                 review queue instead.
             </MudText>
@@ -93,10 +102,18 @@
     {
         <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
     }
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving"
-               Class="nornis-settings-save">
-        Save
-    </MudButton>
+    <div class="d-flex align-center gap-3">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving"
+                   Class="nornis-settings-save">
+            Save
+        </MudButton>
+        @* Each card saves itself and the form outlives a tab switch, so a typed value looked
+           saved when it was not. The card says so until it is. *@
+        @if (Worlds.Current is { } saved && saved.Id == Form.WorldId && Form.IsChanged(Section, saved))
+        {
+            <MudText Typo="Typo.caption" Class="nornis-settings-unsaved" role="status">Not saved yet</MudText>
+        }
+    </div>
 </MudPaper>
 
 @code {
@@ -110,16 +127,72 @@
     private bool _saving;
     private string? _error;
 
+    // What an empty budget field falls back to, so its placeholder can say the amount rather
+    // than "server default". The API reports the ceiling in force, which is the default exactly
+    // when the world has set none of its own; where it has, there is nothing to show.
+    private decimal? _defaultDailyUsd;
+    private decimal? _defaultPrepUsd;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Section != WorldSettingsSection.Budgets || Worlds.Current is not { } world || world.Id != Form.WorldId)
+        {
+            return;
+        }
+
+        if (world.DailyAiBudgetUsd is null && await Api.GetCostSummaryAsync(world.Id) is { IsSuccess: true, Value: { } costs })
+        {
+            _defaultDailyUsd = costs.DailyBudgetUsd;
+        }
+
+        if (world.PrepMonthlyBudgetUsd is null && await Api.GetPrepBudgetAsync(world.Id) is { IsSuccess: true, Value: { } prep })
+        {
+            _defaultPrepUsd = prep.MonthlyBudgetUsd;
+        }
+    }
+
     private string SuggestedSlug =>
         new string(Form.Name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') is { Length: > 0 } slug
             ? slug
             : "my-world";
 
-    private string PublicUrl => $"https://nornis.app/w/{Form.PublicSlug?.Trim().ToLowerInvariant()}";
+    private static string PublicUrlFor(string slug) => $"https://nornis.app/w/{slug.Trim().ToLowerInvariant()}";
+
+    /// <summary>The address that works right now: the saved slug of a world saved as public.</summary>
+    private string? SavedPublicUrl =>
+        Worlds.Current is { PublicAccessEnabled: true, PublicSlug: { Length: > 0 } slug } world && world.Id == Form.WorldId
+            ? PublicUrlFor(slug)
+            : null;
+
+    /// <summary>What Save would change about the link, said before it is pressed; null when nothing.</summary>
+    private string? PendingPublicNote
+    {
+        get
+        {
+            if (Worlds.Current is not { } saved || saved.Id != Form.WorldId || !Form.IsChanged(WorldSettingsSection.PublicPage, saved))
+            {
+                return null;
+            }
+
+            var typed = Form.PublicSlug?.Trim();
+            if (!Form.PublicAccessEnabled || string.IsNullOrEmpty(typed))
+            {
+                return SavedPublicUrl is null ? null : "After you save, the link above stops working.";
+            }
+
+            var next = PublicUrlFor(typed);
+            return next == SavedPublicUrl ? null : $"After you save, the public link will be {next}.";
+        }
+    }
 
     private async Task CopyPublicLinkAsync()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", PublicUrl);
+        if (SavedPublicUrl is not { } live)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", live);
         Snackbar.Add("Public link copied.", Severity.Info);
     }
 

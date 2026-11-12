@@ -32,9 +32,9 @@
             <MudButton Variant="Variant.Outlined"
                        Color="Color.Secondary"
                        StartIcon="@Icons.Material.Filled.LibraryBooks"
-                       Href="/extract"
+                       Href="/import"
                        Disabled="@(Worlds.Current is null)">
-                Extract campaign
+                Import past sessions
             </MudButton>
         }
         <MudButton Variant="Variant.Filled"
@@ -76,6 +76,8 @@ else if (_sources.Count == 0)
 }
 else
 {
+    <SourcesNeedingAttention Sources="_sources" OnRetried="LoadSourcesAsync" />
+
     <div class="nornis-filter-row mb-3">
         <MudChip T="string"
                  Variant="@(_statusFilter is null ? Variant.Filled : Variant.Outlined)"
@@ -87,24 +89,26 @@ else
             <MudChip T="string" Size="Size.Small"
                      Variant="@(_statusFilter == s ? Variant.Filled : Variant.Outlined)"
                      Color="@(_statusFilter == s ? SourceStatusDisplay.StatusColor(s) : Color.Default)"
-                     OnClick="() => _statusFilter = s">@s</MudChip>
+                     OnClick="() => _statusFilter = s">@SourceStatusDisplay.Label(s)</MudChip>
         }
     </div>
 
     @if (FilteredSources.Count == 0)
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">No sources are @_statusFilter.</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No sources are @SourceStatusDisplay.Label(_statusFilter!).ToLowerInvariant().</MudText>
     }
     <MudPaper Elevation="0" Class="nornis-card nornis-card-pad">
         @foreach (var source in FilteredSources)
         {
             <a href="@Links.Source(source.Slug, source.Id)" class="nornis-list-row nornis-list-link">
-                <div class="nornis-list-thumb">
-                    <MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" />
+                <div class="nornis-list-thumb" title="@SourceTypeDisplay.Label(source.Type)">
+                    <MudIcon Icon="@SourceTypeDisplay.Icon(source.Type)" Size="Size.Small" />
                 </div>
                 <div class="nornis-list-body">
                     <div class="nornis-list-title">@source.Title</div>
-                    <div class="nornis-list-sub">@SourceTypeDisplay.Label(source.Type) · @source.CreatedAt.LocalDateTime.ToString("d MMM yyyy")</div>
+                    @* The date is when it happened, which is also what the list is ordered by. A source
+                         with no date says when it was filed, and says that is what the date is. *@
+                    <div class="nornis-list-sub">@SourceTypeDisplay.Label(source.Type) · @(source.OccurredAt is { } occurred ? DateDisplay.Day(occurred) : $"filed {DateDisplay.Day(source.CreatedAt)}")</div>
                 </div>
                 @if (source.CampaignName is not null)
                 {
@@ -118,7 +122,7 @@ else
                 @if (SourceStatusDisplay.IsWorthShowing(source.ProcessingStatus))
                 {
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@SourceStatusDisplay.StatusColor(source.ProcessingStatus)">
-                        @source.ProcessingStatus
+                        @SourceStatusDisplay.Label(source.ProcessingStatus)
                     </MudChip>
                 }
             </a>
@@ -146,7 +150,7 @@ else
     private IReadOnlyList<SourceListItem> FilteredSources =>
         _statusFilter is null
             ? _sources
-            : _sources.Where(s => s.ProcessingStatus == _statusFilter).ToList();
+            : _sources.Where(s => SourceStatusDisplay.Matches(_statusFilter, s.ProcessingStatus)).ToList();
 
     // Extraction runs out-of-process; poll while any source is mid-pipeline so the
     // list moves Queued -> Processing -> Processed without a manual refresh.

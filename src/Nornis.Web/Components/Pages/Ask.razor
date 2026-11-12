@@ -8,6 +8,7 @@
 @inject AskHistoryStore History
 @inject IJSRuntime JS
 @inject IDialogService DialogService
+@inject BreadcrumbState Crumbs
 
 <PageTitle>Ask the Loremaster — Nornis</PageTitle>
 
@@ -15,7 +16,7 @@
     <div class="nornis-page-head">
         <div>
             <MudText Typo="Typo.h4" Class="nornis-serif">Ask the Loremaster</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your world — with citations.</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Grounded in your world, with citations. Conversations are kept in this browser only.</MudText>
             <AiTrialLine Class="mt-1" />
         </div>
         <div class="nornis-page-head-actions gap-2">
@@ -30,7 +31,7 @@
             }
             @if (_current is { Exchanges.Count: > 0 })
             {
-                <MudTooltip Text="Delete this conversation from your history">
+                <MudTooltip Text="Delete this conversation from this browser's history">
                     <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteSweep"
                                OnClick="ClearConversationAsync" Disabled="_asking">
                         Clear
@@ -57,7 +58,7 @@
                     <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Large" Class="nornis-comingsoon-icon" />
                     <MudText Typo="Typo.h5" Class="nornis-serif">Ask anything about your world</MudText>
                     <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-                        The Loremaster answers from your accepted artifacts, facts, and sources — and says so when something isn't known.
+                        The Loremaster answers from your accepted entries, facts, and sources, and says so when something isn't known.
                     </MudText>
                     @if (_suggestions.Count > 0)
                     {
@@ -198,7 +199,12 @@
     private Guid _loadedWorldId;
     private bool _initialized;
 
-    protected override void OnInitialized() => Worlds.Changed += OnWorldChanged;
+    protected override void OnInitialized()
+    {
+        // Ask has no sidebar entry, so the route gives it no crumb; it says where it is itself.
+        Crumbs.Set("/ask", new Crumb("Home", "/dashboard"), new Crumb("Ask the Loremaster"));
+        Worlds.Changed += OnWorldChanged;
+    }
 
     private void OnWorldChanged() => InvokeAsync(ReloadForWorldAsync);
 

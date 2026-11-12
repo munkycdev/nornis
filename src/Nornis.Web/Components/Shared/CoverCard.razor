@@ -32,8 +32,23 @@
                             <MudSelectItem T="string" Value="value">@label</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-cover-remove"
-                               StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked" OnClick="RemoveAsync">Remove art</MudButton>
+                    @* Removing discards the picture, so it asks first, in place (3.32). *@
+                    @if (_confirmingRemove)
+                    {
+                        <span class="nornis-inline-confirm">
+                            Discard this art?
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" Class="nornis-cover-remove-confirm"
+                                       Disabled="Locked" OnClick="RemoveAsync">Remove it</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Locked"
+                                       OnClick="() => _confirmingRemove = false">Keep it</MudButton>
+                        </span>
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-cover-remove"
+                                   StartIcon="@Icons.Material.Outlined.HideImage" Disabled="Locked"
+                                   OnClick="() => _confirmingRemove = true">Remove art</MudButton>
+                    }
                 </div>
             </div>
         }
@@ -96,16 +111,21 @@
 
         @if (_state.Options.Count > 0)
         {
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">Generated options: pick one for the cover.</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">Generated options: pick one for the cover, or refine one for more detail.</MudText>
             <div class="nornis-cover-options">
                 @foreach (var option in _state.Options)
                 {
                     var chosen = option == _state.ChosenOptionId;
-                    <button type="button" class="nornis-cover-option @(chosen ? "nornis-cover-option-chosen" : null)"
-                            disabled="@(Locked || chosen)" aria-pressed="@(chosen ? "true" : "false")"
-                            aria-label="@(chosen ? "The cover" : "Use this option")" @onclick="() => ChooseAsync(option)">
-                        <img src="@OptionUrl(option)" alt="A generated cover option" loading="lazy" />
-                    </button>
+                    <div class="nornis-art-option">
+                        <button type="button" class="nornis-cover-option @(chosen ? "nornis-cover-option-chosen" : null)"
+                                disabled="@(Locked || chosen)" aria-pressed="@(chosen ? "true" : "false")"
+                                aria-label="@(chosen ? "The cover" : "Use this option")" @onclick="() => ChooseAsync(option)">
+                            <img src="@OptionUrl(option)" alt="A generated cover option" loading="lazy" />
+                        </button>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Secondary" Class="nornis-art-refine"
+                                   StartIcon="@Icons.Material.Outlined.AutoFixHigh" Disabled="@(Locked || !_state.CanGenerate)"
+                                   aria-label="Refine this option with more detail" OnClick="() => RefineAsync(option)">Refine</MudButton>
+                    </div>
                 }
             </div>
         }
@@ -124,13 +144,17 @@
     /// <summary>Mirrors <c>PrepOptions.MaxCoverUploadBytes</c>' default; the API is the rule, this only stops a pointless send.</summary>
     public const long MaxUploadBytes = 10 * 1024 * 1024;
 
-    /// <summary>The three layouts, by their API names (<c>CoverLayout</c>), as the GM reads them.</summary>
+    /// <summary>The layouts, by their API names (<c>CoverLayout</c>), as the GM reads them.</summary>
     public static readonly IReadOnlyList<(string Value, string Label)> Layouts =
     [
         ("FullBleed", "Full bleed"),
         ("Framed", "Framed"),
         ("ClassicModule", "Classic module"),
+        ("ScrollBanner", "Scroll banner"),
     ];
+
+    /// <summary>The working line while a refine runs (feature 45): a high-quality edit is slower than a draft.</summary>
+    public const string RefiningText = "Refining with more detail. This can take a couple of minutes…";
 
     [Parameter, EditorRequired] public Guid WorldId { get; set; }
 
@@ -202,14 +226,22 @@
     private Task GenerateAsync() => RunAsync("Painting two options. This can take a minute…",
         () => Api.GenerateCoverAsync(WorldId, AdventureId, _brief ?? string.Empty), changed: false);
 
+    private Task RefineAsync(Guid option) => RunAsync(RefiningText,
+        () => Api.RefineCoverAsync(WorldId, AdventureId, option), changed: false);
+
     private Task ChooseAsync(Guid option) => RunAsync("Setting the cover…",
         () => Api.ChooseCoverAsync(WorldId, AdventureId, option), changed: true);
 
     private Task SetLayoutAsync(string layout) => RunAsync("Changing the layout…",
         () => Api.SetCoverLayoutAsync(WorldId, AdventureId, layout), changed: true);
 
-    private Task RemoveAsync() => RunAsync("Removing the art…",
-        () => Api.RemoveCoverAsync(WorldId, AdventureId), changed: true);
+    private bool _confirmingRemove;
+
+    private Task RemoveAsync()
+    {
+        _confirmingRemove = false;
+        return RunAsync("Removing the art…", () => Api.RemoveCoverAsync(WorldId, AdventureId), changed: true);
+    }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {

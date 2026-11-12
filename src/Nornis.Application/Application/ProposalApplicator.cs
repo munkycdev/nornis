@@ -524,7 +524,7 @@ public class ProposalApplicator : IProposalApplicator
 
         var sourceResolution = await ResolveTargetArtifactAsync(batch.WorldId, payload.SourceArtifactId, null, actingFilter, ct);
         if (!sourceResolution.IsSuccess)
-            return AppResult<ApplyResult>.Fail(new AppError(404, "source_artifact_not_found", "Source artifact for merge not found."));
+            return AppResult<ApplyResult>.Fail(new AppError(404, "source_artifact_not_found", "The entry being merged was not found."));
         var sourceArtifact = sourceResolution.Value!;
 
         // Both merge paths converge here — the GM's merge button (through
@@ -536,7 +536,7 @@ public class ProposalApplicator : IProposalApplicator
         if (sourceArtifact.Id == targetArtifact.Id)
         {
             return AppResult<ApplyResult>.Fail(new AppError(400, "invalid_merge",
-                "An artifact cannot be merged into itself."));
+                "An entry cannot be merged into itself."));
         }
 
         // An archived artifact is retired canon: merging INTO one moves live facts somewhere
@@ -1001,7 +1001,7 @@ public class ProposalApplicator : IProposalApplicator
                 || artifact.WorldId != worldId
                 || !actingFilter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
             {
-                return AppResult<Artifact>.Fail(new AppError(404, "target_not_found", "Target artifact not found."));
+                return AppResult<Artifact>.Fail(new AppError(404, "target_not_found", "The entry to merge into was not found."));
             }
 
             return AppResult<Artifact>.Success(artifact);

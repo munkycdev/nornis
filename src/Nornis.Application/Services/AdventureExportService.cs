@@ -103,9 +103,12 @@ public class AdventureExportService : IAdventureExportService
             return AppResult<Source>.Fail(ready.Error!);
         }
 
+        // The chapter is logged through its Guid, never the nullable that came off the request:
+        // a Guid can't carry a line break, and the code scanner only trusts the plain type.
+        var chapter = command.ChapterSectionId is { } chapterId ? chapterId.ToString() : "whole";
         _logger.LogInformation(
             "Adventure exported. WorldId={WorldId}, AdventureId={AdventureId}, Chapter={ChapterId}, Sections={Sections}, SourceId={SourceId}",
-            command.WorldId, adventure.Id, command.ChapterSectionId, sections.Count, source.Id);
+            command.WorldId, adventure.Id, chapter, sections.Count, source.Id);
 
         return AppResult<Source>.Success(ready.Value!);
     }

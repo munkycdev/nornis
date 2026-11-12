@@ -129,7 +129,7 @@ public class ArtifactService : IArtifactService
             || artifact.WorldId != worldId
             || !filter.CanSee(artifact.Visibility, artifact.CreatedByUserId))
         {
-            return AppResult<ArtifactDetail>.Fail(new AppError(404, "not_found", "Artifact not found."));
+            return AppResult<ArtifactDetail>.Fail(new AppError(404, "not_found", "Entry not found."));
         }
 
         var facts = (await _factRepository.ListByArtifactAsync(artifactId, ct))
@@ -324,13 +324,13 @@ public class ArtifactService : IArtifactService
     {
         if (command.ActingUserRole != WorldRole.GM)
         {
-            return AppResult<Artifact>.Fail(new AppError(403, "insufficient_role", "Only GMs can change artifact status."));
+            return AppResult<Artifact>.Fail(new AppError(403, "insufficient_role", "Only GMs can change an entry's status."));
         }
 
         var artifact = await _artifactRepository.GetByIdAsync(command.ArtifactId, ct);
         if (artifact is null || artifact.WorldId != command.WorldId)
         {
-            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Artifact not found."));
+            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Entry not found."));
         }
 
         artifact.Status = command.Status;
@@ -487,24 +487,24 @@ public class ArtifactService : IArtifactService
     {
         if (command.ActingUserRole != WorldRole.GM)
         {
-            return AppResult<Artifact>.Fail(new AppError(403, "insufficient_role", "Only GMs can rename artifacts."));
+            return AppResult<Artifact>.Fail(new AppError(403, "insufficient_role", "Only GMs can rename entries."));
         }
 
         var name = command.Name?.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            return AppResult<Artifact>.Fail(new AppError(400, "validation_error", "Artifact name must not be empty or whitespace."));
+            return AppResult<Artifact>.Fail(new AppError(400, "validation_error", "An entry's name must not be empty."));
         }
 
         if (name.Length > 200)
         {
-            return AppResult<Artifact>.Fail(new AppError(400, "validation_error", "Artifact name must be between 1 and 200 characters."));
+            return AppResult<Artifact>.Fail(new AppError(400, "validation_error", "An entry's name must be between 1 and 200 characters."));
         }
 
         var artifact = await _artifactRepository.GetByIdAsync(command.ArtifactId, ct);
         if (artifact is null || artifact.WorldId != command.WorldId)
         {
-            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Artifact not found."));
+            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Entry not found."));
         }
 
         artifact.Name = name;

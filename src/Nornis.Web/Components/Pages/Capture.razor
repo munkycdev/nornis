@@ -13,10 +13,8 @@
 <div class="nornis-workspace nornis-capture-workspace">
     <div class="d-flex align-center gap-3 flex-wrap">
         <MudText Typo="Typo.h4" Class="nornis-serif flex-grow-1">Tell Nornis what happened</MudText>
-        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                   StartIcon="@Icons.Material.Outlined.DriveFolderUpload" Href="/import">
-            Import a whole vault
-        </MudButton>
+        @* "Import a whole vault" was here until 3.32: a second door to the page Sources calls
+           Import past sessions, offered to players the page then refused. Sources has the door. *@
         @if (Worlds.Current is not null)
         {
             @* The saves sit at the top (3.20), so they are in view however long the notes run. *@
@@ -25,14 +23,14 @@
                            Color="Color.Primary"
                            OnClick="() => SaveAsync(process: false)"
                            Disabled="_busy">
-                    Save draft
+                    Save as draft
                 </MudButton>
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@(_extractionEnabled ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Inventory2)"
                            OnClick="() => SaveAsync(process: true)"
                            Disabled="_busy">
-                    @(_extractionEnabled ? "Save & process" : "Save to record")
+                    @(_extractionEnabled ? "Save and read" : "Save to the record")
                 </MudButton>
             </div>
         }
@@ -237,12 +235,12 @@
                     <MudSelect @bind-Value="_visibility" Label="Visibility" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
                         @foreach (var vis in VisibilityDisplay.Scopes)
                         {
-                            <MudSelectItem Value="@vis">@vis</MudSelectItem>
+                            <MudSelectItem Value="@vis">@VisibilityDisplay.Label(vis)</MudSelectItem>
                         }
                     </MudSelect>
 
-                    <MudDatePicker @bind-Date="_occurredAt"
-                                   Label="When it happened (optional)"
+                    <MudDatePicker DateFormat="@DateDisplay.DayFormat" @bind-Date="_occurredAt"
+                                   Label="@($"{SourceTypeDisplay.DateLabel(_type)} (optional)")"
                                    Variant="Variant.Outlined"
                                    Margin="Margin.Dense"
                                    Clearable="true"
@@ -252,7 +250,7 @@
                     {
                         <MudSelect T="Guid?" @bind-Value="_campaignId" Label="Campaign (optional)"
                                    Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
-                                   HelperText="Leave empty for world lore or prep.">
+                                   HelperText="@(Worlds.IsGm ? "Leave empty for world lore or prep." : "Leave empty if it belongs to no one campaign.")">
                             <MudSelectItem T="Guid?" Value="@((Guid?)null)">No campaign</MudSelectItem>
                             @foreach (var c in _campaigns)
                             {
@@ -265,12 +263,12 @@
                                  Label="Extract knowledge from this source" />
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
                         @(_extractionEnabled
-                            ? "Nornis will read it and propose artifacts, facts, and relationships for review."
+                            ? "Nornis will read it and propose entries, facts, and relationships for review."
                             : "Stored in the record as-is — no proposals, no changes to canon.")
                     </MudText>
                 </MudPaper>
 
-                <LoremasterPanel />
+                <LoremasterPanel Lead="Quick questions while you take notes, answered from your world record, with citations." />
             </div>
         </div>
     }
@@ -424,7 +422,7 @@
         "Upload" => new("Document", true, ".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif",
             "PDF text is extracted, text files are read, images are vision-read — then combined with your notes."),
         "Map" => new("MapImage", false, ".png,.jpg,.jpeg,.webp,.gif",
-            "Nornis reads place names and positions off the map and proposes Location artifacts with pins."),
+            "Nornis reads place names and positions off the map and proposes Location entries with pins."),
         _ => null,
     };
 
@@ -765,7 +763,7 @@
     {
         "HandwrittenNotes" => "Add at least one photo or image of your handwritten notes.",
         "Map" => "Add the map image.",
-        _ => "Add at least one file — or switch the type to Session Note for text-only capture.",
+        _ => "Add at least one file — or switch the type to Session note for text-only capture.",
     };
 
     /// <summary>

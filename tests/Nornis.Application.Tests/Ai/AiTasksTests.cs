@@ -35,10 +35,21 @@ public class AiTasksTests
     [TestCase(AiOperationType.CoverArtBrief, AiTask.Prep)]
     [TestCase(AiOperationType.CoverArt, AiTask.CoverArt)]
     [TestCase(AiOperationType.KeyArt, AiTask.CoverArt)]
+    [TestCase(AiOperationType.CoverArtRefinement, AiTask.ArtRefinement)]
+    [TestCase(AiOperationType.KeyArtRefinement, AiTask.ArtRefinement)]
     [TestCase(AiOperationType.WorldNaming, AiTask.Chores)]
     public void Operation_BelongsToItsTask(AiOperationType operation, AiTask task)
     {
         Assert.That(AiTasks.For(operation), Is.EqualTo(task));
+    }
+
+    [Test]
+    public void OnlyTheImageTasks_AreKeysOnly()
+    {
+        var keysOnly = Enum.GetValues<AiTask>().Where(AiTasks.OnlyKeysRun);
+
+        Assert.That(keysOnly, Is.EqualTo([AiTask.CoverArt, AiTask.ArtRefinement]),
+            "an image task has no Nornis deployment, so neither Nornis, the trial nor a compatible line runs it");
     }
 
     private static IEnumerable<AiOperationType> AllOperations() => Enum.GetValues<AiOperationType>();

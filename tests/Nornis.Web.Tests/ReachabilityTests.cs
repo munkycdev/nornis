@@ -23,16 +23,19 @@ public class ReachabilityTests
     /// <summary>
     /// Routes that legitimately have no in-app door: the public surface (linked from the footer
     /// and the outside world), the entry points a person arrives at rather than navigates to,
-    /// and the three redirect stubs kept for old bookmarks.
+    /// and the redirect stubs and old spellings kept for old bookmarks.
     /// </summary>
     private static readonly HashSet<string> Exempt = new(StringComparer.OrdinalIgnoreCase)
     {
         "/Error", "/invite/{Code}", "/shelf/{Code}", "/welcome", "/about", "/features", "/changelog",
-        "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{Focus}", "/costs", "/settings",
+        "/privacy", "/terms", "/licenses", "/canon", "/graph", "/graph/{Focus}", "/costs", "/admin",
         // /artifacts is the older spelling of /codex; the stub redirects old bookmarks.
         "/artifacts", "/artifacts/{Key}",
         // /extract is the older alias of /import; the page carries both.
         "/extract",
+        // Timeline is a view of Storylines and Members a part of Party since 3.32; the stubs
+        // redirect old bookmarks.
+        "/timeline", "/members",
         // Bibliotaph sends the browser here mid-Connect (feature 31); nothing in Nornis links to it.
         "/profile/bibliotaph/{State}",
         // Reading a Bibliotaph book (feature 31): Open calls the API directly, and Bibliotaph's

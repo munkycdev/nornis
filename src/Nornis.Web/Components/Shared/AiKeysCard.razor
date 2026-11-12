@@ -45,7 +45,7 @@
                 <div class="nornis-list-body">
                     <div class="nornis-list-title">@key.Label</div>
                     <div class="nornis-list-sub">
-                        <span>@AiText.Provider(key.Provider) · ending @key.LastFour · added @key.AddedAt.LocalDateTime.ToString("d MMM yyyy")</span>
+                        <span>@AiText.Provider(key.Provider) · ending @key.LastFour · added @DateDisplay.Day(key.AddedAt)</span>
                         @if (key.BaseUrl is not null)
                         {
                             <span> · @key.BaseUrl</span>

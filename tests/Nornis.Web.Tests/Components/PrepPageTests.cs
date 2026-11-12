@@ -124,8 +124,8 @@ public class PrepPageTests : BunitContext
         });
     }
 
-    [TestCase("Exported", "Exported only,Both")]
-    [TestCase("Published", "Published only,Both")]
+    [TestCase("In the record", "Exported only,Both")]
+    [TestCase("In the Library", "Published only,Both")]
     [TestCase("Neither", "Untouched")]
     [TestCase("All", "Untouched,Exported only,Published only,Both")]
     public async Task AFilterChip_ShowsOnlyTheAdventuresItNames(string chip, string expected)
@@ -148,9 +148,9 @@ public class PrepPageTests : BunitContext
         var cut = await RenderAsync();
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-prep-book"), Has.Count.EqualTo(1)));
 
-        cut.FindAll(".nornis-prep-filters .mud-chip").Single(c => c.TextContent.Trim() == "Exported").Click();
+        cut.FindAll(".nornis-prep-filters .mud-chip").Single(c => c.TextContent.Trim() == "In the record").Click();
 
-        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("No adventures have been exported to Nornis.")));
+        cut.WaitForAssertion(() => Assert.That(cut.Markup, Does.Contain("No adventures have been added to the record.")));
         Assert.That(cut.FindAll(".nornis-prep-book"), Is.Empty);
     }
 

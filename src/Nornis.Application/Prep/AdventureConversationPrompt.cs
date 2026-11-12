@@ -27,8 +27,8 @@ public sealed record AdventureConversationInput(
     ConversationScope Scope = ConversationScope.Section);
 
 /// <summary>
-/// The prompt for one turn of an Adventure's side conversation (feature 30). Cache-ordered like
-/// <see cref="AdventureDraftPrompt"/>: the fixed system prompt, then the world, the Adventure,
+/// The prompt for one turn of an Adventure's side conversation (feature 30). Cache-ordered: the
+/// fixed system prompt, then the world, the Adventure,
 /// the section on screen, the conversation so far and the new message, from what changes least
 /// to what changes most.
 ///
@@ -334,6 +334,7 @@ public static class AdventureConversationPrompt
         CoverLayout.FullBleed => "full bleed, the art filling the page under a title band",
         CoverLayout.Framed => "framed, the title above the art",
         CoverLayout.ClassicModule => "classic module, the title at the top and the details below the art",
+        CoverLayout.ScrollBanner => "scroll banner, the art filling the page with the title in an ornate gilded frame near the top",
         _ => layout.ToString(),
     };
 

@@ -165,7 +165,7 @@ public class ArtifactRemovalService : IArtifactRemovalService
 
         if (artifact is null || artifact.WorldId != worldId)
         {
-            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Artifact not found."));
+            return AppResult<Artifact>.Fail(new AppError(404, "not_found", "Entry not found."));
         }
 
         if (actingUserRole != WorldRole.GM)

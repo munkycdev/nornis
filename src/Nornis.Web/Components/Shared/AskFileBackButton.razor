@@ -68,7 +68,7 @@
         {
             Exchange.FiledSourceId = result.Value!.Id;
             Exchange.FiledSourceSlug = result.Value.Slug;
-            Snackbar.Add("Filed — proposals will appear in the review queue shortly.", Severity.Success);
+            Snackbar.Add("Filed — proposals will appear in Review shortly.", Severity.Success);
             await Filed.InvokeAsync(worldId);
         }
         else

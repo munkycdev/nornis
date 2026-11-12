@@ -27,6 +27,9 @@ public record GenerateKeyArtCommand(Guid WorldId, Guid ActingUserId, WorldRole A
 
 public record ChooseKeyArtCommand(Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, Guid OptionId);
 
+/// <summary>Refine one option on offer (feature 45): the result is a new option beside it.</summary>
+public record RefineKeyArtCommand(Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, Guid OptionId);
+
 public record UploadKeyArtCommand(Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, byte[] Bytes);
 
 public record SetKeyArtAnchorCommand(Guid WorldId, Guid ActingUserId, WorldRole ActingUserRole, KeyArtAnchor Anchor);

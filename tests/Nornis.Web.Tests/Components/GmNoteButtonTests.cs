@@ -66,7 +66,7 @@ public class GmNoteButtonTests : BunitContext
     }
 
     private static bool HasButton(IRenderedComponent<ButtonHost> cut) =>
-        cut.FindAll("button[aria-label='Write a GM note']").Count > 0;
+        cut.FindAll("button[aria-label='Add a note']").Count > 0;
 
     /// <summary>
     /// The button's tooltip is a popover, and opening the note dialog needs a dialog provider;
@@ -123,7 +123,7 @@ public class GmNoteButtonTests : BunitContext
     /// </summary>
     private static IRenderedComponent<GmNoteDialog> OpenDialog(IRenderedComponent<ButtonHost> cut)
     {
-        _ = cut.Find("button[aria-label='Write a GM note']").ClickAsync(new());
+        _ = cut.Find("button[aria-label='Add a note']").ClickAsync(new());
         return cut.WaitForComponent<GmNoteDialog>();
     }
 

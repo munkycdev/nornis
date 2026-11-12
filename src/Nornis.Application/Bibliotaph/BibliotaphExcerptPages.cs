@@ -149,7 +149,7 @@ public sealed class BibliotaphExcerptPages : IBibliotaphExcerptPages
         BibliotaphFailure.KeptFromAi => new AppError(403, "kept_from_ai",
             "This book is in a Bibliotaph folder kept from AI, so its pages can't be filed in Nornis."),
         BibliotaphFailure.NotConnected or BibliotaphFailure.NoConnection => new AppError(409, "bibliotaph_needs_reconnect",
-            "Your Bibliotaph needs reconnecting on your Profile before its pages can be filed."),
+            "Your Bibliotaph needs reconnecting under Your account before its pages can be filed."),
         BibliotaphFailure.Opening => new AppError(503, "bibliotaph_opening",
             "Your Bibliotaph is opening. Try again in a moment."),
         BibliotaphFailure.NotFound => new AppError(404, "not_found",

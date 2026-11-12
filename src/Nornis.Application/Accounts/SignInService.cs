@@ -83,7 +83,7 @@ public sealed class SignInService : ISignInService
         if (issued is null || issued.ExpiresAt <= _time.GetUtcNow())
         {
             return AppResult<SignInLinkOutcome>.Fail(new AppError(400, "link_expired",
-                "That link has expired. Start again from your Profile."));
+                "That link has expired. Start again from Your account."));
         }
 
         var owner = await _signIns.GetBySubjectAsync(subject, ct);

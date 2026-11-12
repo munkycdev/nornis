@@ -72,12 +72,25 @@ public static class PrepDisplay
         _ => true,
     };
 
+    /// <summary>
+    /// What a filter chip, and the mark on a cover, says. "Exported" read as leaving Nornis
+    /// when the adventure had gone into its record, and "Published" as public when the print
+    /// had been filed to the GM's Library (3.32).
+    /// </summary>
+    public static string FilterLabel(PrepListFilter filter) => filter switch
+    {
+        PrepListFilter.Exported => "In the record",
+        PrepListFilter.Published => "In the Library",
+        PrepListFilter.Neither => "Neither",
+        _ => "All",
+    };
+
     /// <summary>What the list says when a filter leaves nothing.</summary>
     public static string EmptyFilterText(PrepListFilter filter) => filter switch
     {
-        PrepListFilter.Exported => "No adventures have been exported to Nornis.",
+        PrepListFilter.Exported => "No adventures have been added to the record.",
         PrepListFilter.Published => "No adventures have been filed to the Library.",
-        PrepListFilter.Neither => "Every adventure has been exported or filed to the Library.",
+        PrepListFilter.Neither => "Every adventure is in the record or filed to the Library.",
         _ => "No adventures.",
     };
 }

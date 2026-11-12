@@ -30,9 +30,10 @@
         <MudSelect T="string" @bind-Value="_visibility" Dense="true" Label="Visibility"
                    Variant="Variant.Outlined" Class="nornis-role-select"
                    HelperText="Party-visible notes can be cited in answers your players see.">
-            <MudSelectItem Value="@("PartyVisible")">PartyVisible</MudSelectItem>
-            <MudSelectItem Value="@("GMOnly")">GMOnly</MudSelectItem>
-            <MudSelectItem Value="@("Private")">Private</MudSelectItem>
+            @foreach (var vis in VisibilityDisplay.Scopes)
+            {
+                <MudSelectItem Value="@vis">@VisibilityDisplay.Label(vis)</MudSelectItem>
+            }
         </MudSelect>
 
         @if (_error is not null)
@@ -61,6 +62,19 @@
     /// the note body so extraction can match it to the artifact by name.</summary>
     [Parameter] public string? Subject { get; set; }
 
+    /// <summary>
+    /// Text the note opens with, for a note started from something specific: the "Correct"
+    /// action on a fact quotes the fact, so the GM only has to say what is true instead.
+    /// </summary>
+    [Parameter] public string? InitialText { get; set; }
+
+    /// <summary>
+    /// The visibility the note opens on. A correction quotes the fact it corrects, so it must
+    /// not default to a wider audience than the fact has: a note about a GM-only fact starts
+    /// GM-only. The GM can still change it.
+    /// </summary>
+    [Parameter] public string? InitialVisibility { get; set; }
+
     /// <summary>The subject actually in force — <see cref="Subject"/> until the GM drops it.</summary>
     private string? _subject;
     private string _text = string.Empty;
@@ -68,7 +82,15 @@
     private bool _busy;
     private string? _error;
 
-    protected override void OnInitialized() => _subject = Subject;
+    protected override void OnInitialized()
+    {
+        _subject = Subject;
+        _text = InitialText ?? string.Empty;
+        if (InitialVisibility is { } visibility && VisibilityDisplay.Scopes.Contains(visibility))
+        {
+            _visibility = visibility;
+        }
+    }
 
     private string Placeholder => _subject is null
         ? "e.g. The Silver Key was never in Voss's quarters — the party planted it."

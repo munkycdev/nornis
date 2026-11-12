@@ -64,7 +64,7 @@ public class LibraryExcerptService : ILibraryExcerptService
             var artifact = await LoadArtifactAsync(artifactId, command.WorldId, ct);
             if (artifact is null)
             {
-                return AppResult<IReadOnlyList<LibraryExcerptCandidate>>.Fail(NotFound("Artifact not found."));
+                return AppResult<IReadOnlyList<LibraryExcerptCandidate>>.Fail(NotFound("Entry not found."));
             }
 
             query = string.IsNullOrWhiteSpace(artifact.Summary)
@@ -116,7 +116,7 @@ public class LibraryExcerptService : ILibraryExcerptService
             var artifact = await LoadArtifactAsync(artifactId, command.WorldId, ct);
             if (artifact is null)
             {
-                return AppResult<Source>.Fail(NotFound("Artifact not found."));
+                return AppResult<Source>.Fail(NotFound("Entry not found."));
             }
 
             artifactName = artifact.Name;

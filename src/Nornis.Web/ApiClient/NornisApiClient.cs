@@ -288,9 +288,10 @@ public class NornisApiClient
     public Task<ApiResult<BibliotaphRedirectDto>> BeginBibliotaphConnectAsync(CancellationToken ct = default) =>
         PostAsync<object?, BibliotaphRedirectDto>("/api/bibliotaph/connection/begin", null, ct);
 
-    public Task<ApiResult<BibliotaphRedirectDto>> AuthorizeBibliotaphAsync(string state, CancellationToken ct = default) =>
-        PostAsync<BibliotaphAuthorizeRequest, BibliotaphRedirectDto>(
-            "/api/bibliotaph/connection/authorize", new BibliotaphAuthorizeRequest(state), ct);
+    /// <summary>Where to send the browser once Bibliotaph sent it back; the API decides.</summary>
+    public Task<ApiResult<BibliotaphRedirectDto>> ResumeBibliotaphAsync(string state, string? outcome, CancellationToken ct = default) =>
+        PostAsync<BibliotaphResumeRequest, BibliotaphRedirectDto>(
+            "/api/bibliotaph/connection/resume", new BibliotaphResumeRequest(state, outcome), ct);
 
     public Task<ApiResult<bool>> DisconnectBibliotaphAsync(CancellationToken ct = default) =>
         DeleteAsync("/api/bibliotaph/connection", ct);
@@ -665,6 +666,10 @@ public class NornisApiClient
     public Task<ApiResult<CoverStateDto>> ChooseCoverAsync(Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
         PostAsync<ChooseCoverRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/choose", new ChooseCoverRequest(optionId), ct);
 
+    /// <summary>Refines one option (feature 45): the answer has the refined picture as a new option.</summary>
+    public Task<ApiResult<CoverStateDto>> RefineCoverAsync(Guid worldId, Guid adventureId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseCoverRequest, CoverStateDto>($"{CoverUri(worldId, adventureId)}/refine", new ChooseCoverRequest(optionId), ct);
+
     /// <summary>The GM's own art as the request body; the API reads its type from its bytes.</summary>
     public Task<ApiResult<CoverStateDto>> UploadCoverAsync(Guid worldId, Guid adventureId, byte[] image, CancellationToken ct = default) =>
         SendForAsync<CoverStateDto>(HttpMethod.Put, $"{CoverUri(worldId, adventureId)}/image", new ByteArrayContent(image), ct);
@@ -699,6 +704,10 @@ public class NornisApiClient
 
     public Task<ApiResult<KeyArtStateDto>> ChooseKeyArtAsync(Guid worldId, Guid optionId, CancellationToken ct = default) =>
         PostAsync<ChooseKeyArtRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/choose", new ChooseKeyArtRequest(optionId), ct);
+
+    /// <summary>Refines one option (feature 45): the answer has the refined picture as a new option, first.</summary>
+    public Task<ApiResult<KeyArtStateDto>> RefineKeyArtAsync(Guid worldId, Guid optionId, CancellationToken ct = default) =>
+        PostAsync<ChooseKeyArtRequest, KeyArtStateDto>($"{KeyArtUri(worldId)}/refine", new ChooseKeyArtRequest(optionId), ct);
 
     /// <summary>The GM's own picture as the request body; the API reads its type from its bytes.</summary>
     public Task<ApiResult<KeyArtStateDto>> UploadKeyArtAsync(Guid worldId, byte[] image, CancellationToken ct = default) =>
@@ -827,18 +836,6 @@ public class NornisApiClient
         Guid worldId, Guid adventureId, IReadOnlyList<Guid> documentIds, CancellationToken ct = default) =>
         PutAsync<SetHandoutsRequest, AdventureDto>(
             $"/api/worlds/{worldId}/prep/{adventureId}/handouts", new SetHandoutsRequest(documentIds), ct);
-
-    /// <summary>
-    /// Drafts or revises one section, streamed. Refusals (a stale section, a draft already
-    /// running, the Prep budget spent) arrive as <see cref="DraftStreamEvent.Failed"/>, and
-    /// nothing is saved unless the stream ends in <see cref="DraftStreamEvent.Done"/>.
-    /// </summary>
-    public IAsyncEnumerable<DraftStreamEvent> StreamAdventureDraftAsync(
-        Guid worldId, Guid adventureId, Guid sectionId, DraftAdventureSectionRequest request, CancellationToken ct = default) =>
-        StreamEventsAsync($"/api/worlds/{worldId}/prep/{adventureId}/sections/{sectionId}/draft", request,
-            ToDraftStreamEvent, error => new DraftStreamEvent.Failed(error),
-            e => e is DraftStreamEvent.Done or DraftStreamEvent.Failed,
-            "The draft was cut off, and nothing was saved. Please try again.", ct);
 
     public Task<ApiResult<PrepBudgetDto>> GetPrepBudgetAsync(Guid worldId, CancellationToken ct = default) =>
         GetAsync<PrepBudgetDto>($"/api/worlds/{worldId}/prep-budget", ct);
@@ -1604,15 +1601,6 @@ public class NornisApiClient
     private static T Deserialize<T>(string json) =>
         JsonSerializer.Deserialize<T>(json, JsonSerializerOptions.Web)
         ?? throw new JsonException($"Empty {typeof(T).Name} payload in the answer stream.");
-
-    /// <summary>Null for an event this client does not know.</summary>
-    private static DraftStreamEvent? ToDraftStreamEvent(SseItem<string> item) => item.EventType switch
-    {
-        DraftStreamEventNames.Delta => Deserialize<DraftStreamEvent.Delta>(item.Data),
-        DraftStreamEventNames.Done => new DraftStreamEvent.Done(Deserialize<AdventureSectionDto>(item.Data)),
-        DraftStreamEventNames.Error => new DraftStreamEvent.Failed(Deserialize<ApiError>(item.Data)),
-        _ => null,
-    };
 
     /// <summary>Null for an event this client does not know.</summary>
     private static ConversationStreamEvent? ToConversationStreamEvent(SseItem<string> item) => item.EventType switch

@@ -4,20 +4,16 @@ using NUnit.Framework;
 namespace Nornis.Application.Tests.Prep;
 
 /// <summary>
-/// Feature 35, Requirement 2.3: drafting and the side conversation describe Prep's markup with
-/// one text, and the worked example in it is a block the grammar actually reads as intended.
+/// Feature 35, Requirement 2.3: the side conversation describes Prep's markup with the one text,
+/// and the worked example in it is a block the grammar actually reads as intended.
 /// </summary>
 [TestFixture]
 public class PromptConventionsTests
 {
     [Test]
-    public void BothPrepPrompts_CarryTheConventionsVerbatim()
+    public void TheConversationPrompt_CarriesTheConventionsVerbatim()
     {
-        Assert.Multiple(() =>
-        {
-            Assert.That(AdventureDraftPrompt.SystemPrompt, Does.Contain(PrepMarkup.ConventionsForPrompt));
-            Assert.That(AdventureConversationPrompt.SystemPrompt, Does.Contain(PrepMarkup.ConventionsForPrompt));
-        });
+        Assert.That(AdventureConversationPrompt.SystemPrompt, Does.Contain(PrepMarkup.ConventionsForPrompt));
     }
 
     [Test]

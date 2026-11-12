@@ -165,6 +165,7 @@ public class KeyArtCardTests : BunitContext
         _handler.Answer = State();
 
         cut.Find(".nornis-keyart-remove").Click();
+        cut.Find(".nornis-keyart-remove-confirm").Click();
 
         cut.WaitForAssertion(() => Assert.That(cut.FindAll(".nornis-keyart-preview-empty"), Has.Count.EqualTo(1)));
         Assert.Multiple(() =>

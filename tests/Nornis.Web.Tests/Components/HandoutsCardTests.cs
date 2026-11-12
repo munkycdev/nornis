@@ -73,15 +73,34 @@ public class HandoutsCardTests : BunitContext
     }
 
     [Test]
-    public void WithNoHandouts_TheCardSaysTheBookletPrintsThemAtItsBack()
+    public void WithNoHandoutsAndNoFiles_TheCardSaysTheBookletPrintsThemAtItsBack()
     {
+        _handler.Library = [OtherHandout, Gif, Book, Pending];
         var cut = RenderCard(Adventure());
 
         Assert.Multiple(() =>
         {
             Assert.That(cut.Find(".nornis-handouts-empty").TextContent, Does.Contain("prints them at its back"));
             Assert.That(cut.FindAll(".nornis-handout"), Is.Empty);
+            Assert.That(cut.FindAll(".nornis-adventure-document"), Is.Empty);
         });
+    }
+
+    [Test]
+    public void AFileThatBelongsToTheAdventure_IsListedUnprinted_AndOneTickPrintsIt()
+    {
+        // 3.32: the Book tab had two cards over the same files, "Handouts" and "Documents".
+        // One list now, and the tick is the whole difference between them.
+        var cut = RenderCard(Adventure(OtherHandout));
+
+        cut.WaitForAssertion(() => Assert.That(
+            cut.FindAll(".nornis-adventure-document .nornis-list-title").Select(t => t.TextContent.Trim()),
+            Is.EqualTo(["Vault map"])));
+        Assert.That(cut.FindAll(".nornis-handouts-empty"), Is.Empty);
+
+        cut.Find(".nornis-adventure-document .nornis-handout-print input").Change(true);
+
+        cut.WaitForAssertion(() => Assert.That(Ids(_handler.LastBody), Is.EqualTo([OtherHandout.Id, OwnMap.Id])));
     }
 
     [Test]
@@ -161,7 +180,7 @@ public class HandoutsCardTests : BunitContext
         cut.FindAll(".nornis-handout-down")[0].Click();
         cut.WaitForAssertion(() => Assert.That(Ids(_handler.LastBody), Is.EqualTo([OwnMap.Id, OtherHandout.Id])));
 
-        cut.FindAll(".nornis-handout-remove")[1].Click();
+        cut.FindAll(".nornis-handout .nornis-handout-print input")[1].Change(false);
         cut.WaitForAssertion(() => Assert.That(Ids(_handler.LastBody), Is.EqualTo([OtherHandout.Id])));
     }
 
@@ -171,7 +190,7 @@ public class HandoutsCardTests : BunitContext
         _handler.Refusal = """{"code":"not_a_handout","message":"\"Ransom note\" can't be printed as a handout."}""";
         var cut = RenderCard(Adventure(OtherHandout, OwnMap));
 
-        cut.FindAll(".nornis-handout-remove")[0].Click();
+        cut.FindAll(".nornis-handout .nornis-handout-print input")[0].Change(false);
 
         cut.WaitForAssertion(() => Assert.That(cut.Find(".nornis-handouts-error").TextContent, Does.Contain("can't be printed")));
         Assert.Multiple(() =>
