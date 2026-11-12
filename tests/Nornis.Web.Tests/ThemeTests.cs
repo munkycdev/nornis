@@ -254,6 +254,29 @@ public class ThemeTests
         Assert.That(offenders, Is.Empty);
     }
 
+    /// <summary>
+    /// 3.36: a source's text reads on the sheet it is edited on. Inside the page template the
+    /// sections are typographic and the card under the text is see-through, so a read-only editor
+    /// that dropped its own surface put the record on the paper-tinted page, not white. The editor
+    /// takes the surface token in both states, so the dark side needs no override of its own.
+    /// </summary>
+    [Test]
+    public void ReadOnlyEditor_KeepsTheEditorsSurface()
+    {
+        var css = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Nornis.Web", "wwwroot", "app.css"));
+
+        static string Block(string css, string selector) =>
+            string.Concat(Regex.Matches(css, @"(?m)^" + Regex.Escape(selector) + @"\s*\{([^}]*)\}").Select(m => m.Groups[1].Value));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Block(css, ".nornis-editor"), Does.Contain("background: var(--mud-palette-surface)"));
+            Assert.That(Block(css, ".nornis-editor-ro"), Does.Not.Contain("background"), "the read-only editor keeps the editor's surface");
+            Assert.That(Block(css, ".nornis-editor-ro"), Does.Not.Contain("border: none"), "the sheet keeps its edge on the paper");
+            Assert.That(Block(css, ".nornis-dark .nornis-editor"), Is.Empty, "one token, both sides; no dark override");
+        });
+    }
+
     [Test]
     public void FontLink_LoadsExactlyTheTwoFamilies()
     {

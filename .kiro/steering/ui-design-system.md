@@ -1,5 +1,14 @@
 # UI Design System
 
+> **Amendment (2026-11-12, Nornis 3.36, "the text on a sheet"):** Dave asked for a source's
+> text to sit on white. A source's own text (its notes or transcription, and the text extracted
+> from its files) now reads on the sheet it is edited on: the read-only `NotesEditor` keeps the
+> editor's surface (`--mud-palette-surface`, white on the paper side, the raised ink on the dark
+> side) and padding, with a divider-coloured edge in place of the input line and no toolbar.
+> This is the one deliberate exception to "sections are typographic, no box in a box" below:
+> the section around it stays typographic, the sheet is the record itself. The editor's surface
+> is the token on both sides; nothing hard-codes `#FFFFFF` for it any more.
+
 > **Amendment (2026-11-12, Nornis 3.32, "one word for each thing"):** a walk of the whole app
 > at 3.31 found seventy places where a reader had to stop and work something out, most of them
 > the same few causes. Dave asked for all of them fixed. What is now the rule, on top of the
