@@ -1,6 +1,6 @@
 # UI Design System
 
-> **Amendment (2026-11-12, Nornis 3.38, "the sources list opens on the sessions"):** Dave asked
+> **Amendment (2026-11-12, Nornis 3.40, "the sources list opens on the sessions"):** Dave asked
 > for the Sources list to be filterable by type and to open on session notes. It has a Type row
 > above the Status row, the Codex's pattern (several chips or All). With no `?type=` it shows the
 > sessions, every type `SourceTypeDisplay.IsSession` counts (typed, handwritten, imported and

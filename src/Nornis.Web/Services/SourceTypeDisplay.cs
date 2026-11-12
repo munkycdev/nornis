@@ -78,7 +78,7 @@ public static class SourceTypeDisplay
 
     /// <summary>
     /// The types the sources list shows when no type is asked for: the sessions. Dave asked for
-    /// the list to open on session notes (3.38), so the record of play is not buried under maps,
+    /// the list to open on session notes (3.40), so the record of play is not buried under maps,
     /// GM notes and Prep filings; the rest are a click away.
     /// </summary>
     public static readonly IReadOnlySet<string> DefaultFilter =
