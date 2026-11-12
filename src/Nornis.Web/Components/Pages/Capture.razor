@@ -948,7 +948,7 @@
             !process ? "Draft saved."
             : _extractionEnabled ? "Source saved and queued for processing."
             : "Source stored in the record — no extraction.", Severity.Success);
-        Nav.NavigateTo("/sources");
+        Nav.NavigateTo(Links.SourcesShowing(_type));
     }
 
     private ApiError ShownError(string message) =>

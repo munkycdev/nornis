@@ -67,7 +67,7 @@ public class MapViewerTests : BunitContext
     public void WhenTheReaderLeftBeforeTheFirstRender_TheDragSetupIsSkipped_NotThrown()
     {
         // The circuit can end between a render and its OnAfterRenderAsync. With no browser
-        // there is nothing to wire up, and that is not an error (3.40).
+        // there is nothing to wire up, and that is not an error (3.41).
         JSInterop.SetupVoid("nornisMapEdit.init", _ => true)
             .SetException(new Microsoft.JSInterop.JSDisconnectedException("the circuit has disconnected"));
 

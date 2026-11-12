@@ -900,8 +900,8 @@
             }
             Crumbs.Set(Links.Source(_source.Slug, _source.Id),
                 _source.CampaignId is { } campaignId && _source.CampaignName is not null
-                    ? [new Crumb("Sources", "/sources"), new Crumb(_source.CampaignName, Links.Campaign(_source.CampaignSlug, campaignId)), new Crumb(_source.Title)]
-                    : [new Crumb("Sources", "/sources"), new Crumb(_source.Title)]);
+                    ? [new Crumb("Sources", Links.SourcesShowing(_source.Type)), new Crumb(_source.CampaignName, Links.Campaign(_source.CampaignSlug, campaignId)), new Crumb(_source.Title)]
+                    : [new Crumb("Sources", Links.SourcesShowing(_source.Type)), new Crumb(_source.Title)]);
 
             _attachments = [];
             _mapView = null;

@@ -15,7 +15,7 @@ using NUnit.Framework;
 namespace Nornis.Web.Tests.Components;
 
 /// <summary>
-/// A Copy button says what happened (3.40). It used to say "copied" whatever the browser did,
+/// A Copy button says what happened (3.41). It used to say "copied" whatever the browser did,
 /// and a refusal was an unhandled exception that ended the session. The invite card stands in
 /// for the three that share <see cref="JsRuntimeExtensions.TryCopyTextAsync"/>.
 /// </summary>
