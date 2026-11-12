@@ -3,7 +3,7 @@
 # `--target api|web|worker`. Replaces the three per-service Dockerfiles that each
 # compiled the whole solution from scratch.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 # CI passes the build number (GitHub Actions run number); it becomes the BUILD component of
 # the app version (MAJOR.MINOR.BUILD). Defaults to 0 for a plain local `docker build`.
 ARG BUILD_NUMBER=0
@@ -23,7 +23,7 @@ RUN dotnet restore "src/Nornis.Api/Nornis.Api.csproj" \
  && dotnet restore "src/Nornis.Worker/Nornis.Worker.csproj"
 
 COPY . .
-# No --no-restore here: under the .NET 10 SDK, restore computes the static-web-assets
+# No --no-restore here: since the .NET 10 SDK, restore computes the static-web-assets
 # projection, and a restore done against the csproj-only layer (no wwwroot, no sources)
 # leaves the framework scripts (_framework/blazor.web.js) out of the publish output
 # entirely. The earlier restore layer still pre-warms the NuGet cache, so this re-restore
@@ -33,7 +33,7 @@ RUN dotnet publish "src/Nornis.Api/Nornis.Api.csproj" -c Release -o /app/api /p:
  && dotnet publish "src/Nornis.Worker/Nornis.Worker.csproj" -c Release -o /app/worker /p:BuildNumber=$BUILD_NUMBER
 
 # ----------------------------------------------------------------------- api --
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS api
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
@@ -45,7 +45,7 @@ COPY --from=build /app/api .
 ENTRYPOINT ["dotnet", "Nornis.Api.dll"]
 
 # ----------------------------------------------------------------------- web --
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS web
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS web
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
@@ -59,7 +59,7 @@ ENTRYPOINT ["dotnet", "Nornis.Web.dll"]
 # -------------------------------------------------------------------- worker --
 # aspnet (not runtime): the worker references Microsoft.AspNetCore.App for
 # Azure.Monitor.OpenTelemetry.AspNetCore — see Nornis.Worker.csproj.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS worker
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS worker
 ARG IMAGE_SOURCE=""
 ARG IMAGE_REVISION=""
 LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"

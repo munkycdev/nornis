@@ -392,16 +392,16 @@ public class MapViewServiceTests
         Assert.That(result.Error!.Code, Is.EqualTo("insufficient_role"));
     }
 
-    [TestCase(-0.01, 0.5)]
-    [TestCase(1.01, 0.5)]
-    [TestCase(0.5, -0.01)]
-    [TestCase(0.5, 1.01)]
-    public async Task MovePlacemark_OutOfRange_Rejected(double x, double y)
+    [TestCase("-0.01", "0.5")]
+    [TestCase("1.01", "0.5")]
+    [TestCase("0.5", "-0.01")]
+    [TestCase("0.5", "1.01")]
+    public async Task MovePlacemark_OutOfRange_Rejected(decimal x, decimal y)
     {
         var pin = SeedMovablePin(out _);
 
         var result = await _sut.MovePlacemarkAsync(
-            _source.Id, WorldId, pin.Id, (decimal)x, (decimal)y, OwnerId, WorldRole.GM, CancellationToken.None);
+            _source.Id, WorldId, pin.Id, x, y, OwnerId, WorldRole.GM, CancellationToken.None);
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error!.Code, Is.EqualTo("invalid_position"));

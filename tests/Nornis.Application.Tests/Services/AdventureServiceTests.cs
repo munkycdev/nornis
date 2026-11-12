@@ -493,19 +493,19 @@ public class AdventureServiceTests
         });
     }
 
-    [TestCase(7.5, null)]
-    [TestCase(14.5, null)]
-    [TestCase(10.25, null)]
-    [TestCase(null, 0.9)]
-    [TestCase(null, 2.05)]
-    [TestCase(null, 1.33)]
-    public async Task UpdateTypography_OutsideItsBounds_Is400_AndSavesNothing(double? size, double? spacing)
+    [TestCase("7.5", null)]
+    [TestCase("14.5", null)]
+    [TestCase("10.25", null)]
+    [TestCase(null, "0.9")]
+    [TestCase(null, "2.05")]
+    [TestCase(null, "1.33")]
+    public async Task UpdateTypography_OutsideItsBounds_Is400_AndSavesNothing(decimal? size, decimal? spacing)
     {
         var view = await CreateAsync();
         var before = _adventures.Adventures.Single().UpdatedAt;
 
         var result = await _sut.UpdateTypographyAsync(
-            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, (decimal?)size, (decimal?)spacing),
+            new UpdateBookTypographyCommand(WorldId, view.Adventure.Id, WorldRole.GM, null, size, spacing),
             CancellationToken.None);
 
         Assert.Multiple(() =>

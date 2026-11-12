@@ -9,7 +9,7 @@ runs:
   steps:
     - uses: actions/setup-dotnet@v6
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: '11.0.x'
 
     # Keyed on the files that decide what gets restored — every project file, the two
     # Directory.Build.props that inject shared PackageReferences, and the tool manifest.

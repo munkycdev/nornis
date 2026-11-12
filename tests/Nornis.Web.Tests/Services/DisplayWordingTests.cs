@@ -11,23 +11,26 @@ namespace Nornis.Web.Tests.Services;
 [TestFixture]
 public class DisplayWordingTests
 {
-    [TestCase(0, "$0.00")]
-    [TestCase(0.004, "under $0.01")]
-    [TestCase(0.005, "$0.01")]
-    [TestCase(0.25, "$0.25")]
-    [TestCase(12.5, "$12.50")]
-    public void Money_HasTwoDecimals_AndNeverCallsASmallSpendNothing(double usd, string expected)
+    // Amounts and confidences are written as text, which NUnit reads as the decimal it says.
+    // From .NET 11 a double converts to a decimal exactly, so 0.6 would arrive as
+    // 0.59999999999999997779553950 and count as low.
+    [TestCase("0", "$0.00")]
+    [TestCase("0.004", "under $0.01")]
+    [TestCase("0.005", "$0.01")]
+    [TestCase("0.25", "$0.25")]
+    [TestCase("12.5", "$12.50")]
+    public void Money_HasTwoDecimals_AndNeverCallsASmallSpendNothing(decimal usd, string expected)
     {
-        Assert.That(DisplayText.Money((decimal)usd), Is.EqualTo(expected));
+        Assert.That(DisplayText.Money(usd), Is.EqualTo(expected));
     }
 
-    [TestCase(0.97, null)]
-    [TestCase(0.6, null)]
-    [TestCase(0.45, "Low confidence (45%)")]
+    [TestCase("0.97", null)]
+    [TestCase("0.6", null)]
+    [TestCase("0.45", "Low confidence (45%)")]
     [TestCase(null, null)]
-    public void Confidence_IsSaidOnlyWhenItIsLow(double? confidence, string? expected)
+    public void Confidence_IsSaidOnlyWhenItIsLow(decimal? confidence, string? expected)
     {
-        Assert.That(DisplayText.LowConfidence((decimal?)confidence), Is.EqualTo(expected));
+        Assert.That(DisplayText.LowConfidence(confidence), Is.EqualTo(expected));
     }
 
     [TestCase("SessionNote", "Session date")]

@@ -572,16 +572,16 @@ public class PrepEndpointTests
     }
 
     [TestCase("Comic Sans", null, null)]
-    [TestCase(null, 20.0, null)]
-    [TestCase(null, null, 1.33)]
-    public async Task Gm_SetsATypeOutsideTheBounds_Is400(string? font, double? size, double? spacing)
+    [TestCase(null, "20.0", null)]
+    [TestCase(null, null, "1.33")]
+    public async Task Gm_SetsATypeOutsideTheBounds_Is400(string? font, decimal? size, decimal? spacing)
     {
         var scenario = await SourceTestHelpers.SetupFullScenarioAsync(_factory);
         var worldId = scenario.World.Id;
         var adventure = await CreateAsync(scenario.GmClient, worldId);
 
         var response = await scenario.GmClient.PutAsJsonAsync($"{Base(worldId)}/{adventure.Id}/typography",
-            new UpdateBookTypographyRequest(font, (decimal?)size, (decimal?)spacing));
+            new UpdateBookTypographyRequest(font, size, spacing));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain("invalid_typography"));
