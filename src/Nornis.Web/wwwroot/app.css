@@ -3441,7 +3441,7 @@ a.nornis-cite:hover {
 .nornis-editor {
     border: 1px solid var(--mud-palette-lines-inputs, rgba(0, 0, 0, 0.23));
     border-radius: 6px;
-    background: #FFFFFF;
+    background: var(--mud-palette-surface);
     overflow: hidden;
 }
 
@@ -4465,19 +4465,21 @@ a.nornis-cite:hover {
     gap: 5px;
 }
 
-/* Read-only editor variant — presentation surface, no input chrome. */
+/* Read-only editor variant — a source's text, read on the sheet it is edited on (3.36): the
+   editor's surface and padding, so Edit doesn't move the words, without the toolbar. Its edge is
+   the divider rather than the input line, so it reads as a page, not a box to type in. Inside
+   the page template the card under it is see-through; without its own surface the text sat on
+   the paper-tinted page. */
 .nornis-editor-ro {
-    border: none;
-    background: transparent;
+    border-color: var(--mud-palette-divider);
 }
 
 .nornis-editor-ro:focus-within {
-    border-color: transparent;
+    border-color: var(--mud-palette-divider);
     box-shadow: none;
 }
 
 .nornis-editor-ro .nornis-editor-content {
-    padding: 0;
     min-height: 0;
     cursor: default;
 }
@@ -4861,9 +4863,8 @@ a.nornis-cite:hover {
     color-scheme: dark;
 }
 
-/* The editor's white is the light surface, hard-coded from before dark existed; on the ink side
-   the palette's near-white text was landing on it and vanishing. Same token, both sides. */
-.nornis-dark .nornis-editor { background: var(--mud-palette-surface); }
+/* The editor reads the surface token (white on the paper side), so the ink side needs no
+   background of its own. */
 .nornis-dark .nornis-editor-toolbar { border-bottom-color: var(--nornis-onside-border); }
 .nornis-dark .nornis-editor-toolbar-sep { background: var(--nornis-onside-border); }
 .nornis-dark .nornis-editor-content.nornis-editor-empty::before { color: var(--nornis-onside-muted); }
