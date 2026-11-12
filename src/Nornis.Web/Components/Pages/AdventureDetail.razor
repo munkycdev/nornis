@@ -497,6 +497,7 @@ else if (_adventure is not null)
         }
 
         _adventure = _adventure with { Draft = fresh.Value!.Draft, AiUse = fresh.Value.AiUse, UpdatedAt = fresh.Value.UpdatedAt };
+        StateHasChanged();
     }
 
     private void OnDraftChanged(AdventureDraftDto draft)

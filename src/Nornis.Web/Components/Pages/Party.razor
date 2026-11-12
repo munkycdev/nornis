@@ -463,8 +463,8 @@ else
 
     private async Task CopyShelfLinkAsync(ShelfLinkDto link)
     {
-        var copied = await JS.TryCopyTextAsync(ShelfUrl(link));
-        Snackbar.Add(copied ? "Shelf link copied." : DisplayText.CopyRefused, copied ? Severity.Info : Severity.Warning);
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", ShelfUrl(link));
+        Snackbar.Add("Shelf link copied.", Severity.Info);
     }
 
     /// <summary>Mints a link, or replaces the standing one — after asking, since the old one stops working.</summary>

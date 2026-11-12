@@ -244,6 +244,7 @@ else if (_adventure is not null && Worlds.Current is { } world)
 
         _filing = true;
         _fileError = null;
+        StateHasChanged();
 
         var result = await Api.FileAdventureBookletAsync(Worlds.Current.Id, _adventure.Id);
         _filing = false;
@@ -255,6 +256,8 @@ else if (_adventure is not null && Worlds.Current is { } world)
         {
             _fileError = result.Error!.Message;
         }
+
+        StateHasChanged();
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldChanged;

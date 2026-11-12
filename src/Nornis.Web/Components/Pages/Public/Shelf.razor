@@ -97,7 +97,7 @@
 
         if (result.IsSuccess)
         {
-            await JS.TryInvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
+            await JS.InvokeVoidAsync("nornisUpload.open", result.Value!.DownloadUrl);
         }
         else
         {

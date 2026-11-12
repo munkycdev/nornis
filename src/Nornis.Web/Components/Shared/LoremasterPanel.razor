@@ -222,6 +222,7 @@
         _streaming = answer;
         _asking = true;
         _error = null;
+        StateHasChanged();
 
         var finished = await answer.ReadAsync(
             Api.StreamAskAsync(askedWorldId, q, LoremasterDisplay.BuildContext(conversation), _disposed.Token),
@@ -252,6 +253,7 @@
         {
             _error = answer.Error!.Message;
         }
+        StateHasChanged();
     }
 
     /// <summary>

@@ -32,6 +32,7 @@
         }
 
         _backfillBusy = true;
+        StateHasChanged();
 
         var result = await Api.QueueRelationshipBackfillAsync(Worlds.Current.Id);
 
@@ -52,5 +53,6 @@
                 ". Proposals will arrive in Review as the worker processes them.",
                 Severity.Success);
         }
+        StateHasChanged();
     }
 }

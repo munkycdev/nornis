@@ -131,17 +131,8 @@
         // Depth 0 means "everything" — the JS BFS would trim to just the focus node,
         // so suppress the focus in that case (same contract the /graph page used).
         var focusId = Depth == 0 ? null : FocusId?.ToString();
-        int count;
-        try
-        {
-            count = await JS.InvokeAsync<int>("nornisGraph.render",
-                _elementId, Nodes, Edges, focusId, Depth, _selfRef);
-        }
-        catch (JSDisconnectedException)
-        {
-            // The reader left before the graph reached them: nothing drawn, nothing to count.
-            return;
-        }
+        var count = await JS.InvokeAsync<int>("nornisGraph.render",
+            _elementId, Nodes, Edges, focusId, Depth, _selfRef);
 
         if (RenderedCountChanged.HasDelegate)
         {

@@ -240,7 +240,7 @@ else
         {
             _dragInitialized = true;
             _selfRef = DotNetObjectReference.Create(this);
-            await JS.TryInvokeVoidAsync("nornisTimeline.init", _elementId, _selfRef);
+            await JS.InvokeVoidAsync("nornisTimeline.init", _elementId, _selfRef);
         }
     }
 

@@ -63,7 +63,7 @@
         {
             _jsInitialized = true;
             _selfRef = DotNetObjectReference.Create(this);
-            await JS.TryInvokeVoidAsync("nornisMapEdit.init", _viewerId, _selfRef);
+            await JS.InvokeVoidAsync("nornisMapEdit.init", _viewerId, _selfRef);
         }
     }
 

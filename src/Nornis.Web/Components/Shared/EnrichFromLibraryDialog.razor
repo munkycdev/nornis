@@ -108,6 +108,7 @@
         _searching = true;
         _error = null;
         _fileError = null;
+        StateHasChanged();
 
         // The entry itself is the query until the GM types one.
         var query = string.IsNullOrWhiteSpace(_query) ? null : _query.Trim();

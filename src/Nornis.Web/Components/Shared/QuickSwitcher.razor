@@ -194,6 +194,7 @@
             _groups = [];
             _rows = [];
         }
+        StateHasChanged();
     }
 
     private IReadOnlyList<Row> Visible => string.IsNullOrWhiteSpace(_term) ? _recents : _rows;

@@ -295,7 +295,11 @@
         StateHasChanged();
     }
 
-    private void ClearLocation() => _selectedLocationId = null;
+    private void ClearLocation()
+    {
+        _selectedLocationId = null;
+        StateHasChanged();
+    }
 
     /// <summary>The dated notes that visited a place, oldest first — the place's own story.</summary>
     private IReadOnlyList<JourneyStopDto> NotesForLocation(Guid locationId) =>
@@ -367,7 +371,7 @@
         {
             _jsInitialized = true;
             _selfRef = DotNetObjectReference.Create(this);
-            await JS.TryInvokeVoidAsync("nornisJourney.init", _railId, _selfRef);
+            await JS.InvokeVoidAsync("nornisJourney.init", _railId, _selfRef);
         }
     }
 

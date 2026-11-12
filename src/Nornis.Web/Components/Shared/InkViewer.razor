@@ -18,8 +18,8 @@
     {
         if (firstRender && !string.IsNullOrEmpty(Url))
         {
-            // Not initialised if the reader left before the first render reached them.
-            _initialized = await JS.TryInvokeVoidAsync("nornisInk.initFromUrl", _elementId, Url, null, true);
+            await JS.InvokeAsync<bool>("nornisInk.initFromUrl", _elementId, Url, null, true);
+            _initialized = true;
         }
     }
 

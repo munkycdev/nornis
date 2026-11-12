@@ -693,6 +693,7 @@
         if (!result.IsSuccess)
         {
             Snackbar.Add(result.Error?.Message ?? "Could not add the pin.", Severity.Error);
+            StateHasChanged();
             return;
         }
 
@@ -703,6 +704,7 @@
         }
         Snackbar.Add($"\"{created.ArtifactName}\" is pinned at the centre of the map — drag it where it belongs.",
             Severity.Success);
+        StateHasChanged();
     }
 
     /// <summary>Confirms and deletes a pin from the map; the Location artifact is untouched.</summary>
@@ -981,6 +983,7 @@
         }
 
         _removingFact = true;
+        StateHasChanged();
 
         var result = await Api.RemoveFactAsync(Worlds.Current.Id, removal.Fact.FactId, removal.Note);
 
@@ -994,6 +997,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     // Location search is filtered to Locations the caller can see and hasn't already linked.
@@ -1030,6 +1034,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     private async Task RemoveLocationAsync(LinkedLocationDto location)
@@ -1107,6 +1112,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     // Reveal to party (GM): lifts a GM-only source (and its attachments, e.g. a map image)
@@ -1142,6 +1148,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     private void BeginEdit()
@@ -1324,6 +1331,7 @@
         {
             _editError = result.Error!.Message;
         }
+        StateHasChanged();
     }
 
     /// <summary>
@@ -1477,6 +1485,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     /// <summary>Starts the review-paced timeline replay from this note forward.</summary>
@@ -1532,6 +1541,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     private async Task CancelReplayAsync()
@@ -1554,6 +1564,7 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
+        StateHasChanged();
     }
 
     /// <summary>The re-run confirm: the same cascade facts as the edit flow, framed for an
@@ -1595,6 +1606,7 @@
         else
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
+            StateHasChanged();
         }
     }
 

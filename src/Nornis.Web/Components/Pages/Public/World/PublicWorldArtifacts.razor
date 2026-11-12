@@ -203,6 +203,7 @@
         {
             var result = await Api.GetPublicArtifactGraphAsync(Slug);
             _graphData = result.IsSuccess ? result.Value : new ArtifactGraphDto([], []);
+            StateHasChanged();
         }
     }
 

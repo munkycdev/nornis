@@ -26,12 +26,6 @@ public static class DisplayText
     };
 
     /// <summary>
-    /// What a Copy button says when the browser will not copy (permission refused). Every place
-    /// that offers one also shows the link, so the way out is to select it.
-    /// </summary>
-    public const string CopyRefused = "Your browser would not copy that. Select the link and copy it yourself.";
-
-    /// <summary>
     /// The confidence below which a reader is told about it. Above it the figure is noise:
     /// "97 % confidence" on nearly every row says nothing, so only doubt is shown (3.32).
     /// </summary>

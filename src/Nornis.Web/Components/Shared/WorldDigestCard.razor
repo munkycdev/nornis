@@ -144,6 +144,7 @@
 
         var worldId = Worlds.Current.Id;
         _generating = true;
+        StateHasChanged();
 
         var result = await Api.GenerateWorldDigestAsync(worldId);
         _generating = false;
@@ -151,6 +152,7 @@
         if (!result.IsSuccess)
         {
             Snackbar.Add(result.Error?.Message ?? "The digest could not be generated.", Severity.Error);
+            StateHasChanged();
             return;
         }
 
@@ -159,6 +161,7 @@
         {
             _digest = result.Value;
         }
+        StateHasChanged();
     }
 
     public void Dispose() => Worlds.Changed -= OnWorldsChanged;

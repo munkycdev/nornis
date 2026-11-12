@@ -283,6 +283,7 @@ else
         {
             _displayNameError = result.Error!.Message;
         }
+        StateHasChanged();
     }
 
     // ------------------------------------------------------------------ Claiming --
@@ -332,6 +333,7 @@ else
         else
         {
             _addCharacterError = result.Error!.Message;
+            StateHasChanged();
         }
     }
 
@@ -404,6 +406,7 @@ else
         else
         {
             Snackbar.Add($"Could not claim: {result.Error!.Message}", Severity.Error);
+            StateHasChanged();
         }
     }
 
@@ -478,6 +481,7 @@ else
         _characters = _characters.Select(x => x.Id == characterId ? result.Value! : x).ToList();
         _editingCharacterId = null;
         Snackbar.Add("Character saved.", Severity.Success);
+        StateHasChanged();
     }
 
     private async Task DeleteCharacterAsync(CharacterDto ch)

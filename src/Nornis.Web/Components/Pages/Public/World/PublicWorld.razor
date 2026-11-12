@@ -216,6 +216,7 @@
         _streaming = answer;
         _askError = null;
         _answer = null;
+        StateHasChanged();
 
         var finished = await answer.ReadAsync(
             Api.StreamPublicAskAsync(askedSlug, q, _disposed.Token),
@@ -231,6 +232,7 @@
         _streaming = null;
         _answer = answer.Answer;
         _askError = answer.Error?.Message;
+        StateHasChanged();
     }
 
     public void Dispose()
