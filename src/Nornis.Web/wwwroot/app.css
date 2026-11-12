@@ -4836,8 +4836,11 @@ a.nornis-cite:hover {
     }
 }
 
-/* Your settings (Nornis 3.24): three tabs of cards, each card at a reading measure. */
-.nornis-profile .nornis-card {
+/* Your account (Nornis 3.24, two tabs since 3.31) and World settings' You tab: cards, and the AI
+   tab's note on who pays, at a reading measure. */
+.nornis-profile .nornis-card,
+.nornis-profile .nornis-profile-ai-scope,
+.nornis-settings-tab-you .nornis-card {
     max-width: 820px;
 }
 

@@ -61,13 +61,14 @@ public static class NavGroups
             new("Campaigns", "/campaigns", Icons.Material.Outlined.Flag),
             new("Party", "/party", Icons.Material.Outlined.Groups),
             new("Members", "/members", Icons.Material.Outlined.People),
+            // Every member's since 3.31: the You tab is theirs, the rest of the tabs the GM's.
+            new("World settings", "/settings", Icons.Material.Outlined.Tune),
         ]),
         new("GM",
         [
             new("Prep", "/prep", Icons.Material.Outlined.HistoryEdu),
             new("Reveal", "/convergence", Icons.Material.Outlined.Visibility),
             new("World memory", "/world-memory", Icons.Material.Outlined.Psychology),
-            new("Settings", "/admin", Icons.Material.Outlined.Tune),
         ], GmOnly: true),
     ];
 

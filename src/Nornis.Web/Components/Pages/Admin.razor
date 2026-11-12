@@ -1,37 +1,40 @@
-﻿@page "/admin"
+﻿@page "/settings"
+@page "/admin"
 @implements IDisposable
 @inject WorldState Worlds
 @inject NavigationManager Nav
 
-<PageTitle>Settings — Nornis</PageTitle>
+<PageTitle>World settings — Nornis</PageTitle>
 
-<MudText Typo="Typo.h4" Class="nornis-serif">Settings</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">This world's settings, costs and processing.</MudText>
+<MudText Typo="Typo.h4" Class="nornis-serif">World settings</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    @(Worlds.IsGm
+        ? "This world's settings, costs and processing, and you at its table."
+        : "You at this world's table. What follows you to every world is in your account.")
+</MudText>
 
 @if (Worlds.Current is null)
 {
     <NoWorld />
 }
-else if (!Worlds.IsGm)
-{
-    <MudPaper Elevation="0" Class="nornis-card nornis-card-pad nornis-comingsoon">
-        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Large" Class="nornis-comingsoon-icon" />
-        <MudText Typo="Typo.h5" Class="nornis-serif">GMs only</MudText>
-        <MudText Typo="Typo.body1" Class="nornis-comingsoon-text mt-2">
-            World administration is available to the GM of this world.
-        </MudText>
-    </MudPaper>
-}
 else if (_form is { } form)
 {
-    @* Five tabs (Nornis 3.23), the shown one in the URL so a link or a reload opens it again. Every
-       field card shares the one form, so moving between tabs keeps what was typed; each card's
-       Save sends only its own fields. *@
-    <TabStrip Tabs="Tabs" Active="@_tab" Selected="ShowTab" Label="Settings" Class="nornis-settings-tabs" />
+    @* Every member's since Nornis 3.31: the You tab is theirs; the GM also gets the world's five
+       tabs (3.23), each hidden from everyone else rather than refused, and the API refuses their
+       calls regardless. The shown tab is in the URL. Every field card shares the one form, so
+       moving between tabs keeps what was typed; each card's Save sends only its own fields. *@
+    @if (VisibleTabs(Worlds.IsGm).Count > 1)
+    {
+        <TabStrip Tabs="VisibleTabs(Worlds.IsGm)" Active="@Shown" Selected="ShowTab" Label="World settings" Class="nornis-settings-tabs" />
+    }
 
-    <div class="nornis-settings nornis-settings-tab-@_tab">
-        @switch (_tab)
+    <div class="nornis-settings nornis-settings-tab-@Shown">
+        @switch (Shown)
         {
+            case YouTab:
+                <YouAtThisTablePanel />
+                break;
+
             case PublicTab:
                 <WorldSettingsPanel Form="form" Section="WorldSettingsSection.PublicPage" />
                 break;
@@ -63,15 +66,22 @@ else if (_form is { } form)
 }
 
 @code {
+    public const string YouTab = "you";
     public const string WorldTab = "world";
     public const string PublicTab = "public";
     public const string AiTab = "ai";
     public const string ProcessingTab = "processing";
     public const string ExportTab = "export";
 
-    /// <summary>The tabs, in the order a GM reaches for them: what the world is, who can see it, what it spends, how it reads, and its end.</summary>
-    public static readonly IReadOnlyList<TabStrip.Item> Tabs =
+    private static readonly TabStrip.Item You = new(YouTab, "You");
+
+    /// <summary>
+    /// The GM's tabs: theirs at this table first, then in the order a GM reaches for them, what the
+    /// world is, who can see it, what it spends, how it reads, and its end.
+    /// </summary>
+    public static readonly IReadOnlyList<TabStrip.Item> GmTabs =
     [
+        You,
         new(WorldTab, "World"),
         new(PublicTab, "Public page"),
         new(AiTab, "AI and costs"),
@@ -79,13 +89,28 @@ else if (_form is { } form)
         new(ExportTab, "Export and delete"),
     ];
 
-    /// <summary>The tab a URL names, whatever its case; the World tab for none or one that isn't a tab.</summary>
-    public static string TabFromQuery(string? tab) =>
-        Tabs.FirstOrDefault(t => string.Equals(t.Key, tab?.Trim(), StringComparison.OrdinalIgnoreCase))?.Key ?? WorldTab;
+    /// <summary>Everyone else's: the one tab that is theirs.</summary>
+    public static readonly IReadOnlyList<TabStrip.Item> MemberTabs = [You];
+
+    public static IReadOnlyList<TabStrip.Item> VisibleTabs(bool isGm) => isGm ? GmTabs : MemberTabs;
+
+    /// <summary>
+    /// The tab to show: the one the URL names, whatever its case, when this member can see it; else
+    /// World for the GM and You for everyone else. A GM's tab named to a player (a shared link, or
+    /// the GM viewing as a player) falls back to You rather than to a refusal.
+    /// </summary>
+    public static string TabFor(string? tab, bool isGm) =>
+        VisibleTabs(isGm).FirstOrDefault(t => string.Equals(t.Key, tab?.Trim(), StringComparison.OrdinalIgnoreCase))?.Key
+        ?? (isGm ? WorldTab : YouTab);
 
     [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
 
-    private string _tab = WorldTab;
+    // What the URL asked for; what is shown also depends on the role, which can change under the
+    // page (viewing as a player), so it is worked out at render.
+    private string? _requested;
+
+    private string Shown => TabFor(_requested, Worlds.IsGm);
+
     private WorldSettingsForm? _form;
 
     protected override async Task OnInitializedAsync()
@@ -96,7 +121,7 @@ else if (_form is { } form)
     }
 
     // The URL is the authority on the tab, so Back and a pasted link both land where they say.
-    protected override void OnParametersSet() => _tab = TabFromQuery(Tab);
+    protected override void OnParametersSet() => _requested = Tab;
 
     /// <summary>
     /// Fills the form from the world when a different world is selected. A save reloads the same
@@ -116,7 +141,7 @@ else if (_form is { } form)
 
     private void ShowTab(string tab)
     {
-        _tab = tab;
+        _requested = tab;
         Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", tab), replace: true);
     }
 
