@@ -1,0 +1,17 @@
+is_global = true
+
+# Two Blazor analyzer rules that arrived with the .NET 11 SDK. With warnings as errors they
+# fail the build at 120 places (114 in the Web project, 6 in its tests), so they are hints
+# here until each gets a deliberate pass. This file sits at the repository root because the
+# rules fire in the test project too, and the Docker build copies it with everything else.
+#
+# BL0012 ("StateHasChanged is unnecessary", 69 places) reasons about one caller. It flags
+# methods such as Convergence's LoadAsync, which OnInitializedAsync calls (where it is right)
+# and which WorldState.Changed also reaches through InvokeAsync (where nothing else renders).
+# Removing what it flags would leave those pages stale after a world switch.
+dotnet_diagnostic.BL0012.severity = suggestion
+
+# BL0016 ("JS interop call is not guarded with a try/catch", 51 places) is sound advice for
+# calls that can outlive the circuit, and noise for a click handler or a test double. Sorting
+# them into those piles is its own change, not part of a framework upgrade.
+dotnet_diagnostic.BL0016.severity = suggestion

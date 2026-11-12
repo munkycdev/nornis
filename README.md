@@ -106,7 +106,7 @@ nornis-worker   Background processor — drains the extraction queue
 | `src/Nornis.Web` | Blazor pages and components, API client. |
 | `src/Nornis.Worker` | Queue-driven extraction, indexing, and transcription jobs. |
 
-**Stack:** .NET 10 · Blazor · ASP.NET Core · Azure SQL (EF Core, repository pattern) ·
+**Stack:** .NET 11 · Blazor · ASP.NET Core · Azure SQL (EF Core, repository pattern) ·
 Azure Blob Storage · Azure Service Bus · Azure OpenAI · Microsoft.Extensions.AI with the
 OpenAI, Anthropic and Google GenAI SDKs · Auth0 (Discord) · Azure Container Apps · GitHub Actions.
 
@@ -116,7 +116,7 @@ Every project has a matching test project under [`tests/`](tests); NUnit through
 
 ## Running locally
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (see
+**Prerequisites:** [.NET 11 SDK](https://dotnet.microsoft.com/download) (see
 [`global.json`](global.json)), Docker Desktop, PowerShell 7+.
 
 The local stack runs SQL Server and the Azure Service Bus emulator in Docker, applies
