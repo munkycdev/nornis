@@ -444,7 +444,7 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             columns.Spacing(Gutter);
             columns.BalanceHeight(false);
             columns.Spacer().AlignCenter().LineVertical(0.5f).LineColor(Hairline);
-            columns.Content().Column(col => Blocks(col, chapter.Blocks, BlockSpacing, type));
+            columns.Content().Column(col => Blocks(col, chapter.Blocks, BlockSpacing, type, setOff: type.LinePt));
         });
 
         page.Footer().PaddingTop(8).AlignCenter().Text(t =>
@@ -627,14 +627,44 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
     /// so a heading never ends a column alone.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// QuestPDF's <c>EnsureSpace</c> only acts on content that doesn't fit entirely, so it guards
     /// the group (which holds the large block), never a heading by itself.
+    /// </para>
+    /// <para>
+    /// With <paramref name="setOff"/>, a set-off block (see <see cref="IsSetOff"/>) gets that much
+    /// more space above and below it than the run's spacing, as does a heading group that
+    /// introduces one, so the heading stays tight to its box; so does a lead-in paragraph
+    /// (<see cref="IsLeadIn"/>) straight before one. The space is one gap between
+    /// neighbours, never doubled between two set-off blocks, and never before the run's first
+    /// block or after its last.
+    /// </para>
     /// </remarks>
-    private static void Blocks(ColumnDescriptor col, IReadOnlyList<BookletBlock> blocks, float spacing, Typeset type)
+    private static void Blocks(ColumnDescriptor col, IReadOnlyList<BookletBlock> blocks, float spacing, Typeset type, float setOff = 0)
     {
         col.Spacing(spacing);
+        bool? previousSetOff = null;
+        var previousIntroduces = false;
         for (var i = 0; i < blocks.Count; i++)
         {
+            // The block this unit is about: the block itself, or the block a heading group introduces.
+            var lead = i;
+            while (lead < blocks.Count - 1 && IsHeading(blocks[lead]))
+            {
+                lead++;
+            }
+
+            // A lead-in ("Opening line:") stays with the set-off block after it and takes its space above.
+            var introduces = setOff > 0 && lead < blocks.Count - 1 && IsLeadIn(blocks[lead]) && IsSetOff(blocks[lead + 1]);
+            var setsOff = setOff > 0 && (IsSetOff(blocks[lead]) || introduces);
+            if (previousSetOff is { } before && (before || setsOff) && !previousIntroduces)
+            {
+                SetOffGap(col, setOff - spacing);
+            }
+
+            previousSetOff = setsOff;
+            previousIntroduces = introduces;
+
             if (!IsHeading(blocks[i]))
             {
                 Block(col.Item(), blocks[i], type);
@@ -676,6 +706,36 @@ public sealed class QuestPdfBookletRenderer : IBookletPdfRenderer
             });
         }
     }
+
+    /// <summary>
+    /// The extra space around a set-off block, as an item of its own between two others (the column
+    /// adds its spacing on both sides of it, so it is that much shorter than the gap it makes up).
+    /// It takes what is left of a column up to its height and never more, so it never pushes
+    /// anything on, and it never opens a column as blank space: at a column's foot it is cut short
+    /// and the next block starts the next column at its top.
+    /// </summary>
+    private static void SetOffGap(ColumnDescriptor col, float height)
+    {
+        if (height > 0)
+        {
+            col.Item().MaxHeight(height).ExtendVertical();
+        }
+    }
+
+    /// <summary>
+    /// The blocks the reader's eye stops at, set off from the text around them by a line's space:
+    /// every box (read-aloud, prop, ask, GM), stat and item blocks, and code. Tables, lists,
+    /// headings and rules sit in the flow.
+    /// </summary>
+    internal static bool IsSetOff(BookletBlock block) => block is BookletBox or BookletGameBlock or BookletCode;
+
+    /// <summary>A short paragraph ending in a colon ("Opening line:"): it labels the block after it.</summary>
+    internal static bool IsLeadIn(BookletBlock block) =>
+        block is BookletParagraph paragraph && Chars(paragraph.Text) <= LeadInMaxChars
+        && paragraph.Text.LastOrDefault() is BookletRun run && run.Text.TrimEnd().EndsWith(':');
+
+    /// <summary>A lead-in is a label, not prose: a line or so at most.</summary>
+    internal const int LeadInMaxChars = 80;
 
     /// <summary>A heading's height with the spacing after it, at its largest size, for the default body size.</summary>
     internal const float HeadingRoomPt = 27;
