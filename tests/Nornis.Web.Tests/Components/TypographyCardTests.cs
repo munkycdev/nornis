@@ -143,12 +143,14 @@ public class TypographyCardTests : BunitContext
         Assert.That(_saved, Is.Null);
     }
 
-    [TestCase(10.3, 0.5, 8, 14, 10.5)]
-    [TestCase(20, 0.5, 8, 14, 14)]
-    [TestCase(1.33, 0.05, 1, 2, 1.35)]
-    [TestCase(0.5, 0.05, 1, 2, 1)]
-    public void ATypedValue_SnapsToItsStep_WithinTheBounds(double value, double step, double min, double max, double expected) =>
-        Assert.That(TypographyCard.Snap((decimal)value, (decimal)step, (decimal)min, (decimal)max), Is.EqualTo((decimal)expected));
+    // Written as text, which NUnit reads as the decimal it says: from .NET 11 a double converts
+    // to a decimal exactly, so a 0.05 step would arrive as 0.05000000000000000277555756.
+    [TestCase("10.3", "0.5", "8", "14", "10.5")]
+    [TestCase("20", "0.5", "8", "14", "14")]
+    [TestCase("1.33", "0.05", "1", "2", "1.35")]
+    [TestCase("0.5", "0.05", "1", "2", "1")]
+    public void ATypedValue_SnapsToItsStep_WithinTheBounds(decimal value, decimal step, decimal min, decimal max, decimal expected) =>
+        Assert.That(TypographyCard.Snap(value, step, min, max), Is.EqualTo(expected));
 
     [Test]
     public void TheWebFonts_LoadEveryFaceButNewsreader()

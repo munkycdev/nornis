@@ -25,30 +25,33 @@ public class BookTypographyTests
         });
     }
 
-    [TestCase(8.0)]
-    [TestCase(8.5)]
-    [TestCase(11.5)]
-    [TestCase(14.0)]
-    public void ASizeOnAHalfPointWithinTheBounds_IsValid(double size) =>
-        Assert.That(new BookTypography { Size = (decimal)size }.Validate(), Is.Null);
+    // The cases are written as text, which NUnit reads as the decimal it says. A double would
+    // not do: from .NET 11 a double converts to a decimal exactly, so 1.35 would arrive as
+    // 1.35000000000000008881784197 and be off its step.
+    [TestCase("8.0")]
+    [TestCase("8.5")]
+    [TestCase("11.5")]
+    [TestCase("14.0")]
+    public void ASizeOnAHalfPointWithinTheBounds_IsValid(decimal size) =>
+        Assert.That(new BookTypography { Size = size }.Validate(), Is.Null);
 
-    [TestCase(7.5)]
-    [TestCase(14.5)]
-    [TestCase(10.2)]
-    public void ASizePastTheBoundsOrOffItsStep_IsRefused(double size) =>
-        Assert.That(new BookTypography { Size = (decimal)size }.Validate(), Is.EqualTo(nameof(BookTypography.Size)));
+    [TestCase("7.5")]
+    [TestCase("14.5")]
+    [TestCase("10.2")]
+    public void ASizePastTheBoundsOrOffItsStep_IsRefused(decimal size) =>
+        Assert.That(new BookTypography { Size = size }.Validate(), Is.EqualTo(nameof(BookTypography.Size)));
 
-    [TestCase(1.0)]
-    [TestCase(1.35)]
-    [TestCase(2.0)]
-    public void LineSpacingOnATwentiethWithinTheBounds_IsValid(double spacing) =>
-        Assert.That(new BookTypography { LineSpacing = (decimal)spacing }.Validate(), Is.Null);
+    [TestCase("1.0")]
+    [TestCase("1.35")]
+    [TestCase("2.0")]
+    public void LineSpacingOnATwentiethWithinTheBounds_IsValid(decimal spacing) =>
+        Assert.That(new BookTypography { LineSpacing = spacing }.Validate(), Is.Null);
 
-    [TestCase(0.95)]
-    [TestCase(2.05)]
-    [TestCase(1.33)]
-    public void LineSpacingPastTheBoundsOrOffItsStep_IsRefused(double spacing) =>
-        Assert.That(new BookTypography { LineSpacing = (decimal)spacing }.Validate(), Is.EqualTo(nameof(BookTypography.LineSpacing)));
+    [TestCase("0.95")]
+    [TestCase("2.05")]
+    [TestCase("1.33")]
+    public void LineSpacingPastTheBoundsOrOffItsStep_IsRefused(decimal spacing) =>
+        Assert.That(new BookTypography { LineSpacing = spacing }.Validate(), Is.EqualTo(nameof(BookTypography.LineSpacing)));
 
     [Test]
     public void AFontThatIsNotOneOfTheBooklets_IsRefused() =>
