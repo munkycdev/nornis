@@ -837,7 +837,6 @@ else
     private async Task RefreshAsync()
     {
         await LoadAsync();
-        StateHasChanged();
     }
 
     /// <summary>
@@ -853,7 +852,6 @@ else
         // re-fetch and does not report again.
         _ = remaining;
         await LoadAsync();
-        StateHasChanged();
     }
 
     private async Task CreateAsync()

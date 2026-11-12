@@ -263,7 +263,6 @@
         }
 
         _running = true;
-        StateHasChanged();
 
         var result = await Api.RunContinuityAssessmentAsync(Worlds.Current.Id);
         _running = false;
@@ -277,7 +276,6 @@
         {
             Snackbar.Add(result.Error!.Message, Severity.Error);
         }
-        StateHasChanged();
     }
 
     private async Task DismissAsync(ContinuityFinding finding)

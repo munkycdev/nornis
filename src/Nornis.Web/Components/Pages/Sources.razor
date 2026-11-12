@@ -229,6 +229,10 @@ else
         }
     }
 
+    // BL0012 is off for this method: a retry runs it as an event handler, which is what the
+    // rule sees, but WorldState.Changed also runs it through InvokeAsync, and there nothing
+    // renders unless this does.
+#pragma warning disable BL0012
     private async Task LoadSourcesAsync()
     {
         if (Worlds.Current is null)
@@ -267,6 +271,7 @@ else
         }
         StateHasChanged();
     }
+#pragma warning restore BL0012
 
     private string? CampaignFilterOrNull => string.IsNullOrEmpty(_campaignFilter) ? null : _campaignFilter;
 

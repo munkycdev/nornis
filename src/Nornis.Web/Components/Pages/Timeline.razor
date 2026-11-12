@@ -352,7 +352,6 @@ else
         }
 
         _retroBusy = true;
-        StateHasChanged();
 
         var result = await Api.RunStorylineRetrospectiveAsync(Worlds.Current.Id);
         _retroBusy = false;
@@ -369,7 +368,6 @@ else
         {
             Snackbar.Add($"Assessed {result.Value.AssessedCount} storylines; {result.Value.ProposedCount} closure proposals are in Review.", Severity.Success);
         }
-        StateHasChanged();
     }
 
     protected override async Task OnInitializedAsync()
