@@ -5,7 +5,7 @@ using NUnit.Framework;
 namespace Nornis.Web.Tests.Services;
 
 /// <summary>
-/// What a JS call does when there is no browser left to make it in (3.35). A call made only for
+/// What a JS call does when there is no browser left to make it in (3.38). A call made only for
 /// its effect in the browser reports that the circuit has gone instead of throwing; anything
 /// else that goes wrong still throws; and a copy the browser refuses is reported, not claimed.
 /// </summary>
